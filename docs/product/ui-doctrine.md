@@ -136,7 +136,7 @@ because they apply app-wide, not just where each was first stated.
   traits) carry no (?) since 2026-10-20 (creator: "remove all three (?)
   buttosn and mouseovers entirely, not replacing orputting the removed text
   anywhere; it merely wil lbe gone."); their rows keep their definitions.
-- Player words only (creator 2026-10-21, of a just universe's settings text
+- Player words only (creator 2026-10-21, of Guardian Angel's settings text
   "a bare click into a truly unknowable pocket never kills you": "you must
   rewrite a just univere's text blurb to be more clear about what we do.
   never use phrases like "pocket" which I haven't approved, with players.").
@@ -273,7 +273,7 @@ because they apply app-wide, not just where each was first stated.
   and problematic "double settings location" issue where some settinsg are
   within "settings" while others are in "overlays & display""). A setting
   the player keeps for every game (the after-game report choice, which
-  result sections show, the board's look, a just universe) is shown and
+  result sections show, the board's look, guardian angel) is shown and
   changed only on the settings page; no other surface carries a copy. A
   surface's own view choices stay on that surface and are not repeated on
   the settings page: the replay's board overlays and mouse path as toggles

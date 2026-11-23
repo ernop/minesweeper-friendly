@@ -10,30 +10,30 @@ Spec: [docs/product/game-end-evaluation.md](../product/game-end-evaluation.md). 
     click itself saw (first reveal, a chord's hit mines, a likely misclick,
     the board's progress); `recordActionEvaluation` sets the result and
     `traceDecision` puts the evaluation object in the trace. Nothing is
-    proved or scored there. A Just Universe's certification and Angelic
-    play's mine move stay on the click (`attemptJustice`, `game/play.js`),
+    proved or scored there. Guardian Angel's certification and Angelic
+    play's mine move stay on the click (`attemptGuardianAngel`, `game/play.js`),
     since they decide what the click opens. Compact no-op evaluations omit
     a board snapshot; only their trace copy gets one, for replay.
   - At game end, in the reports worker's `finished-game` job:
-    `completeGameEvaluations({ events, justiceEnabled, guessLedger }, proofs)`
+    `completeGameEvaluations({ events, guardianAngelEnabled, guessLedger }, proofs)`
     judges each saved decision from its saved board with one
     `DuringGame.positionProofs()` store, the one the live perf charts' model
     then reads: `completeReveal` (facts, raw and active-rules risk,
     `bestActualRiskTaken`, one-move life, guess score via `Odds.scoreGuess`
     with the store's `oddsOf`), `completeChord`, `completeFlag`, the death's
-    `fatalTiersOfProof`, the misclick count (`MISCLICK_MISTAKES`), the A Just
-    Universe events (`justiceDetailOf`), and the guess ledger. Mistakes the
+    `fatalTiersOfProof`, the misclick count (`MISCLICK_MISTAKES`), the Guardian
+    Angel events (`guardianAngelDetailOf`), and the guess ledger. Mistakes the
     proof finds go before those the click saw (`prependMistakes`). It stamps
     each judged decision's `oddsVersion` and `proofVersion` with the judging
     code's. The page applies the returned parts to its trace copy
     (`applyCompletedEvaluations`) and `completeGameRecord` sets the record's
-    `misclicks`, `justice`, ledger fields, and `actionEvaluations`
+    `misclicks`, `guardianAngel`, ledger fields, and `actionEvaluations`
     (`reportableEvaluations`: every decision with a death or a mistake).
     Each position's proof resumes from the previous board's facts, and
     reads back from the store's `groupCounts` every residual group of
     numbers whose exact constraints the game already counted
-    (`Justice.proveLevels(view, clues, earlier, groupCounts)`;
-    `tests/justice-test.js` 11c holds the result equal to a separate proof
+    (`GuardianAngel.proveLevels(view, clues, earlier, groupCounts)`;
+    `tests/guardian-angel-test.js` 11c holds the result equal to a separate proof
     per level of the whole board).
   A thrown proof or odds error rejects the worker job; `analysisFailure`
   shows it and the game stays pending for the next load. Until 2026-11-03
@@ -113,8 +113,8 @@ Spec: [docs/product/game-end-evaluation.md](../product/game-end-evaluation.md). 
   and the report's wording can never disagree; it was `sessionEndingKind`,
   serving the session endings chart, until 2026-10-20. `fatalProofTiers`
   measures `mineProofTier` and `safeProofTier` with `easiestProofTier`
-  (Justice.proveFacts with the counting level's options, then the overlap
-  level's, from `Justice.DEDUCTION_LEVELS`, else whole-board; it stops at
+  (GuardianAngel.proveFacts with the counting level's options, then the overlap
+  level's, from `GuardianAngel.DEDUCTION_LEVELS`, else whole-board; it stops at
   the first level proving the square, so it does not search when a rule
   proves it) and returns only the tiers an evaluation lacks;
   `normalizeGameRecord` adds them once to older losses (a fresh evaluation

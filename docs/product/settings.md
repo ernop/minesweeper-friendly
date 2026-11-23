@@ -143,9 +143,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   section's own selectors and the stats panel's drag edge, the other two,
   left with the panel on 2026-10-20 ([Session stats](session-stats.md)).
 - Settings so far: `cellSize` (default 28) — saved Zoom in pixels;
-  `justUniverse` (default on) — a guess that nothing else on the board
+  `guardianAngel` (default on; named `justUniverse` before 2026-11-23) — a guess that nothing else on the board
   could ever settle never kills you (see
-  [A just universe](just-universe.md);
+  [Guardian Angel](guardian-angel.md);
   a game freezes the value at its first reveal, so a change made mid-game
   applies from the next game — the old drawer's mid-game lock UI retired
   with the drawer, 2026-08-23);
@@ -247,6 +247,6 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   the creator withdrew it on 2026-10-19 ("the way it is now, is okay"), so
   the number display, mine style, and digit size keep their defaults.
 - The schema's `helpFile` "?" popover was removed with the caption purge
-  (2026-08-23): the just-universe explanation already lives in the hint
-  and tooltip. just-universe-help.html remains in the repo as a
+  (2026-08-23): the Guardian Angel explanation already lives in the hint
+  and tooltip. `guardian-angel-help.html` remains in the repo as a
   standalone document.

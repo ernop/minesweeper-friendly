@@ -40,7 +40,7 @@ const shotDir = process.argv[4] || null;
     page.on('pageerror', (error) => errors.push(error.stack));
     await page.goto(origin);
     await page.waitForFunction(() => preferenceUIReady);
-    await page.evaluate(() => { settings.justUniverse = false; });
+    await page.evaluate(() => { settings.guardianAngel = false; });
     // An earlier win this session, held in memory only, gives game data a
     // comparison for the scripted win, so its rows can link to the charts.
     await page.evaluate(() => {

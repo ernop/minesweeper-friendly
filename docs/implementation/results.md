@@ -69,7 +69,7 @@ Spec: [docs/product/results.md](../product/results.md). Index: [AGENTS.md](../..
   wins unless the metric is `allOutcomes` (2026-10-07), and only when finite.
   The play-statistics fields use the same function.
   Rows without a catalog measurement (counts, board facts, chord share, flag
-  rate, Justice, ledger facts) keep their own formatting.
+  rate, Guardian Angel, ledger facts) keep their own formatting.
 
 - `renderResult` returns a completion promise; a view revision invalidates
   older renders on restart or selection changes. `reportResult`

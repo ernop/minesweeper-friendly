@@ -11,7 +11,7 @@ function runSection(startMarker, endMarker) {
   if (start < 0 || end < 0) throw new Error('section marker missing');
   vm.runInThisContext(source.slice(start, end));
 }
-globalThis.Justice = require(path.join(__dirname, '..', 'justice.js'));
+globalThis.GuardianAngel = require(path.join(__dirname, '..', 'guardian-angel.js'));
 runSection('//-------GAME-END EVALUATION: VERDICT',
   '//-------GAME-END EVALUATION: CAPTURE');
 runSection('//-------ACTION EVALUATION: HISTORY NORMALIZATION (pure)',

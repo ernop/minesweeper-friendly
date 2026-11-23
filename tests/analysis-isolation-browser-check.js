@@ -33,7 +33,7 @@ const origin = 'http://127.0.0.1:8099/';
     assert.equal(await page.locator('#motion-stats .stat-section-body').isVisible(), true,
       'the open motion stats section shows before worker replies');
     await page.evaluate(() => {
-      settings.justUniverse = false;
+      settings.guardianAngel = false;
       // Any accidental execution in the window fails the test, including
       // attempts to substitute synchronous work when the worker is delayed.
       for (const name of ['computeAllTraceMetrics', 'computeSpatialBias', 'computeClickCadence',

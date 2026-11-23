@@ -362,7 +362,7 @@ The result is the integer
 
 Every step is specified, including zero-gain chords, the absence of openings,
 and ties. Every loop opens at least one safe cell, so it terminates. No player's
-start, hints, deduction ability, flags, trace, timing, or Justice setting enters
+start, hints, deduction ability, flags, trace, timing, or Guardian Angel setting enters
 this function. It does not claim that a human can know every chosen safe cell.
 Column-major order is the existing community implementation's convention;
 changing it would change the benchmark and invalidate pooling with old values.
@@ -535,7 +535,7 @@ from the guess count; its mine hit is included in mine hits and labeled
 Minimizing immediate death probability is the exact policy here. It is **not**
 a claim of maximum whole-game win probability: a riskier informative move
 can sometimes improve later prospects. Generator-specific promises and
-nonuniform priors, player flags, Justice, and first-click safety/redraw rules
+nonuniform priors, player flags, Guardian Angel, and first-click safety/redraw rules
 are not extra information in this fixed-board benchmark.
 
 

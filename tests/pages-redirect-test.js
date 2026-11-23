@@ -12,7 +12,7 @@ const pages = [
   'self-check.html',
   'training.html',
   'problems.html',
-  'just-universe-help.html',
+  'guardian-angel-help.html',
 ];
 
 let checks = 0;

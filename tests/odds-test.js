@@ -3,7 +3,7 @@
 // Remaining-layout odds and guess scoring.
 // Run: node tests/odds-test.js
 
-const Justice = require('../justice.js');
+const GuardianAngel = require('../guardian-angel.js');
 const Odds = require('../odds.js');
 
 let failures = 0;
@@ -34,7 +34,7 @@ function makeBoard(rows) {
     }
   }
   const adjacent = mines.map((mine, index) => (mine ? 0
-    : Justice.neighbors(index, width, height).filter((neighbor) => mines[neighbor]).length));
+    : GuardianAngel.neighbors(index, width, height).filter((neighbor) => mines[neighbor]).length));
   return {
     view: {
       width,
@@ -65,18 +65,18 @@ console.log('1-of-2 pocket');
   check('actual risk follows raw risk without protection',
     close(guess.actualP, 0.5) && close(guess.actualMinP, 0.5));
   let certificationCalls = 0;
-  const certifyEntries = Justice.certifyEntries;
-  Justice.certifyEntries = (...args) => {
+  const certifyEntries = GuardianAngel.certifyEntries;
+  GuardianAngel.certifyEntries = (...args) => {
     certificationCalls++;
     return certifyEntries(...args);
   };
-  const protectedGuess = Odds.scoreGuess(board.view, a, { considerJustice: true });
-  Justice.certifyEntries = certifyEntries;
+  const protectedGuess = Odds.scoreGuess(board.view, a, { considerGuardianAngel: true });
+  GuardianAngel.certifyEntries = certifyEntries;
   check('certified pocket reports zero actual protected risk',
-    protectedGuess.justice === true
+    protectedGuess.guardianAngel === true
       && close(protectedGuess.actualP, 0)
       && close(protectedGuess.actualMinP, 0));
-  check('protected scoring batches Justice certification once',
+  check('protected scoring batches Guardian Angel certification once',
     certificationCalls === 1);
   check('ideal risk', guess.idealRisk);
   check('perfect play (symmetric)', guess.perfectPlay);
@@ -232,7 +232,7 @@ console.log('brute-force parity: engine odds match exhaustive enumeration');
       for (let i = 0; i < n; i++) {
         if (!view.revealed[i]) continue;
         let c = 0;
-        for (const nb of Justice.neighbors(i, view.width, view.height)) {
+        for (const nb of GuardianAngel.neighbors(i, view.width, view.height)) {
           if (mineSet.has(nb)) c++;
         }
         if (c !== view.adjacent[i]) return false;
@@ -266,7 +266,7 @@ console.log('brute-force parity: engine odds match exhaustive enumeration');
     }
     for (let k = 0; k < m; k++) mine[pool[k]] = true;
     const adj = mine.map((mm, i) => (mm ? 0
-      : Justice.neighbors(i, w, h).filter((x) => mine[x]).length));
+      : GuardianAngel.neighbors(i, w, h).filter((x) => mine[x]).length));
     const revealed = new Array(n).fill(false);
     const safes = [...Array(n).keys()].filter((i) => !mine[i]);
     for (let c = 0; c < clicks; c++) {
@@ -276,7 +276,7 @@ console.log('brute-force parity: engine odds match exhaustive enumeration');
         if (revealed[i] || mine[i]) continue;
         revealed[i] = true;
         if (adj[i] === 0) {
-          for (const nb of Justice.neighbors(i, w, h)) {
+          for (const nb of GuardianAngel.neighbors(i, w, h)) {
             if (!revealed[nb] && !mine[nb]) stack.push(nb);
           }
         }
@@ -319,7 +319,7 @@ console.log('brute-force parity: engine odds match exhaustive enumeration');
       for (let i = 0; i < n; i++) {
         if (!view.revealed[i]) continue;
         let c = 0;
-        for (const nb of Justice.neighbors(i, view.width, view.height)) c += mine[nb];
+        for (const nb of GuardianAngel.neighbors(i, view.width, view.height)) c += mine[nb];
         if (c !== view.adjacent[i]) return false;
       }
       return true;
@@ -365,7 +365,7 @@ console.log('brute-force parity: engine odds match exhaustive enumeration');
     for (const layout of layouts) {
       if (layout[cell]) continue;
       let number = 0;
-      for (const nb of Justice.neighbors(cell, view.width, view.height)) number += layout[nb];
+      for (const nb of GuardianAngel.neighbors(cell, view.width, view.height)) number += layout[nb];
       if (!byNumber.has(number)) byNumber.set(number, []);
       byNumber.get(number).push(layout);
     }
@@ -397,7 +397,7 @@ console.log('brute-force parity: engine odds match exhaustive enumeration');
       const truth = oneMoveLifeLayouts(view, layouts, cell);
       truths.set(cell, truth);
       const group = structure.componentOfCell.get(cell);
-      const covered = Justice.neighbors(cell, w, h).filter((nb) => !view.revealed[nb] && !structure.facts.has(nb));
+      const covered = GuardianAngel.neighbors(cell, w, h).filter((nb) => !view.revealed[nb] && !structure.facts.has(nb));
       kinds[structure.facts.get(cell) === 2 ? 'proven safe' : group === undefined ? 'no number touches it'
         : covered.every((nb) => structure.componentOfCell.get(nb) === group)
           ? 'every neighbor in its group' : 'a neighbor outside its group']++;
@@ -491,7 +491,7 @@ console.log('win chances: an early Expert position is past the work limit');
   rows[0] = '.' + rows[0].slice(1);
   const board = makeBoard(rows);
   const odds = Odds.analyzeView(board.view);
-  check('the odds count every layout', odds.total === Justice.choose(476, 99));
+  check('the odds count every layout', odds.total === GuardianAngel.choose(476, 99));
   check('the chances are not computed', Odds.winChances(board.view, odds, board.at(5, 5)).measured === false);
 }
 
@@ -509,7 +509,7 @@ console.log('win chances: parity with a brute-force game search');
   const bruteForce = (view, cell) => {
     const { width, height } = view;
     const size = width * height;
-    const near = (square) => Justice.neighbors(square, width, height);
+    const near = (square) => GuardianAngel.neighbors(square, width, height);
     const covered = [...Array(size).keys()].filter((square) => !view.revealed[square]);
     const layouts = [];
     const place = (from, left, chosen) => {
@@ -575,7 +575,7 @@ console.log('win chances: parity with a brute-force game search');
         const at = stack.pop();
         if (seen.has(at)) continue;
         seen.add(at);
-        for (const n of Justice.neighbors(at, view.width, view.height)) if (!view.revealed[n]) stack.push(n);
+        for (const n of GuardianAngel.neighbors(at, view.width, view.height)) if (!view.revealed[n]) stack.push(n);
       }
     }
     return groups;
@@ -605,7 +605,7 @@ console.log('win chances: parity with a brute-force game search');
       // A guess follows the first click: some square is open.
       if (covered.length > maxCovered || covered.length === size) continue;
       const adjacent = mine.map((isMine, square) => (isMine ? 0
-        : Justice.neighbors(square, width, height).filter((n) => mine[n]).length));
+        : GuardianAngel.neighbors(square, width, height).filter((n) => mine[n]).length));
       const view = { width, height, mines, revealed, adjacent: adjacent.map((count, square) => (revealed[square] ? count : 0)) };
       if (coveredGroups(view) < minGroups) continue;
       const odds = Odds.analyzeView(view);
@@ -628,10 +628,10 @@ console.log('win chances: parity with a brute-force game search');
 
 console.log('odds past a double and past the old limits');
 {
-  const huge = Justice.choose(4000, 2000);
+  const huge = GuardianAngel.choose(4000, 2000);
   check('a ratio of counts past a double\u2019s range keeps its precision',
     close(Odds.ratio(huge, huge * 3n), 1 / 3, 1e-15) && Odds.ratio(0n, huge) === 0 && Odds.ratio(huge, huge) === 1);
-  // A row of numbers between two covered rows, as in justice-test: 160
+  // A row of numbers between two covered rows, as in guardian-angel-test: 160
   // squares in one group, far past the 22 squares the listing stopped at.
   const width = 119;
   const rows = [0, 1, 2].map((y) => Array.from({ length: width }, (_, x) =>

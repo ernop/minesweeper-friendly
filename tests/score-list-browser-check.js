@@ -34,7 +34,7 @@ function seedHistory() {
     const win = int(0, 9) < 7;
     tx.objectStore(RECORD_STORE).put({ endedAt, outcome: win ? 'win' : 'loss', timeMs: int(20000, 200000),
       bv3: int(20, 180), boardChangingClicks: int(20, 250), noOpClicks: int(0, 8), misclicks: 0, flagsPlaced: int(1, 10),
-      flagsRemoved: 0, mousePathPx: int(2000, 40000), states: [], justice: 0, justiceEnabled: true,
+      flagsRemoved: 0, mousePathPx: int(2000, 40000), states: [], guardianAngel: 0, guardianAngelEnabled: true,
       playMode: 'standard', maxAdjacent: int(3, 6), zeroCount: int(10, 90), islandCount: int(3, 30), largestIsland: int(2, 12),
       actionEvaluations: [] }, ['9x9/10@standard', endedAt]);
   }
@@ -60,7 +60,7 @@ function seedHistory() {
     await page.goto(ORIGIN);
     await ready();
     await page.evaluate(seedHistory);
-    await page.evaluate(() => updateSettings({ difficulty: 'beginner', justUniverse: false }));
+    await page.evaluate(() => updateSettings({ difficulty: 'beginner', guardianAngel: false }));
     await page.reload();
     await ready();
 

@@ -37,7 +37,7 @@ if (!inputPath) throw new Error('no history export path given');
 //-------THE GAME'S OWN CODE-------
 
 const repo = path.join(__dirname, '..', '..');
-globalThis.Justice = require(path.join(repo, 'justice.js'));
+globalThis.GuardianAngel = require(path.join(repo, 'guardian-angel.js'));
 const Odds = require(path.join(repo, 'odds.js'));
 const Solver = require(path.join(repo, 'solver.js'));
 const GameRandom = require(path.join(repo, 'rng.js'));
@@ -48,7 +48,7 @@ if (startIdx === -1 || endIdx === -1) throw new Error('verdict section markers n
 vm.runInThisContext(source.slice(startIdx, endIdx));
 /* global ACTION_EVALUATION_VERSION, EARLY_GAME_PROGRESS_LIMIT, LOSS_TYPE_LABELS,
    WIN_TYPE_LABELS, evaluationBoardProgress, evaluationProvenSafeAvailable,
-   evaluationJusticeSafeAvailable, besideFlagSatisfiedNumber, easiestProofTier,
+   evaluationGuardianAngelSafeAvailable, besideFlagSatisfiedNumber, easiestProofTier,
    fatalProofTiers, lossTypeOf, winTypeOf, likelyMisclickReasonsOf, positionView,
    positionNumbers, positionFlags, squareList, stringFormatEvaluation, squareDistance */
 
@@ -78,7 +78,7 @@ function phaseOf(progress) {
 
 function flagsAround(position, cell) {
   const flagged = positionFlags(position);
-  return Justice.neighbors(cell, position.width, position.height).filter((nb) => flagged.has(nb));
+  return GuardianAngel.neighbors(cell, position.width, position.height).filter((nb) => flagged.has(nb));
 }
 
 // The flags a reveal trusted: those around every revealed number beside the
@@ -95,7 +95,7 @@ function trustedFlagsOf(position, cell) {
 
 function provenFacts(position) {
   const view = positionView(position);
-  return Justice.proveFacts(view, Justice.rawClues(view));
+  return GuardianAngel.proveFacts(view, GuardianAngel.rawClues(view));
 }
 
 //-------MOMENTS: ONE SAVED, POSITIONED ACTION-------
@@ -170,8 +170,8 @@ function momentOf(evaluation, ledger) {
   if (evaluationProvenSafeAvailable(evidence)
       || mistakes.includes('opened-unproven-with-safe-move')) {
     moment.kind = 'unnecessary';
-  } else if (evaluationJusticeSafeAvailable(evidence) && evidence.justiceProtected !== true) {
-    moment.kind = 'unnecessary-justice';
+  } else if (evaluationGuardianAngelSafeAvailable(evidence) && evidence.guardianAngelProtected !== true) {
+    moment.kind = 'unnecessary-guardian-angel';
   } else if (!measured) {
     moment.kind = 'unmeasured';
   } else if (evidence.chosenRisk > evidence.bestRisk + EPS
@@ -193,7 +193,7 @@ function modeledLifeOf(moment, record) {
   if (moment.modeledLife === undefined) {
     const evaluation = moment.evaluation;
     const guess = Odds.scoreGuess(positionView(evaluation.position), evaluation.selected[0],
-      { considerJustice: record.justiceEnabled === true });
+      { considerGuardianAngel: record.guardianAngelEnabled === true });
     moment.modeledLife = guess === null ? null
       : { expectedLife: guess.expectedLife, bestExpectedLife: guess.bestExpectedLife,
         bestExpectedCells: guess.bestExpectedCells };
@@ -212,12 +212,12 @@ function moreInformative(moment, record) {
 }
 
 const KNOWN_KINDS = new Set(['known-mine', 'known-through-own-flag']);
-const UNNECESSARY_KINDS = new Set(['unnecessary', 'unnecessary-justice']);
+const UNNECESSARY_KINDS = new Set(['unnecessary', 'unnecessary-guardian-angel']);
 
 // Display priority of a game's other moments: the most consequential first.
 const MOMENT_SEVERITY = {
   'known-mine': 9, 'known-through-own-flag': 9, 'gamble-on-own-flag': 8,
-  unnecessary: 7, 'unnecessary-justice': 7, worse: 6, 'flag-on-safe': 4,
+  unnecessary: 7, 'unnecessary-guardian-angel': 7, worse: 6, 'flag-on-safe': 4,
   'removed-mine-flag': 4, 'chord-contradiction-survived': 4, best: 2,
 };
 
@@ -340,8 +340,8 @@ const STRATA = [
     focus: loss((f) => f.kind === 'unnecessary' && safeTierOf(f) === 'whole-board'), measure: byRisk },
   { id: 'loss-unnecessary-opening', quota: 3, label: 'Lost: guessed in the opening while a square was proven safe',
     focus: loss((f) => f.kind === 'unnecessary' && f.phase === 'opening'), measure: byRisk },
-  { id: 'loss-unnecessary-justice', quota: 2, label: 'Lost: guessed while only A Just Universe guaranteed a safe entry',
-    focus: loss((f) => f.kind === 'unnecessary-justice'), measure: byRisk },
+  { id: 'loss-unnecessary-guardian-angel', quota: 2, label: 'Lost: guessed while only Guardian Angel guaranteed a safe entry',
+    focus: loss((f) => f.kind === 'unnecessary-guardian-angel'), measure: byRisk },
   { id: 'loss-unnecessary-tiny', quota: 3, label: 'Lost: a needless guess at a small risk',
     focus: loss((f) => f.kind === 'unnecessary' && f.chosenRisk < TINY_RISK), measure: byRisk },
   { id: 'loss-unnecessary-huge', quota: 3, label: 'Lost: a needless guess at a large risk',
@@ -411,7 +411,7 @@ const STRATA = [
       : undefined), measure: byRatio },
   { id: 'win-worse-small-ratio', quota: 3, label: 'Won after a guess barely riskier than the safest',
     focus: win((g) => {
-      const risky = survivedOfKinds(g, new Set(['worse', 'unnecessary', 'unnecessary-justice']));
+      const risky = survivedOfKinds(g, new Set(['worse', 'unnecessary', 'unnecessary-guardian-angel']));
       return risky.length > 0 && risky.every((m) => m.kind === 'worse' && m.riskRatio < SMALL_RISK_RATIO)
         ? risky[0] : undefined;
     }), measure: byRatio },
@@ -420,18 +420,18 @@ const STRATA = [
     measure: byRatio },
   { id: 'win-less-informative-only', quota: 3, label: 'Won; every guess at the lowest risk, one less informative',
     focus: win((g) => {
-      const risky = survivedOfKinds(g, new Set(['worse', 'unnecessary', 'unnecessary-justice']));
+      const risky = survivedOfKinds(g, new Set(['worse', 'unnecessary', 'unnecessary-guardian-angel']));
       return risky.length === 0
         ? g.survived.find((m) => m.kind === 'best' && lessInformative(m, g.record)) : undefined;
     }), measure: byRisk },
   { id: 'win-flag-on-safe', quota: 4, label: 'Won without risky guesses after flagging a proven-safe square',
     focus: win((g) => {
-      const risky = survivedOfKinds(g, new Set(['worse', 'unnecessary', 'unnecessary-justice']));
+      const risky = survivedOfKinds(g, new Set(['worse', 'unnecessary', 'unnecessary-guardian-angel']));
       return risky.length === 0 ? survivedOfKinds(g, new Set(['flag-on-safe']))[0] : undefined;
     }), measure: byProgress },
   { id: 'win-many-mistakes', quota: 5, label: 'Won after three or more avoidable risks',
     focus: win((g) => {
-      const risky = survivedOfKinds(g, new Set(['worse', 'unnecessary', 'unnecessary-justice']));
+      const risky = survivedOfKinds(g, new Set(['worse', 'unnecessary', 'unnecessary-guardian-angel']));
       return risky.length >= 3 ? worstRisk(risky) : undefined;
     }), measure: byRisk },
   { id: 'win-clean-best-only', quota: 4, label: 'Won; every guess at the lowest risk (final board)',
@@ -441,10 +441,10 @@ const STRATA = [
 ];
 
 // A clean win's only picture is its final board, rebuilt from the seed; a
-// Just Universe redraw would make the seed's layout wrong, so those are left out.
+// Guardian Angel redraw would make the seed's layout wrong, so those are left out.
 function cleanWinFinal(game, guessTest) {
   const record = game.record;
-  if (typeof record.guesses !== 'number' || !guessTest(record.guesses) || record.justice !== 0
+  if (typeof record.guesses !== 'number' || !guessTest(record.guesses) || record.guardianAngel !== 0
       || record.boardVersion !== 'uniform-first-safe-fisher-yates-v1'
       || record.rngVersion !== GameRandom.VERSION) return undefined;
   if (game.moments.some((m) => m.kind !== 'first-click' && m.kind !== 'unused-flag'
@@ -472,7 +472,7 @@ function bankMoment(moment, record, key) {
   const evidence = evaluation.evidence;
   const position = evaluation.position;
   const view = positionView(position);
-  const facts = Justice.proveFacts(view, Justice.rawClues(view));
+  const facts = GuardianAngel.proveFacts(view, GuardianAngel.rawClues(view));
   const safeCells = [];
   const mineCells = [];
   for (const [cell, fact] of facts) {
@@ -502,8 +502,8 @@ function bankMoment(moment, record, key) {
   for (const field of ['chosenRisk', 'bestRisk', 'actualRisk', 'bestActualRisk']) {
     if (typeof evidence[field] === 'number') out[field] = round(evidence[field], 6);
   }
-  if (evidence.justiceProtected === true) out.justiceProtected = true;
-  const guessKinds = new Set(['unnecessary', 'unnecessary-justice', 'worse', 'best']);
+  if (evidence.guardianAngelProtected === true) out.guardianAngelProtected = true;
+  const guessKinds = new Set(['unnecessary', 'unnecessary-guardian-angel', 'worse', 'best']);
   if (guessKinds.has(moment.kind) && typeof evidence.chosenRisk === 'number') {
     const life = modeledLifeOf(moment, record);
     if (life !== null) {
@@ -565,7 +565,7 @@ function finalBoardMoment(record, key) {
       flagged.push(cell);
       continue;
     }
-    const count = Justice.neighbors(cell, width, height).filter((nb) => mineAt[nb]).length;
+    const count = GuardianAngel.neighbors(cell, width, height).filter((nb) => mineAt[nb]).length;
     revealed.push([cell, count]);
   }
   if (revealed.length !== width * height - mines) throw new Error('rebuilt layout has the wrong mine count');
@@ -609,7 +609,7 @@ function proposedCategory(game) {
     proposal.phase = deciding.phase;
     proposal.decidingAction = deciding.actionNumber;
   }
-  // The guess ledger sums raw mine chances and ignores A Just Universe's
+  // The guess ledger sums raw mine chances and ignores Guardian Angel's
   // guarantees, so a win's avoidable risk comes from its saved riskier
   // guesses, each measured under the active rules.
   proposal.avoidableRisk = round([...needless, ...worse].reduce((sum, moment) => {
@@ -644,7 +644,7 @@ function causalFlagMoments(game) {
   return game.survived.filter((m) => m.kind === 'flag-on-safe' && relied.has(m.evaluation.selected[0]));
 }
 
-const RISK_MOMENT_KINDS = new Set(['unnecessary', 'unnecessary-justice', 'worse']);
+const RISK_MOMENT_KINDS = new Set(['unnecessary', 'unnecessary-guardian-angel', 'worse']);
 
 // The focus, the fatal click, then the game's other risky choices; flag
 // mistakes only where a death relied on that flag or the focus is one.
@@ -760,7 +760,7 @@ for (const s of order) {
       guesses: record.guesses,
       lifeLost: typeof record.lifeLost === 'number' ? round(record.lifeLost, 4) : undefined,
       lifeNeedless: typeof record.lifeNeedless === 'number' ? round(record.lifeNeedless, 4) : undefined,
-      justiceEnabled: record.justiceEnabled === true,
+      guardianAngelEnabled: record.guardianAngelEnabled === true,
       stratum: stratum.id,
       focusAction: focus.kind === 'final' ? 'final' : focus.actionNumber,
       moments,

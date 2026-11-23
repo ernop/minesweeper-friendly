@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 
 const root = path.join(__dirname, '..');
-const PAGES_WITHOUT_CODE = ['just-universe-help.html'];
+const PAGES_WITHOUT_CODE = ['guardian-angel-help.html'];
 
 let checks = 0;
 function check(name, condition) {
@@ -26,7 +26,7 @@ for (const page of pages) {
   check(page + ' loads the Pages redirect, then the error bar, before any other script',
     sources[0] === 'pages-redirect.js' && sources[1] === 'page-errors.js');
 }
-const helpSources = [...fs.readFileSync(path.join(root, 'just-universe-help.html'), 'utf8')
+const helpSources = [...fs.readFileSync(path.join(root, 'guardian-angel-help.html'), 'utf8')
   .matchAll(/<script\b[^>]*\bsrc="([^"?]+)/g)].map((match) => match[1]);
 check('the help page runs no game code',
   helpSources.every((source) => ['pages-redirect.js', 'fuseki-stats.js'].includes(source)));

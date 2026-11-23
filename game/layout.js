@@ -2,7 +2,7 @@
 
 // Board position (a pure constraint solver, its page wiring, and the position
 // editor), zoom (cell size), and page layout: the full-width top stage with
-// an adaptive details dock, Justice callout placement, and stage clearance.
+// an adaptive details dock, Guardian Angel callout placement, and stage clearance.
 
 //-------PERSISTENT BOARD POSITION (pure constraint solver)-------
 
@@ -325,7 +325,7 @@ function syncBoardLayout() {
   syncReplayBounds(snapshot);
   const placed = applyBoardPosition(snapshot);
   syncGameSidebar(snapshot, placed ? placed.deltaX : 0);
-  syncJusticePlacement();
+  syncGuardianAngelPlacement();
   syncResultClearance();
   recordLayoutIfMoved();
 }
@@ -550,14 +550,14 @@ detailsResize.addEventListener('pointerdown', (event) => {
   detailsResize.addEventListener('lostpointercapture', stop);
 });
 
-function syncJusticePlacement() {
-  if (justiceLive.childElementCount === 0) {
-    if (justiceLive.classList.contains('justice-left') || justiceLive.classList.contains('justice-below')) {
-      justiceLive.classList.remove('justice-left', 'justice-below');
+function syncGuardianAngelPlacement() {
+  if (guardianAngelLive.childElementCount === 0) {
+    if (guardianAngelLive.classList.contains('guardian-angel-left') || guardianAngelLive.classList.contains('guardian-angel-below')) {
+      guardianAngelLive.classList.remove('guardian-angel-left', 'guardian-angel-below');
     }
     return;
   }
-  justiceLive.classList.remove('justice-left', 'justice-below');
+  guardianAngelLive.classList.remove('guardian-angel-left', 'guardian-angel-below');
   const mainRect = boardPageRect(mainElement);
   const { inset } = readLayoutConstants();
   const docked = topStage.dataset.detailsDock === 'left' || topStage.dataset.detailsDock === 'right';
@@ -571,23 +571,23 @@ function syncJusticePlacement() {
       bottom: dockRect.bottom + inset,
     }) > 0);
 
-  if (!collides(boardPageRect(justiceLive))) return;
-  justiceLive.classList.add('justice-left');
-  if (!collides(boardPageRect(justiceLive))) return;
-  justiceLive.classList.remove('justice-left');
-  justiceLive.classList.add('justice-below');
+  if (!collides(boardPageRect(guardianAngelLive))) return;
+  guardianAngelLive.classList.add('guardian-angel-left');
+  if (!collides(boardPageRect(guardianAngelLive))) return;
+  guardianAngelLive.classList.remove('guardian-angel-left');
+  guardianAngelLive.classList.add('guardian-angel-below');
 }
 
 // Keep every section below #top-stage clear of both the docked details panel
-// and any Justice callout hanging below the board, without moving the board.
+// and any Guardian Angel callout hanging below the board, without moving the board.
 // Also keeps the resize grip's height matched to the docked details panel.
 function syncResultClearance(measuredSidebarHeight = null) {
   const docked = topStage.dataset.detailsDock === 'left' || topStage.dataset.detailsDock === 'right';
   if (docked) {
     const sidebarHeight = measuredSidebarHeight !== null ? measuredSidebarHeight : gameSidebar.offsetHeight;
     let needed = sidebarHeight;
-    if (!gameArea.classList.contains('trial-no-board') && justiceLive.childElementCount > 0) {
-      needed = Math.max(needed, justiceLive.getBoundingClientRect().bottom - topStage.getBoundingClientRect().top);
+    if (!gameArea.classList.contains('trial-no-board') && guardianAngelLive.childElementCount > 0) {
+      needed = Math.max(needed, guardianAngelLive.getBoundingClientRect().bottom - topStage.getBoundingClientRect().top);
     }
     const gripHeight = Math.ceil(sidebarHeight) + 'px';
     if (detailsResize.style.height !== gripHeight) detailsResize.style.height = gripHeight;
@@ -598,8 +598,8 @@ function syncResultClearance(measuredSidebarHeight = null) {
     if (detailsResize.style.height !== '') detailsResize.style.height = '';
     if (topStage.style.minHeight !== '') topStage.style.minHeight = '';
     let extra = 0;
-    if (!gameArea.classList.contains('trial-no-board') && justiceLive.childElementCount > 0) {
-      extra = Math.max(0, Math.ceil(justiceLive.getBoundingClientRect().bottom - gameArea.getBoundingClientRect().bottom));
+    if (!gameArea.classList.contains('trial-no-board') && guardianAngelLive.childElementCount > 0) {
+      extra = Math.max(0, Math.ceil(guardianAngelLive.getBoundingClientRect().bottom - gameArea.getBoundingClientRect().bottom));
     }
     const margin = extra > 0 ? (16 + extra) + 'px' : '';
     if (gameSidebar.style.marginTop !== margin) gameSidebar.style.marginTop = margin;
@@ -755,7 +755,7 @@ function initBoardPositionControls() {
     observer.observe(modeOptions);
     observer.observe(boardLabPanel);
     observer.observe(gameFrame);
-    observer.observe(justiceLive);
+    observer.observe(guardianAngelLive);
     observer.observe(boardPositionPanel);
   }
 }

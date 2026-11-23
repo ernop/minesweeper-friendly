@@ -13,7 +13,7 @@ const assert = require('node:assert/strict');
 
 const repo = path.join(__dirname, '..');
 vm.runInThisContext(fs.readFileSync(path.join(repo, 'problems-core.js'), 'utf8'));
-const Justice = require(path.join(repo, 'justice.js'));
+const GuardianAngel = require(path.join(repo, 'guardian-angel.js'));
 
 let checks = 0;
 function check(name, fn) {
@@ -78,7 +78,7 @@ check('every answer square is proven by the new number and was not provable befo
     }
     return list;
   };
-  const prove = (revealed, adjacent) => Justice.proveFacts(
+  const prove = (revealed, adjacent) => GuardianAngel.proveFacts(
     { width: bank.width, height: bank.height, mines: bank.mines, revealed, adjacent },
     clues(revealed, adjacent), { global: false, exact: false });
   for (const problem of bank.problems) {
@@ -305,7 +305,7 @@ check('last-flag positions: one flag short, a provable mine, safe squares to ope
       const covered = bank.neighbors[i].filter((n) => !position.opened[n]);
       if (covered.length > 0) clues.push({ cell: i, covered, count: position.adjacent[i] });
     }
-    const facts = Justice.proveFacts({ width: 30, height: 16, mines: 99, revealed: position.opened, adjacent: position.adjacent },
+    const facts = GuardianAngel.proveFacts({ width: 30, height: 16, mines: 99, revealed: position.opened, adjacent: position.adjacent },
       clues, { global: false, exact: false });
     assert.equal(facts.get(position.mineCell), 1, position.id + ' mine is provable');
     assert.ok(position.freshSafe.length >= 2, position.id + ': flag and chord cost no more than clicking each safe square');

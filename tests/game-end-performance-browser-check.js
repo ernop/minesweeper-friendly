@@ -12,7 +12,7 @@ const { chromium } = require(process.argv[2]);
     await page.goto('http://127.0.0.1:8099/');
     await page.waitForFunction(() => preferenceUIReady);
     await page.evaluate(() => {
-      settings.justUniverse = false;
+      settings.guardianAngel = false;
       for (const name of ['computeAllTraceMetrics', 'computeSpatialBias', 'computeClickCadence',
         'resultRankPlan', 'averageScatterData', 'scatterPlotData', 'boardTraitRankProfile', 'recentPlacementCandidates',
         'recentPlacementsSummary']) {

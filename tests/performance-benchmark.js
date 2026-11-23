@@ -105,14 +105,14 @@ for (const size of [20, 40, 80]) {
   report('trace restoration (clicks)', size, before, after);
 }
 
-// Per-action evidence: the proof, odds, and Justice calls one click makes,
+// Per-action evidence: the proof, odds, and Guardian Angel calls one click makes,
 // over positions from seeded games. The former join added up to 250,000
 // per-layout weights one at a time, so its sums carry rounding up to about
 // 3e-11 relative; grouped sums may differ within that. Everything else,
 // including every threshold decision, must match exactly.
 function solverOf(read) {
   const context = vm.createContext({ console, performance });
-  for (const [file, name] of [['justice.js', 'Justice'], ['odds.js', 'Odds'], ['solver.js', 'Solver']]) {
+  for (const [file, name] of [['guardian-angel.js', 'GuardianAngel'], ['odds.js', 'Odds'], ['solver.js', 'Solver']]) {
     context.module = { exports: {} };
     vm.runInContext(read(file), context, { filename: file });
     context[name] = context.module.exports;
@@ -121,7 +121,7 @@ function solverOf(read) {
 }
 const oldSolver = solverOf(baseline), newSolver = solverOf(current);
 function actionPositions(width, height, mines, games) {
-  const { Justice, Solver } = newSolver;
+  const { GuardianAngel, Solver } = newSolver;
   const positions = [];
   for (let game = 0; game < games; game++) {
     const n = width * height;
@@ -135,7 +135,7 @@ function actionPositions(width, height, mines, games) {
         const i = stack.pop();
         if (revealed[i] || flagged[i]) continue;
         revealed[i] = true;
-        if (adjacent[i] === 0) stack.push(...Justice.neighbors(i, width, height).filter((j) => !revealed[j]));
+        if (adjacent[i] === 0) stack.push(...GuardianAngel.neighbors(i, width, height).filter((j) => !revealed[j]));
       }
     };
     flood(first);
@@ -144,18 +144,18 @@ function actionPositions(width, height, mines, games) {
     const pick = (list) => list[Math.floor(random() * list.length)];
     while (revealed.filter(Boolean).length < n - mines) {
       const view = { width, height, mines, revealed: revealed.slice(), adjacent };
-      const facts = Justice.proveFacts(view, Justice.rawClues(view));
+      const facts = GuardianAngel.proveFacts(view, GuardianAngel.rawClues(view));
       const open = [...Array(n).keys()].filter((i) => !revealed[i] && !flagged[i]);
       const safe = open.filter((i) => facts.get(i) === 2);
       const provenMines = open.filter((i) => facts.get(i) === 1);
       const chordable = [...Array(n).keys()].filter((i) => revealed[i] && adjacent[i] > 0
-        && Justice.neighbors(i, width, height).filter((j) => flagged[j]).length === adjacent[i]
-        && Justice.neighbors(i, width, height).some((j) => !revealed[j] && !flagged[j]));
+        && GuardianAngel.neighbors(i, width, height).filter((j) => flagged[j]).length === adjacent[i]
+        && GuardianAngel.neighbors(i, width, height).some((j) => !revealed[j] && !flagged[j]));
       const roll = random();
       if (chordable.length > 0 && roll < 0.25) {
         const cell = pick(chordable);
         positions.push({ view, cell, flag: true });
-        for (const j of Justice.neighbors(cell, width, height)) if (!flagged[j]) flood(j);
+        for (const j of GuardianAngel.neighbors(cell, width, height)) if (!flagged[j]) flood(j);
       } else if (provenMines.length > 0 && roll < 0.55) {
         const cell = pick(provenMines);
         positions.push({ view, cell, flag: true });
@@ -169,7 +169,7 @@ function actionPositions(width, height, mines, games) {
   }
   return positions;
 }
-function actionEvidence({ Justice, Odds, Solver }, positions) {
+function actionEvidence({ GuardianAngel, Odds, Solver }, positions) {
   return positions.map(({ view, cell, flag }) => {
     const copy = () => ({ ...view, revealed: view.revealed.slice(), adjacent: view.adjacent.slice() });
     const facts = Solver.classifyCells(copy(), [cell]);
@@ -180,14 +180,14 @@ function actionEvidence({ Justice, Odds, Solver }, positions) {
       const odds = Odds.analyzeView(copy());
       return { kinds, pMine: odds.measured === false ? null : odds.pMine };
     }
-    const guess = Odds.scoreGuess(copy(), cell, { considerJustice: true });
+    const guess = Odds.scoreGuess(copy(), cell, { considerGuardianAngel: true });
     return {
       kinds,
       risks: guess === null || guess.measured === false ? null : {
         p: guess.p, minP: guess.minP, actualP: guess.actualP, actualMinP: guess.actualMinP,
-        bestCells: guess.bestCells, idealRisk: guess.idealRisk, justice: guess.justice,
+        bestCells: guess.bestCells, idealRisk: guess.idealRisk, guardianAngel: guess.guardianAngel,
       },
-      justice: Justice.certifyEntry(copy(), cell),
+      guardianAngel: GuardianAngel.certifyEntry(copy(), cell),
     };
   });
 }

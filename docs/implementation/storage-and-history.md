@@ -3,11 +3,15 @@
 Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). Index: [AGENTS.md](../../AGENTS.md).
 
 - Storage ([Storage](../product/storage-and-history.md)): one IndexedDB database
-  (`minesweeper-friendly`, version 7), five stores. The version-7 upgrade
+  (`minesweeper-friendly`, version 8), five stores. The version-8 upgrade
   renames record fields in place (`renameRecordFields` over the records
-  store's cursor and the userdata `trial` session's attempts;
+  store's cursor and the userdata `trial` session's attempts — both the
+  2026-10-27 measurement renames and the 2026-11-23 Guardian Angel renames,
+  including `actionEvaluations[].evidence.justiceProtected` ->
+  `guardianAngelProtected`;
   [measurement catalog implementation](measurement-catalog.md),
-  "Divergences resolved 2026-10-27"). The version-6 upgrade
+  "Divergences resolved 2026-10-27", and
+  [Guardian Angel implementation](guardian-angel.md)). The version-6 upgrade
   creates `playSpans` (`PLAY_SPAN_STORE`, keyPath `startedAt`; read with
   `readPlaySpansSince` on the settings page and `readAllPlaySpans` on the
   game page, written with `persistPlaySpan`;
@@ -75,9 +79,9 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   chronological array of game records, one per finished game:
   {endedAt, outcome: 'win'|'loss', timeMs, bv3, boardChangingClicks, noOpClicks,
   misclicks, flagsPlaced, flagsRemoved, unusedCorrectFlags (wins only), mousePathPx,
-  states, justice,
-  justiceEnabled, seed, firstRevealIndex (absent on Endgame drill games),
-  rngVersion, boardVersion, justiceVersion,
+  states, guardianAngel,
+  guardianAngelEnabled, seed, firstRevealIndex (absent on Endgame drill games),
+  rngVersion, boardVersion, guardianAngelVersion,
   maxAdjacent, hasSeven, zeroCount, islandCount, largestIsland,
   playMode, identityIndex, transform, trialStartedAt, givenOpening,
   givenOpeningBv3, guesses,

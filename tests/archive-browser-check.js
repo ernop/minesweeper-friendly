@@ -65,7 +65,7 @@ async function waitForGame(page) {
 // A page with saved games opens on the last finished board; the face button
 // starts a fresh one, as a player would.
 async function playLosingGame(page) {
-  await page.evaluate(() => { settings.justUniverse = false; });
+  await page.evaluate(() => { settings.guardianAngel = false; });
   if (await page.evaluate(() => gameState === 'won' || gameState === 'lost')) {
     await page.locator('#face-button').click();
   }

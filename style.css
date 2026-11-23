@@ -35,7 +35,7 @@ body {
   display: grid;
   --game-sidebar-min-width: 320px;
   /* The board's clearance from the stage edges, the viewport, and the header
-     rows; Justice callouts keep it from the edges and dock too.
+     rows; Guardian Angel callouts keep it from the edges and dock too.
      applyBoardPosition constrains offsets with this same value, so a board
      resting at it with a zero offset is never clamped. */
   --board-edge-inset: 8px;
@@ -900,12 +900,12 @@ body.trial-offboard #game-frame {
   pointer-events: none;
 }
 
-/*-------JUSTICE (a just universe)-------*/
+/*-------GUARDIAN ANGEL-------*/
 
 /* To the board's right, at game end only: a single chip counting the
-   game's Justice survivals ("you won a forced coinflip"). Nothing pops
+   game's Guardian Angel survivals ("you won a forced coinflip"). Nothing pops
    up mid-game. Occupies no layout space, so the board never moves. */
-#justice-live {
+#guardian-angel-live {
   position: absolute;
   left: calc(100% + 14px);
   top: 20%;
@@ -917,20 +917,20 @@ body.trial-offboard #game-frame {
   z-index: 4;
 }
 
-#justice-live.justice-left {
+#guardian-angel-live.guardian-angel-left {
   right: calc(100% + 14px);
   left: auto;
   align-items: flex-end;
 }
 
-#justice-live.justice-below {
+#guardian-angel-live.guardian-angel-below {
   top: calc(100% + 8px);
   right: auto;
   left: 0;
   align-items: flex-start;
 }
 
-.justice-live-word {
+.guardian-angel-live-word {
   width: max-content;
   font-family: "Arial Black", "Arial Bold", Arial, sans-serif;
   font-weight: 900;
@@ -942,10 +942,10 @@ body.trial-offboard #game-frame {
   border-radius: 4px;
   padding: 4px 8px;
   transform: rotate(-4deg);
-  animation: justice-live-print 0.35s cubic-bezier(0.15, 1.35, 0.4, 1);
+  animation: guardian-angel-live-print 0.35s cubic-bezier(0.15, 1.35, 0.4, 1);
 }
 
-@keyframes justice-live-print {
+@keyframes guardian-angel-live-print {
   from { transform: rotate(-4deg) scale(2.2); opacity: 0; }
   to { transform: rotate(-4deg) scale(1); opacity: 1; }
 }
@@ -1453,11 +1453,11 @@ body.trial-offboard #game-frame {
 }
 
 /* Game-end evaluation (docs/product/game-end-evaluation.md): action analysis
-   and the Justice recap. The title keeps the results area's chunky face;
+   and the Guardian Angel recap. The title keeps the results area's chunky face;
    the justification prose switches to a
    plain face for legibility. Accent colors follow the endings-chart
-   palette; the Justice block echoes the Justice survival chip (double
-   border, its red). */
+   palette; the Guardian Angel block echoes the Guardian Angel survival chip
+   (double border, its red). */
 .result-verdicts { margin: 6px 0; }
 .verdict-block {
   border: 2px solid #888888;
@@ -1613,13 +1613,13 @@ body.trial-offboard #game-frame {
   font-size: 12px;
   font-weight: bold;
 }
-.verdict-justice {
+.verdict-guardian-angel {
   border-style: double;
   border-width: 4px;
   border-color: #b3121b;
   background: #fdf4ee;
 }
-.verdict-justice .verdict-title { color: #b3121b; letter-spacing: 2px; }
+.verdict-guardian-angel .verdict-title { color: #b3121b; letter-spacing: 2px; }
 
 /*-------DETAILS DOCK (summary, setup and review controls, stat sections)-------*/
 

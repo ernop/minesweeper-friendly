@@ -410,7 +410,7 @@ the first incomplete one. Achieving the goal does not wait for earlier stages.
 - **Wrong flags:** flag placements on cells that are safe in the replayed
   layout (post-game truth, never shown during play).
 - **Coverage:** a win without a saved trace, without a rebuildable board, or
-  whose replay diverged (a Justice redraw on a board rebuilt from its seed)
+  whose replay diverged (a Guardian Angel redraw on a board rebuilt from its seed)
   is counted and named, never estimated.
 - **Weeks:** Monday-based local calendar weeks, newest first: games, wins,
   best, median win, median 3BV/s, IOE, seconds per input, and runs won.

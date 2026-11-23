@@ -1,11 +1,13 @@
-# A just universe (decided 2026-08-20)
+# Guardian Angel (decided 2026-08-20; renamed from "A Just Universe" 2026-11-23)
 
-Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation notes: [docs/implementation/just-universe.md](../implementation/just-universe.md).
+Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation notes: [docs/implementation/guardian-angel.md](../implementation/guardian-angel.md).
 
 The first friendly variant (the direction of [design-axis](design-axis.md) entry
 7, the angelic dual of Kaboom). Principle: the player can lose to their own
 choices and to the field's diffuse odds, but never to a coin the universe
-minted specifically for them.
+minted specifically for them. Renamed from "A Just Universe" to "Guardian Angel"
+on 2026-11-23 (creator decision: full rename across UI, code, settings,
+records, and play statistics; the separate Angelic play mode keeps its name).
 
 - Exact player-facing definition: **when you click a square in a guess that
   nothing else on the board could ever settle, that square is guaranteed
@@ -33,15 +35,15 @@ minted specifically for them.
   into this particular group. It deliberately excludes merely de dicto
   necessity ("some gamble is required"), including the early corner 1 and
   its open field. It also excludes provably safe or mined squares.
-- Justice ("Justice" is the code's name for the rule's events, not shown to
-  players) applies only to a plain click on a covered square. Chords
+- Guardian Angel applies only to a plain click on a covered square. Chords
   categorically receive none, even if a chord would open only one square: a
   flag is the player's unsupported claim, and a wrong one may kill.
 - Qualification is decided from visible numbers and the global mine count
   before the hidden layout is consulted. Every qualifying click increments
-  `justice`, whether its square was already clear or needed intervention.
+  `guardianAngel` (named `justice` before 2026-11-23), whether its square was
+  already clear or needed intervention.
   If mined, only that group is redrawn uniformly from its represented
-  layouts conditioned on that square being clear. Thus Justice is a count of
+  layouts conditioned on that square being clear. Thus Guardian Angel is a count of
   guaranteed clicks, not counterfactual deaths undone.
 - V1 recognizes only structures carrying short exact proofs: k-of-n groups
   in which every layout is possible (1 mine among 3 squares), equal-total
@@ -61,10 +63,9 @@ minted specifically for them.
   (directly, or after subtracting groups already pinned) and every number
   touching it sees all of its squares alike; a chain qualifies when every
   number touching it sees its two sides alike. Records made from then on
-  carry `justiceVersion` `just-universe-v3`.
+  carried `just-universe-v3`.
 - A chain of 50/50s with unequal sides qualifies when the last squares no
-  number touches make up the difference (creator report 2026-10-26: "why
-  didn't justice protect me from this 50/50 split?", with a screenshot of a
+  number touches make up the difference (creator report 2026-10-26, with a screenshot of a
   loss at a board's top edge, in a 2-by-2 block walled off by flags). The
   clicked square formed one 50/50 with the square above it and another
   with the square beside it, so either it alone held a mine or both of
@@ -86,29 +87,30 @@ minted specifically for them.
   a click on any of these squares is covered; the recap names it "a chain
   of 50/50s over N squares". When more squares no number touches remain
   than the difference, several layouts remain at unequal odds, and the
-  rule does not cover them ([BACKLOG.md](../../BACKLOG.md), "Justice v1
-  family expansion"). Records made from then on carry `justiceVersion`
-  `just-universe-v4`.
+  rule does not cover them ([BACKLOG.md](../../BACKLOG.md), "Guardian Angel v1
+  family expansion"). Records made from 2026-10-26 carried `just-universe-v4`;
+  records made since 2026-11-23 carry `guardianAngelVersion` `guardian-angel-v4`
+  (same rule semantics).
 - At game end a single chip appears to the board's right stating the
-  game's Justice survival count: "you won a forced coinflip" (pluralized
+  game's Guardian Angel survival count: "you won a forced coinflip" (pluralized
   with the count for more than one). Its tooltip: "Guesses that nothing else
-  on the board could ever settle are forced coinflips; A Just Universe makes
+  on the board could ever settle are forced coinflips; Guardian Angel makes
   you win every one". Nothing pops up beside the board
   mid-game (creator request 2026-08-23). Earlier the same day the design
-  was per-event "JUSTICE" chips plus guess-odds risk chips; later on
+  was per-event chips plus guess-odds risk chips; later on
   2026-08-23 the creator withheld the risk chips entirely — they may
   return once they can be shown with a proper explanation, and the
   underlying guess measurements are still recorded either way.
-  Since 2026-08-23 there is also an end-game Justice recap (an explicit
+  Since 2026-08-23 there is also an end-game Guardian Angel recap (an explicit
   creator request reversing the earlier "no separate end-game recap"
   decision): see [Game-end evaluation](game-end-evaluation.md).
-- The per-game record carries the event count (`justice`), the frozen
-  `justiceEnabled` state, the 128-bit `seed`, `rngVersion`, `boardVersion`,
-  and `justiceVersion`; see [Per-game stats](per-game-stats.md). Rankings mix Justice-on and
-  Justice-off games in the same lists: first decided 2026-08-20 as a
-  deferral, confirmed as the product on 2026-08-23 — Justice stays on
+- The per-game record carries the event count (`guardianAngel`), the frozen
+  `guardianAngelEnabled` state, the 128-bit `seed`, `rngVersion`, `boardVersion`,
+  and `guardianAngelVersion`; see [Per-game stats](per-game-stats.md). Rankings mix Guardian-Angel-on and
+  Guardian-Angel-off games in the same lists: first decided 2026-08-20 as a
+  deferral, confirmed as the product on 2026-08-23 — Guardian Angel stays on
   and its games rank within these lists; separation is not planned.
-- Setting `justUniverse` (default on), labeled "a just universe". Its one
+- Setting `guardianAngel` (default on; named `justUniverse` before 2026-11-23), labeled "guardian angel". Its one
   visible hint: "a guess that nothing else on the board could ever settle,
   like a boxed-in 50/50, never kills you". The name's tooltip: "when you
   click (not chord) a square in a guess that nothing else on the board could
@@ -119,7 +121,7 @@ minted specifically for them.
   other squares could still settle, or squares the numbers already prove"
   (both 2026-10-21). It remains editable before the first reveal, is frozen
   for the active game, and unlocks when the game ends or restarts.
-- `just-universe-help.html` is a standalone page of mini-board diagrams
+- `guardian-angel-help.html` is a standalone page of mini-board diagrams
   showing where the rule applies and where it does not, including two
   50/50s that share a number (rewritten in player words 2026-10-21). No
   control links to it: the "?" beside the setting's name that raised it was
@@ -130,4 +132,4 @@ minted specifically for them.
   until then it had one, whose overruns withheld the rule, never invented
   it). Redraw sampling is direct over the group's compact family.
   Implementation and deterministic scale checks are recorded in
-  [docs/implementation/just-universe.md](../implementation/just-universe.md).
+  [docs/implementation/guardian-angel.md](../implementation/guardian-angel.md).

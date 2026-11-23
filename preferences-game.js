@@ -190,6 +190,7 @@ function showSavedGame(record, modeRecords, stored, step, reviewList) {
   // so it is measured again every time: a value stored rounded (before
   // 2026-10-26) gives way to the exact one.
   const analysisReady = analysisTask('reports', 'restore-trace', { ...stored, merged,
+    guardianAngelEnabled: record.guardianAngelEnabled,
     measurementPlan: { width: config.width, height: config.height, mines: cells.map((cell) => cell.mine),
       drill: record.playMode === 'endgame-drill', needBoardMetrics, needZini,
       needCadence: true, needMoveHabits: record.movesMovedOn === undefined,

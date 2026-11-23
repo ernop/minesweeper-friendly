@@ -133,7 +133,7 @@
       check(label + ': details controls and stats fit their panel',
         gameSidebar.scrollWidth <= gameSidebar.clientWidth + 1);
 
-      justiceLive.innerHTML = '<span class="justice-live-word" style="animation:none">Justice!</span>';
+      guardianAngelLive.innerHTML = '<span class="guardian-angel-live-word" style="animation:none">you won a forced coinflip</span>';
       syncBoardLayout();
       await wait();
       const historyTop = rect(resultRanks).top;

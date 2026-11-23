@@ -17,7 +17,7 @@ nor artificially limited system of calculation of best moves" to be brought
 into this game (2026-11-02). What was taken is described below and in the
 area files it changed; the traits not taken are in [BACKLOG.md](../BACKLOG.md),
 "JSMinesweeper traits not built". No code was copied: the method was
-reimplemented in `justice.js` to this repository's terms and rules.
+reimplemented in `guardian-angel.js` to this repository's terms and rules.
 
 ## How it calculates
 
@@ -79,7 +79,7 @@ reimplemented in `justice.js` to this repository's terms and rules.
   or 250,000 steps, and recorded "not measured" beyond. On the guesses of
   simulated Expert games in `tests/win-chances-bench.js`, 121 of 387 had no
   odds.
-- **Proofs.** The exact level of the move hierarchy (`Justice.proveLevels`)
+- **Proofs.** The exact level of the move hierarchy (`GuardianAngel.proveLevels`)
   searched with a 2,000,000-visit limit; past it, the level and the levels
   above it were unmeasured at that moment.
 - **One-move life** (the guess ledger's "perfect play"; JSMinesweeper's
@@ -93,14 +93,14 @@ reimplemented in `justice.js` to this repository's terms and rules.
   charts' guess card). Exact, split into independent parts since
   2026-10-27, and limited to 100,000 units of work; JSMinesweeper limits
   the same search to 1,000 layouts in play.
-- **Guesses nothing could settle.** A just universe's certification
-  (`Justice.certifyEntries`) decides exactly whether anything on the board
+- **Guesses nothing could settle.** Guardian Angel's certification
+  (`GuardianAngel.certifyEntries`) decides exactly whether anything on the board
   could ever settle a square, which covers the 50/50 and pseudo-50/50
   patterns, extended ones included.
 
 ## Taken on 2026-11-02
 
-- **The exact counter** (`justice.js`, "LAYOUT COUNTS"): one counter for
+- **The exact counter** (`guardian-angel.js`, "LAYOUT COUNTS"): one counter for
   the proof, the odds, and one-move life, with no work limit. The proof's
   facts are the boxes counted mine-free or full. Every guess is measured
   (`guess-ledger-v3`). Notes: [per-game stats](../docs/implementation/per-game-stats.md),
@@ -128,7 +128,7 @@ reimplemented in `justice.js` to this repository's terms and rules.
   defines, so it cannot be shown as the best move under design requirement
   8 (exact values). This game measures exact objectives instead: survival,
   one-move life, and perfect play's chance to win.
-- **Pattern-based 50/50 detection.** A just universe's certification is
+- **Pattern-based 50/50 detection.** Guardian Angel's certification is
   exact and covers more cases.
 - **No-guess generation.** The creator removed the no-guess modes on
   2026-10-21.

@@ -394,7 +394,7 @@ function pickSession(page, id) {
     // during the check).
     await pickSession(page, 'past4h');
     state = await settled(page);
-    await page.evaluate(() => { settings.justUniverse = false; });
+    await page.evaluate(() => { settings.guardianAngel = false; });
     await page.locator('#face-button').click();
     await page.locator('#board .cell').first().click();
     await page.waitForTimeout(150);

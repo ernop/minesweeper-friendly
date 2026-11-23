@@ -34,7 +34,7 @@ references, the `new Worker(...)` literal, and the worker's `importScripts`.
 4. `deps` injects `Solver.randomPlacement`, `GameRandom.fromSeed`/`VERSION`, and
    `fatalKindOf` built from `fatalEvaluationOf` + `fatalActionStatusKind`
    (`game/evaluation.js`, legacy fatal records → `undefined`). The worker loads
-   `justice.js` before `solver.js` because `solver.js` expects `Justice`.
+   `guardian-angel.js` before `solver.js` because `solver.js` expects `GuardianAngel`.
 
 ## Replay (`trainingReplay`)
 
@@ -51,7 +51,7 @@ release marked `chordGesture` never reveals: over an unopened cell it is the
 no-op `noop-chord-on-unopened`. A right press toggles a covered cell's flag or
 is a no-op on an open one.
 
-Layout: `trace.finalBoard.cells[i].mine` when saved (post-Justice, and every
+Layout: `trace.finalBoard.cells[i].mine` when saved (post-Guardian-Angel, and every
 recorded input replays identically on it because redraws only rearrange covered
 sealed pockets consistently with revealed numbers); otherwise, for
 `uniform-first-safe-fisher-yates-v1` traces with the current RNG version, the
@@ -61,7 +61,7 @@ with every safe cell open and no mine; a loss must end on the explosion; inputs
 after an explosion or a mismatch are `diverged`. Nothing is approximated.
 
 On the 2026-09-26 history this reproduced 973 of 995 Expert traces; the 22
-diverged were Justice redraws on seed-rebuilt boards.
+diverged were Guardian Angel redraws on seed-rebuilt boards.
 
 Each replay step carries `{ kind, gapMs, t, index }`: the input kind, the gap
 since the previous input, the trace time, and the cell.

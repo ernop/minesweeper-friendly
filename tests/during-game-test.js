@@ -30,7 +30,7 @@ const DuringGame = vm.runInContext('DuringGame', context);
 const proved = (game) => DuringGame.model({ ...game, proofs: DuringGame.positionProofs() });
 const modelOf = (game) => structuredClone(proved(game));
 const viewOf = (game, rows, average) => structuredClone(DuringGame.view(proved(game), rows, average));
-const Justice = vm.runInContext('Justice', context);
+const GuardianAngel = vm.runInContext('GuardianAngel', context);
 const { FASTCLICK_GAP_VERSION } = vm.runInContext('GameData', context);
 
 const CELL_PX = 20;
@@ -90,7 +90,7 @@ function playGame(width, height, mineCells, steps) {
     const view = { width, height, mines: mineCells.length,
       revealed: Array.from({ length: size }, (_, c) => revealed.has(c)),
       adjacent: Array.from({ length: size }, (_, c) => revealed.get(c) ?? 0) };
-    const facts = Justice.proveFacts(view, Justice.rawClues(view));
+    const facts = GuardianAngel.proveFacts(view, GuardianAngel.rawClues(view));
     const safeAvailable = [...facts].some(([c, fact]) => fact === 2 && !flagged.has(c));
     const evaluation = { action: null, atMs: step.atMs, selected: [cell], result: 'continued', mistakes: [],
       evidence: {}, alternatives: [], choices: [], position };
@@ -608,7 +608,7 @@ assert.equal(DuringGame.DEFAULT_RELATIVE_SCALE, 'log', 'log by default');
       { act: 'reveal', cell: at(5, 0), atMs: 400 },
       { act: 'reveal', cell: guessCell, atMs: 1000 },
     ]);
-    game.justiceEnabled = false;
+    game.guardianAngelEnabled = false;
     game.events.filter((event) => event.kind === 'decision')[2].evaluation.evidence.oddsMeasured = true;
     return game;
   };
@@ -619,11 +619,11 @@ assert.equal(DuringGame.DEFAULT_RELATIVE_SCALE, 'log', 'log by default');
     winMeasured: true, winChance: 0.5, bestWinChance: 0.5, unavoidable: true, waitedMs: 1000 });
   const lost = modelOf(play(at(2, 0))).events.find((event) => event.type === 'guess');
   assert.deepEqual([lost.died, lost.minesFixed, lost.unavoidable, lost.waitedMs], [true, true, true, 1000]);
-  // A just universe can move mines: the risks stay, the win chance goes.
-  const just = play(at(2, 1));
-  just.justiceEnabled = true;
-  const justGuess = modelOf(just).events.find((event) => event.type === 'guess');
-  assert.deepEqual([justGuess.safestConnectedRisk, justGuess.minesFixed, justGuess.winMeasured], [0.5, undefined, undefined]);
+  // Guardian Angel can move mines: the risks stay, the win chance goes.
+  const angel = play(at(2, 1));
+  angel.guardianAngelEnabled = true;
+  const angelGuess = modelOf(angel).events.find((event) => event.type === 'guess');
+  assert.deepEqual([angelGuess.safestConnectedRisk, angelGuess.minesFixed, angelGuess.winMeasured], [0.5, undefined, undefined]);
   // Where the guess ledger did not measure the guess (Angelic play, whose
   // mines move), only what the visible board shows.
   const unmeasured = play(at(2, 1));
@@ -649,9 +649,9 @@ assert.equal(DuringGame.DEFAULT_RELATIVE_SCALE, 'log', 'log by default');
     { act: 'reveal', cell: at(2, 0), atMs: 1400 },
     { act: 'reveal', cell: at(3, 0), atMs: 1600 },
   ]);
-  const proveLevels = Justice.proveLevels;
+  const proveLevels = GuardianAngel.proveLevels;
   let proofs = 0;
-  Justice.proveLevels = (...args) => { proofs++; return proveLevels(...args); };
+  GuardianAngel.proveLevels = (...args) => { proofs++; return proveLevels(...args); };
   const live = task('live-trace', { traceId: 3, fromSample: 0, t: game.t, x: game.x, y: game.y,
     merged: game.merged, events: game.events, sampleTimes: [START_T + 700, START_T + 1500] });
   assert.equal(timers.length, 0, 'the live feed leaves no work behind');
@@ -662,11 +662,11 @@ assert.equal(DuringGame.DEFAULT_RELATIVE_SCALE, 'log', 'log by default');
   const rows = DuringGame.ROWS.map((row) => row.id);
   const finished = task('finished-game', { width, height: 3, mines: game.mines, drill: true, needCadence: false,
     needMoveHabits: true, needFastclickGap: true, gameId, timeMs: game.timeMs, outcome: game.outcome,
-    justiceEnabled: false, guessLedger: false,
+    guardianAngelEnabled: false, guessLedger: false,
     trace: { t: game.t, x: game.x, y: game.y, merged: game.merged, events: game.events, wallMs: 2000,
       initialPageState: game.initialPageState } });
   task('during-game', { gameId, timeMs: game.timeMs, outcome: game.outcome, rows, average: 'rolling-2' });
-  Justice.proveLevels = proveLevels;
+  GuardianAngel.proveLevels = proveLevels;
   assert.equal(proofs, 4, 'one proof per count of open squares, shared by the judgment and the model');
   assert.equal(finished.evaluation.completed.length, 7, 'every decision judged');
   // The 1 at (1,2) with (0,1) and (2,1) covered beside it proves nothing,

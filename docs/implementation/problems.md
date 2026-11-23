@@ -116,7 +116,7 @@ node analysis/skill-comparison/problems_bank.js SITUATIONS.json problems-bank.js
   travelMs }` and `doneMs`).
 - Selection: per class, moments the original player answered with the very
   next click come first, then faster games; one moment per game per class; the
-  full solver (`Justice.proveFacts` with the search) must find exactly the
+  full solver (`GuardianAngel.proveFacts` with the search) must find exactly the
   two-number-strength answer set, or the moment is skipped.
 - Level statistics come only from the saolei.wang corpus; the player's own
   games are never written into the public bank.
@@ -127,7 +127,7 @@ node analysis/skill-comparison/problems_bank.js SITUATIONS.json problems-bank.js
 ## Tests
 
 - `node tests/problems-core-test.js`: frozen protocol constants, bank decoding,
-  every problem's answers re-proved with `justice.js` at two-number strength
+  every problem's answers re-proved with `guardian-angel.js` at two-number strength
   (safe after the new number, not provable before), click semantics on a hand
   board, answer crediting, the movement split, attempt summaries, profile
   grouping across banks, set picking, the ladder layout, class names,

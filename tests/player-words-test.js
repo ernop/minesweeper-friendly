@@ -5,7 +5,7 @@
 // shipped script's prose string literals (those with a space; identifiers
 // such as the stored 'sealed-pocket-mercy-v1' version have none) and every
 // shipped page's text and attribute values are searched for the terms
-// A Just Universe's text used before that decision.
+// Guardian Angel's text used before that decision.
 
 const fs = require('fs');
 const path = require('path');
@@ -31,7 +31,7 @@ function pageTexts(source) {
 }
 
 const files = require('../deploy/runtime-files.json').filter((file) => /\.(js|html)$/.test(file));
-for (const required of ['settings-core.js', 'game/evaluation.js', 'just-universe-help.html']) {
+for (const required of ['settings-core.js', 'game/evaluation.js', 'guardian-angel-help.html']) {
   if (!files.includes(required)) throw new Error('deploy/runtime-files.json no longer lists ' + required);
 }
 const found = [];

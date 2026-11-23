@@ -4,7 +4,7 @@
 // (docs/product/storage-and-history.md "Archive folder"). Shared by
 // archive-worker.js and tests/archive-format-test.js; no DOM, no storage.
 
-const ARCHIVE_FORMAT_VERSION = 2;
+const ARCHIVE_FORMAT_VERSION = 3;
 const ARCHIVE_README_NAME = 'README.txt';
 
 // UTC year and month, so an item's path never depends on the reader's zone.
@@ -112,5 +112,9 @@ const ARCHIVE_README_TEXT = [
   'Format version 2 (2026-10-27) renamed three game record fields: version 1',
   'records name boardChangingClicks, noOpClicks, and movesMovedOn as clicks,',
   'wastedClicks, and movesRanOut.',
+  'Format version 3 (2026-11-23) renamed the Guardian Angel fields: version 1',
+  'and 2 records and traces name guardianAngel, guardianAngelEnabled,',
+  'guardianAngelVersion, and guardianAngelProtected as justice, justiceEnabled,',
+  'justiceVersion, and justiceProtected.',
   '',
 ].join('\n');

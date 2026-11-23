@@ -1,10 +1,10 @@
 'use strict';
 
-// Deterministic scale checks for the certificate-based Justice solver.
+// Deterministic scale checks for the certificate-based Guardian Angel solver.
 // These are measurements, not pass/fail timing thresholds.
-// Run: node tests/justice-bench.js
+// Run: node tests/guardian-angel-bench.js
 
-const Justice = require('../justice.js');
+const GuardianAngel = require('../guardian-angel.js');
 
 function measure(name, operation) {
   const start = process.hrtime.bigint();
@@ -26,7 +26,7 @@ function makeBoard(rows) {
     }
   }
   const adjacent = mines.map((mine, index) => (mine ? 0
-    : Justice.neighbors(index, width, height).filter((neighbor) => mines[neighbor]).length));
+    : GuardianAngel.neighbors(index, width, height).filter((neighbor) => mines[neighbor]).length));
   return {
     view: {
       width,
@@ -59,7 +59,7 @@ function makeBoard(rows) {
   const board = makeBoard(grid.map((row) => row.join('')));
   const certificate = measure(
     '100x100 open-field rejection',
-    () => Justice.certifyEntry(board.view, board.at(50, 50)));
+    () => GuardianAngel.certifyEntry(board.view, board.at(50, 50)));
   if (certificate !== null) throw new Error('open field was certified');
 }
 
@@ -76,7 +76,7 @@ function makeBoard(rows) {
   const board = makeBoard(grid.map((row) => row.join('')));
   const certificate = measure(
     '100x100 sealed 300-cell sea certification',
-    () => Justice.certifyEntry(board.view, board.at(98, 2)));
+    () => GuardianAngel.certifyEntry(board.view, board.at(98, 2)));
   if (certificate === null || certificate.type !== 'sea') {
     throw new Error('sealed sea was not certified');
   }
@@ -96,7 +96,7 @@ function makeBoard(rows) {
   const component = { cells, clues: clues.map((_, index) => index) };
   const groups = measure(
     '10,000-cell complement-chain structural proof',
-    () => Justice.componentGroups(structure, component));
+    () => GuardianAngel.componentGroups(structure, component));
   const chain = groups.chainOfCell.get(0);
   if (chain.cells.length !== count || chain.partitionA.length !== 5000) {
     throw new Error('complement chain was not proven');
@@ -123,7 +123,7 @@ function makeBoard(rows) {
   };
   const redrawn = measure(
     '10,000-cell 2,000-mine conditioned redraw',
-    () => Justice.redrawEntry(certificate, 0, currentMines, random));
+    () => GuardianAngel.redrawEntry(certificate, 0, currentMines, random));
   if (redrawn[0] || redrawn.filter(Boolean).length !== mineCount) {
     throw new Error('large redraw is invalid');
   }

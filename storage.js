@@ -52,15 +52,21 @@ const LEGACY_LOCALSTORAGE_KEYS = {
 };
 
 // Game record fields renamed on 2026-10-27 to the measurements' names
-// (docs/product/measurement-catalog.md), old name first. The version-7
-// upgrade renames them in saved records and the trial session's attempts,
-// and importing an earlier backup renames them in its records. Temporary:
-// delete with that upgrade step and the import conversion (BACKLOG.md,
-// "Record field names: step 2").
+// (docs/product/measurement-catalog.md) and on 2026-11-23 when "A Just
+// Universe" became "Guardian Angel" (docs/product/guardian-angel.md), old
+// name first. The version-8 upgrade renames them in saved records (plus
+// actionEvaluations[].evidence.justiceProtected -> guardianAngelProtected)
+// and the trial session's attempts, and importing an earlier backup renames
+// them in its records. Temporary: delete with that upgrade step and the
+// import conversion (BACKLOG.md, "Record field names: step 2" and
+// "Guardian Angel rename: step 2").
 const RENAMED_RECORD_FIELDS = [
   ['clicks', 'boardChangingClicks'],
   ['wastedClicks', 'noOpClicks'],
   ['movesRanOut', 'movesMovedOn'],
+  ['justice', 'guardianAngel'],
+  ['justiceEnabled', 'guardianAngelEnabled'],
+  ['justiceVersion', 'guardianAngelVersion'],
 ];
 
 // Renames the fields in place; true when the record changed.
@@ -72,10 +78,25 @@ function renameRecordFields(record) {
     delete record[oldName];
     changed = true;
   }
+  if (Array.isArray(record.actionEvaluations)) {
+    let evalsChanged = false;
+    const renamedEvals = record.actionEvaluations.map((evaluation) => {
+      const evidence = evaluation && evaluation.evidence;
+      if (!evidence || typeof evidence !== 'object' || !('justiceProtected' in evidence)) return evaluation;
+      evalsChanged = true;
+      const nextEvidence = { ...evidence, guardianAngelProtected: evidence.justiceProtected };
+      delete nextEvidence.justiceProtected;
+      return { ...evaluation, evidence: nextEvidence };
+    });
+    if (evalsChanged) {
+      record.actionEvaluations = renamedEvals;
+      changed = true;
+    }
+  }
   return changed;
 }
 
-const dbRequest = indexedDB.open(DB_NAME, 7);
+const dbRequest = indexedDB.open(DB_NAME, 8);
 dbRequest.onupgradeneeded = (event) => {
   const upgraded = event.target.result;
   if (event.oldVersion < 1) upgraded.createObjectStore(TRACE_STORE, { keyPath: 'endedAt' });
@@ -119,7 +140,7 @@ dbRequest.onupgradeneeded = (event) => {
           for (const record of list) {
             if (seen.has(record.endedAt)) continue;
             seen.add(record.endedAt);
-            // The version-7 step below runs before these adds.
+            // The version-8 step below runs before these adds.
             renameRecordFields(record);
             records.add(record, [historyKey, record.endedAt]);
           }
@@ -132,7 +153,7 @@ dbRequest.onupgradeneeded = (event) => {
     }
   }
   if (event.oldVersion < 6) upgraded.createObjectStore(PLAY_SPAN_STORE, { keyPath: 'startedAt' });
-  if (event.oldVersion < 7) {
+  if (event.oldVersion < 8) {
     const transaction = event.target.transaction;
     transaction.objectStore(RECORD_STORE).openCursor().onsuccess = (cursorEvent) => {
       const cursor = cursorEvent.target.result;

@@ -95,7 +95,7 @@ Object.assign(game, {
   } } },
   Trial: require('../trial.js'),
   RNG_VERSION: 'rng-test',
-  JUSTICE_VERSION: 'justice-test',
+  GUARDIAN_ANGEL_VERSION: 'guardian-angel-test',
   boardMetricJobs: new Map(),
   duringGameSourceId: null,
   observedTimeZone: () => ({ timeZone: 'America/Los_Angeles', utcOffsetMin: -420 }),
@@ -121,7 +121,7 @@ Object.assign(game, {
 });
 for (const name of ['renderImmediateGameEnd', 'renderPregenCharts', 'endTrial', 'persistUserdata',
   'renderMotionStats', 'updateSettings', 'renderPathView', 'scheduleMetricsUpdate', 'renderResult',
-  'showJusticeSurvivals', 'renderTrialReview']) {
+  'showGuardianAngelSurvivals', 'renderTrialReview']) {
   game[name] = () => {};
 }
 
@@ -140,9 +140,9 @@ function paint() {
 async function playToEnd(outcome, state) {
   Object.assign(game, {
     boardChangingClicks: 0, chordClicks: 0, noOpClicks: 0, flagsPlaced: 0, flagsRemoved: 0,
-    unusedCorrectFlags: 0, justiceEnabledForGame: false,
+    unusedCorrectFlags: 0, guardianAngelEnabledForGame: false,
     gameSeed: '0123456789abcdef0123456789abcdef', firstRevealIndex: 0,
-    musicObservations: [], justiceDetails: [],
+    musicObservations: [], guardianAngelDetails: [],
     drillCurrent: null, trialPresentation: null, trialSession: null, lastTrialReview: null, pregenBatch: null,
     pregenCurrent: null, resultViewRevision: 0, metricSampleTimes: [],
     finalMotion: null, trace: { t: [], x: [], y: [], events: [], startedAt: 0 }, replayStep: 0,
@@ -168,7 +168,7 @@ async function playToEnd(outcome, state) {
   for (const timer of timers.splice(0)) timer.fn();
   for (const resolve of analyses.splice(0)) {
     resolve({ measurements: { zini: 120, hzini: 131 }, metrics: { cad: { gapSpreadRatio: 1.4 } }, spatial: null,
-      evaluation: { completed: [], misclicks: 0, justiceDetails: [] } });
+      evaluation: { completed: [], misclicks: 0, guardianAngelDetails: [] } });
   }
   await settle();
   assert.deepEqual(failures, []);
@@ -187,7 +187,7 @@ const eventUrl = (n, fields) => '/_event?v=1&e=game&p=abababababababab&s=abababa
     config: { width: 30, height: 16, mines: 99 },
     settings: { playMode: 'standard' },
     gameGenerator: { id: 'uniform', params: {} },
-    justiceEnabledForGame: true,
+    guardianAngelEnabledForGame: true,
     finalTimeMs: 61234.4,
     compute3BV: () => 152,
     boardChangingClicks: 180,
@@ -198,11 +198,11 @@ const eventUrl = (n, fields) => '/_event?v=1&e=game&p=abababababababab&s=abababa
   });
   assert.deepEqual(expertWin.fields, {
     m: 'expert:standard', r: 'win', d: 61.234, w: 30, h: 16, mines: 99,
-    just: true, bbbv: 152, clicks: 180, flags: 70,
+    guardian_angel: true, bbbv: 152, clicks: 180, flags: 70,
     bbbvs: 152 / 61.234, eff: 152 / 180 * 100, ioe: 152 / 186,
   });
   assert.equal(expertWin.url, eventUrl(0, 'm=expert%3Astandard&r=win&d=61.234&w=30&h=16&mines=99'
-    + '&just=1&bbbv=152&clicks=180&flags=70&bbbvs=2.482&eff=84.444&ioe=0.817'));
+    + '&guardian_angel=1&bbbv=152&clicks=180&flags=70&bbbvs=2.482&eff=84.444&ioe=0.817'));
 
   // A non-default generator in a mode that places mines with it joins m,
   // and its parameters follow in schema order.
@@ -211,7 +211,7 @@ const eventUrl = (n, fields) => '/_event?v=1&e=game&p=abababababababab&s=abababa
     settings: { playMode: 'standard' },
     gameGenerator: { id: 'pink-noise',
       params: BoardGenerators.paramsFrom('pink-noise', { alpha: 1.5, stretch: -1.5 }) },
-    justiceEnabledForGame: true,
+    guardianAngelEnabledForGame: true,
     finalTimeMs: 98765.2,
     compute3BV: () => 181,
     boardChangingClicks: 230,
@@ -221,11 +221,11 @@ const eventUrl = (n, fields) => '/_event?v=1&e=game&p=abababababababab&s=abababa
   assert.deepEqual(pinkWin.fields, {
     m: 'expert:standard:pink-noise', r: 'win', d: 98.765, w: 30, h: 16, mines: 99,
     g_alpha: 1.5, g_scale: 8, g_contrast: 2, g_stretch: -1.5,
-    just: true, bbbv: 181, clicks: 230, flags: 85,
+    guardian_angel: true, bbbv: 181, clicks: 230, flags: 85,
     bbbvs: 181 / 98.765, eff: 181 / 230 * 100, ioe: 181 / 239,
   });
   assert.equal(pinkWin.url, eventUrl(1, 'm=expert%3Astandard%3Apink-noise&r=win&d=98.765&w=30&h=16'
-    + '&mines=99&g_alpha=1.5&g_scale=8&g_contrast=2&g_stretch=-1.5&just=1&bbbv=181&clicks=230&flags=85'
+    + '&mines=99&g_alpha=1.5&g_scale=8&g_contrast=2&g_stretch=-1.5&guardian_angel=1&bbbv=181&clicks=230&flags=85'
     + '&bbbvs=1.833&eff=78.696&ioe=0.757'));
 
   // A trial places no mines with the generator, and a loss shows no
@@ -244,10 +244,10 @@ const eventUrl = (n, fields) => '/_event?v=1&e=game&p=abababababababab&s=abababa
   });
   assert.deepEqual(customLoss.fields, {
     m: 'custom-20x12-50:test-trial', r: 'loss', d: 18.766, w: 20, h: 12, mines: 50,
-    just: false, bbbv: 64, clicks: 25, flags: 3,
+    guardian_angel: false, bbbv: 64, clicks: 25, flags: 3,
   });
   assert.equal(customLoss.url, eventUrl(2, 'm=custom-20x12-50%3Atest-trial&r=loss&d=18.766'
-    + '&w=20&h=12&mines=50&just=0&bbbv=64&clicks=25&flags=3'));
+    + '&w=20&h=12&mines=50&guardian_angel=0&bbbv=64&clicks=25&flags=3'));
 
   // An Endgame drill's 3BV is the presented remnant's, as in its record.
   const drillWin = await playToEnd('win', {
@@ -263,10 +263,10 @@ const eventUrl = (n, fields) => '/_event?v=1&e=game&p=abababababababab&s=abababa
   });
   assert.deepEqual(drillWin.fields, {
     m: 'intermediate:endgame-drill:blue-noise', r: 'win', d: 4, w: 16, h: 16, mines: 40, g_spread: 3,
-    just: false, bbbv: 9, clicks: 12, flags: 0, bbbvs: 9 / 4, eff: 9 / 12 * 100, ioe: 9 / 13,
+    guardian_angel: false, bbbv: 9, clicks: 12, flags: 0, bbbvs: 9 / 4, eff: 9 / 12 * 100, ioe: 9 / 13,
   });
   assert.equal(drillWin.url, eventUrl(3, 'm=intermediate%3Aendgame-drill%3Ablue-noise&r=win&d=4'
-    + '&w=16&h=16&mines=40&g_spread=3&just=0&bbbv=9&clicks=12&flags=0&bbbvs=2.25&eff=75&ioe=0.692'));
+    + '&w=16&h=16&mines=40&g_spread=3&guardian_angel=0&bbbv=9&clicks=12&flags=0&bbbvs=2.25&eff=75&ioe=0.692'));
 
   //-------m STAYS ONE TOKEN AND NO FIELD IS DROPPED-------
 
@@ -295,7 +295,7 @@ const eventUrl = (n, fields) => '/_event?v=1&e=game&p=abababababababab&s=abababa
         config: { width, height, mines },
         gameGenerator: { id: spec.id, params: BoardGenerators.paramsFrom(spec.id) },
         statsRecord: { outcome: 'win', timeMs: 1000, bv3: 1, boardChangingClicks: 1, noOpClicks: 0,
-          flagsPlaced: 0, playMode, justiceEnabled: false },
+          flagsPlaced: 0, playMode, guardianAngelEnabled: false },
       });
       const fields = plain(vm.runInContext('playStatisticsFields(statsRecord)', game));
       for (const [key, value] of Object.entries(fields)) {

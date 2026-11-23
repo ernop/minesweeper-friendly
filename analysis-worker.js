@@ -1,15 +1,15 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261119-perf-charts-motion',
-  'game/evaluation.js?v=20261119-perf-charts-motion',
-  'game-data.js?v=20261107-score-lists', 'game/metric-definitions.js?v=20261119-perf-charts-motion',
+  'game/trace-metrics.js?v=20261123-guardian-angel',
+  'game/evaluation.js?v=20261123-guardian-angel',
+  'game-data.js?v=20261107-score-lists', 'game/metric-definitions.js?v=20261123-guardian-angel',
   'board-shape.js?v=20261020-no-left-panel', 'zini.js?v=20261020-no-left-panel', 'board-metrics.js?v=20261020-no-left-panel',
-  'game/rankings.js?v=20261119-perf-charts-motion',
-  'game/charts.js?v=20261119-perf-charts-motion', 'game/game-data-chart.js?v=20261119-perf-charts-motion',
-  'justice.js?v=20261103-worker-evaluation', 'odds.js?v=20261103-worker-evaluation', 'board-icons.js?v=20261105-glyph-sizes',
-  'game/replay-model.js?v=20261119-perf-charts-motion',
-  'during-game.js?v=20261103-worker-evaluation');
+  'game/rankings.js?v=20261123-guardian-angel',
+  'game/charts.js?v=20261123-guardian-angel', 'game/game-data-chart.js?v=20261123-guardian-angel',
+  'guardian-angel.js?v=20261123-guardian-angel', 'odds.js?v=20261123-guardian-angel', 'board-icons.js?v=20261105-glyph-sizes',
+  'game/replay-model.js?v=20261123-guardian-angel',
+  'during-game.js?v=20261123-guardian-angel');
 
 let config;
 
@@ -144,9 +144,9 @@ function analyze(kind, data) {
     case 'finished-game': {
       const proofs = DuringGame.positionProofs();
       const evaluation = completeGameEvaluations({ events: data.trace.events,
-        justiceEnabled: data.justiceEnabled, guessLedger: data.guessLedger }, proofs);
+        guardianAngelEnabled: data.guardianAngelEnabled, guessLedger: data.guessLedger }, proofs);
       holdDuringGameSource({ id: data.gameId, width: data.width, height: data.height, mines: data.mines,
-        justiceEnabled: data.justiceEnabled, t: data.trace.t, x: data.trace.x, y: data.trace.y,
+        guardianAngelEnabled: data.guardianAngelEnabled, t: data.trace.t, x: data.trace.x, y: data.trace.y,
         merged: data.trace.merged, events: data.trace.events,
         initialPageState: data.trace.initialPageState, proofs });
       const motion = analyzeTrace(data.trace);
@@ -171,7 +171,7 @@ function analyze(kind, data) {
     case 'restore-trace': {
       const { sampleT: t, sampleX: x, sampleY: y, merged, events } = data;
       holdDuringGameSource({ id: data.endedAt, width: data.measurementPlan.width, height: data.measurementPlan.height,
-        mines: data.measurementPlan.mines, justiceEnabled: data.justiceEnabled, t, x, y, merged, events,
+        mines: data.measurementPlan.mines, guardianAngelEnabled: data.guardianAngelEnabled, t, x, y, merged, events,
         initialPageState: data.initialPageState, proofs: DuringGame.positionProofs() });
       const metrics = computeAllTraceMetrics(t, x, y, sampleTravelPx(x, y, merged), events, data.endedAt - data.startedAt);
       return { metrics, spatial: computeSpatialBias(events),

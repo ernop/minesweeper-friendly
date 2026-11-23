@@ -40,7 +40,7 @@ purpose](../../docs/product/measurement.md)).
 - `losses`: the loss types in the report's exact wording (`byLossType`),
   and `likelyMisclicks` per reason, which recount losses already filed by
   type. The script loads the game's own `GAME-END EVALUATION: VERDICT` span
-  (the way the tests do) with `justice.js`, adds the proof tiers the page's
+  (the way the tests do) with `guardian-angel.js`, adds the proof tiers the page's
   history load adds to losses saved before 2026-10-11 (`fatalProofTiers`),
   and calls `lossTypeOf` / `LOSS_TYPE_LABELS` and `likelyMisclickReasonsOf`;
   it never re-implements the classification. Legacy-provenance deaths and
@@ -49,7 +49,7 @@ purpose](../../docs/product/measurement.md)).
   about 1.3 s.
 - `guessPolicy[key]`: ledger coverage, guesses per game, share of guesses
   off ideal risk, share perfect, life lost and needless per game.
-- `luckCalibration`: Justice-free games bucketed by summed modeled risk
+- `luckCalibration`: Guardian-Angel-free games bucketed by summed modeled risk
   (`lifeLost`), realized guess-death rate against `1 − exp(−lifeLost)`. The
   exponential is the survival-model approximation for summed per-guess
   probabilities; exact per-guess products need the trace export.

@@ -38,12 +38,12 @@ function reportResult(outcome, endedAt = Date.now()) {
     mousePathPx: DuringGame.cursorTravelPx({ timeMs, t: trace.t, x: trace.x, y: trace.y,
       merged: liveMergedObservations(), events: trace.events }),
     states: activeStateNames(),
-    justiceEnabled: justiceEnabledForGame,
+    guardianAngelEnabled: guardianAngelEnabledForGame,
     seed: gameSeed,
     ...(firstRevealIndex !== null ? { firstRevealIndex } : {}),
     rngVersion: RNG_VERSION,
     boardVersion: BoardGenerators.byId(gameGenerator.id).version,
-    justiceVersion: JUSTICE_VERSION,
+    guardianAngelVersion: GUARDIAN_ANGEL_VERSION,
     maxAdjacent: shape.maxAdjacent,
     hasSeven: shape.hasSeven,
     zeroCount: shape.zeroCount,
@@ -123,7 +123,7 @@ function reportResult(outcome, endedAt = Date.now()) {
   analysisTask('reports', 'finished-game', {
     width: config.width, height: config.height, mines: mineAt, drill: endgameDrillActive(),
     needZini: true, needBoardMetrics: true, needCadence: true, needMoveHabits: true, needFastclickGap: true,
-    gameId: record.endedAt, timeMs: record.timeMs, outcome: record.outcome, justiceEnabled: record.justiceEnabled,
+    gameId: record.endedAt, timeMs: record.timeMs, outcome: record.outcome, guardianAngelEnabled: record.guardianAngelEnabled,
     guessLedger: guessLedgerAppliesTo(record.playMode),
     trace: { t: finishedTrace.t, x: finishedTrace.x, y: finishedTrace.y, merged: liveMergedObservations(),
       events: finishedTrace.events, wallMs: record.endedAt - finishedTrace.startedAt,
@@ -145,8 +145,8 @@ function reportResult(outcome, endedAt = Date.now()) {
     renderPregenCharts();
     if (trace !== finishedTrace || resultViewRevision !== resultRevision
         || !['won', 'lost'].includes(gameState)) return;
-    justiceDetails = result.evaluation.justiceDetails;
-    showJusticeSurvivals();
+    guardianAngelDetails = result.evaluation.guardianAngelDetails;
+    showGuardianAngelSurvivals();
     // The path's less useful actions are the ones the judgment found mistakes in.
     renderPathView();
     finalMotion = { gameId: record.endedAt, metrics: result.metrics, spatial: result.spatial,
@@ -172,7 +172,7 @@ function reportResult(outcome, endedAt = Date.now()) {
 function completeGameRecord(record, stored, evaluation) {
   applyCompletedEvaluations(stored.events, evaluation.completed);
   record.misclicks = evaluation.misclicks;
-  record.justice = evaluation.justiceDetails.length;
+  record.guardianAngel = evaluation.guardianAngelDetails.length;
   if (evaluation.ledger !== undefined) Object.assign(record, evaluation.ledger);
   record.actionEvaluations = reportableEvaluations(stored.events);
   delete record.evaluationPending;
@@ -206,7 +206,7 @@ function playStatisticsFields(record) {
     mines: config.mines,
     ...(generator === null ? {} : Object.fromEntries(
       generator.params.map((param) => ['g_' + param.key, gameGenerator.params[param.key]]))),
-    just: record.justiceEnabled,
+    guardian_angel: record.guardianAngelEnabled,
     bbbv: record.bv3,
     clicks: record.boardChangingClicks,
     flags: record.flagsPlaced,
@@ -498,15 +498,15 @@ function buildVerdictBlocks(record) {
     const position = detail === 'positions' ? buildEvaluationPosition(shown) : null;
     if (position) box.appendChild(position);
   }
-  if ((record.justice || 0) > 0 && reportCategoryEnabled('measurementNotes')) {
-    const box = block('measurementNotes', 'verdict-justice', 'A Just Universe',
-      justiceRecapText(record.justice));
-    if (detail !== 'summary' && justiceDetails.length === record.justice) {
+  if ((record.guardianAngel || 0) > 0 && reportCategoryEnabled('measurementNotes')) {
+    const box = block('measurementNotes', 'verdict-guardian-angel', 'Guardian Angel',
+      guardianAngelRecapText(record.guardianAngel));
+    if (detail !== 'summary' && guardianAngelDetails.length === record.guardianAngel) {
       const list = document.createElement('div');
       list.className = 'verdict-details';
-      justiceDetails.forEach((detail, i) => {
+      guardianAngelDetails.forEach((detail, i) => {
         const line = document.createElement('div');
-        line.textContent = justiceEventDetail(detail, i);
+        line.textContent = guardianAngelEventDetail(detail, i);
         list.appendChild(line);
       });
       box.appendChild(list);
@@ -907,10 +907,10 @@ function buildGameStats(record) {
               + '%)'
             : String(record.unusedCorrectFlags)]] : []),
     ...measurementRow('unflaggedMineShare'),
-    // A Justice event is any click "a just universe" covers — a forced
+    // A Guardian Angel event is any click Guardian Angel covers — a forced
     // coinflip the rule guarantees the player wins.
-    ...(fullAnalysis && record.justice !== undefined
-      ? [['Forced coinflips won', String(record.justice)]] : []),
+    ...(fullAnalysis && record.guardianAngel !== undefined
+      ? [['Forced coinflips won', String(record.guardianAngel)]] : []),
     ...(clicksOverBv3Of(record) !== undefined
       ? [['Clicks over 3BV', String(clicksOverBv3Of(record))]]
       : []),

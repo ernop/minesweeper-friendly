@@ -151,7 +151,7 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   likelyMisclicks}` (its leaf's kind and the misclick reasons of a loss's
   fatal evaluation), which the "this" mark also uses. The span
   calls the verdict functions at run time, so its test loads the verdict
-  span and justice.js. The same span holds `SESSION_RESULT_TREE` (won and
+  span and guardian-angel.js. The same span holds `SESSION_RESULT_TREE` (won and
   lost, their offense families, and leaves `{kind, label}`) and
   `sessionResultLines(rows)`, which flattens it in display order to
   `{depth, label, kinds, leaf}`: depth 1 always,

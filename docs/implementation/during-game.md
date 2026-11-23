@@ -13,7 +13,7 @@ Spec: [docs/product/during-game.md](../product/during-game.md). Index: [AGENTS.m
   `DuringGame.RELATIVE_SCALES`, and `DuringGame.DEFAULT_RELATIVE_SCALE`),
   and in `analysis-worker.js`. At call time it
   uses `pathDecisionEvents` (`game/replay-model.js`), `positionView` and
-  `squareDistance` (`game/evaluation.js`), `Justice`, `Odds`
+  `squareDistance` (`game/evaluation.js`), `GuardianAngel`, `Odds`
   (`analyzeView`, `winChances`), `medianOf`,
   `gapSpreadRatioOf`, and `STROKE_GAP_MS` (`game/trace-metrics.js`);
   at load it reads `GameData.metrics` for its catalog rows, so
@@ -40,7 +40,7 @@ Spec: [docs/product/during-game.md](../product/during-game.md). Index: [AGENTS.m
   2026-10-21 it lent a board beside the block `paintReplayFrame(model,
   elements)` for any list of squares; `paintReplayFrame` paints the board's
   own squares again.
-- `analysis-worker.js` imports `justice.js`, `odds.js` (the guess facts,
+- `analysis-worker.js` imports `guardian-angel.js`, `odds.js` (the guess facts,
   since 2026-10-26), `board-icons.js` (whose `FLAG_COLOR`
   `game/replay-model.js` reads at load), `game/replay-model.js`, and
   `during-game.js`.
@@ -50,11 +50,11 @@ Spec: [docs/product/during-game.md](../product/during-game.md). Index: [AGENTS.m
 The trace is cloned to the reports worker once. `finished-game` (with
 `gameId: record.endedAt`, and the trace's `initialPageState`) and
 `restore-trace` (with the stored trace) each keep `{id, width, height,
-mines, justiceEnabled, t, x, y, merged, events, initialPageState}` as the
+mines, guardianAngelEnabled, t, x, y, merged, events, initialPageState}` as the
 worker's `duringGameSource` and drop the cached model (`merged`: the cursor
 observations the samples replaced, `storedMergedObservations` of a stored
 trace, empty before capture version 3; the path rows add `sampleTravelPx`
-of them through `cursorPath`, as the record's `mousePathPx` does). `justiceEnabled` is the
+of them through `cursorPath`, as the record's `mousePathPx` does). `guardianAngelEnabled` is the
 record's (`reportResult` sends it; the stored trace carries a copy), absent
 on games from before it was recorded. The page sets
 `duringGameSourceId = record.endedAt` just before posting either
@@ -78,7 +78,7 @@ and holds it with the source, so the model reads every proof already made.
 `restore-trace` starts an empty store. A proof reads only the open numbers,
 and within one game they only grow, so the count of open squares names the
 position; the store seeds each new proof with the latest earlier
-position's (`Justice.proveLevels(view, clues, earlier, groupCounts)`), whose
+position's (`GuardianAngel.proveLevels(view, clues, earlier, groupCounts)`), whose
 facts still hold, so each deduction stage starts from them. The store's
 `groupCounts` keeps every residual group's layout count
 (`countNumberLayouts`) under its exact constraints: the group's squares in
@@ -100,7 +100,7 @@ decisions. Otherwise:
   region is one unit, each number touching none is one), flagged mines,
   and, whenever the revealed count changed, the proof of the position
   before the action from the game's `positionProofs` store (one
-  `Justice.proveLevels` per count of open squares, and the same facts by
+  `GuardianAngel.proveLevels` per count of open squares, and the same facts by
   square): the full proof's facts (`factsAt`), each
   with the first deduction level proving it (`levelsAt`). `known` holds,
   per action, the covered unflagged squares proved safe and mines; the
@@ -174,21 +174,21 @@ decisions. Otherwise:
   `categoriesMeasured` is false when any action falls under measurement
   notes, and the report rows (`categoryRate`) are then `unrecorded`.
 - Guess facts (`guessFacts(k, cell)`, spread into each guess event): one
-  `Justice.buildStructure(view, undefined, factsAt[k])` of the guess's
+  `GuardianAngel.buildStructure(view, undefined, factsAt[k])` of the guess's
   position serves all of them, built from pass 1's proof (`provenFacts`;
   `proveLevels` and `proveFacts` prove the same facts, so no position is
   proved twice). `connected`: the square is in the structure's
   `frontierSet` (beside an open number). Where the evaluation's
   `evidence.oddsMeasured` is true (the guess ledger measured it, so the
-  mode's mines move only under A just universe),
+  mode's mines move only under Guardian Angel),
   `Odds.analyzeView(view, { structure })` gives `safestConnectedRisk`
   (the lowest `pMine` of an unproven square in `frontierSet`) and
   `safestUnconnectedRisk` (of the others), each absent when no such
-  square exists. Where also `game.justiceEnabled === false`:
+  square exists. Where also `game.guardianAngelEnabled === false`:
   `minesFixed: true`, and `Odds.winChances(view, odds, cell)` gives
   `winMeasured` and, when measured, `winChance` and `bestWinChance`
   (layouts won over layouts, `Odds.ratio` of the BigInt counts). Where
-  `Justice.certifyEntries(view, [cell], structure)` certifies the square:
+  `GuardianAngel.certifyEntries(view, [cell], structure)` certifies the square:
   `unavoidable: true`, then a walk back over earlier decisions whose proof
   differs (`factsAt` repeats one proof object until the revealed count
   changes), while each certifies it (each with its own structure from
@@ -453,7 +453,7 @@ every row shown; a pick of a row not in `rowIds` drops out), and
 
 ## Tests
 
-- `tests/justice-test.js`, "Deduction levels": a board for each level
+- `tests/guardian-angel-test.js`, "Deduction levels": a board for each level
   with every square's first level worked out, the levels nested, and
   `proveLevels` against a separate proof per level there, on random
   constraint systems, and on a group of 160 squares and 2^80 + 2 layouts
@@ -474,7 +474,7 @@ every row shown; a pick of a row not in `rowIds` drops out), and
   the nearest safe square on a 4×3 board solved by counting (a chord
   worth 1, 1.5, then 3 3BV per click as its mines are flagged; every
   other level none all game), the guess facts on a 6×2 50/50 nothing
-  could ever settle (won, lost, under A just universe, and unmeasured by
+  could ever settle (won, lost, under Guardian Angel, and unmeasured by
   the ledger),
   averaging, the worker round trip and its throws, window-left spans, an
   unrecorded trace, the legend picks' click sequence, the catalog

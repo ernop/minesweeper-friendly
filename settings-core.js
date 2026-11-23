@@ -493,11 +493,15 @@ const SETTINGS_SCHEMA = [
     control: 'none',
   },
   {
-    field: 'justUniverse',
+    field: 'guardianAngel',
     default: true,
     valid: (v) => typeof v === 'boolean',
+    // Temporary: delete when active profiles have saved guardianAngel
+    // (BACKLOG.md, "Guardian Angel rename: step 2").
+    migrate: (stored) => (Object.hasOwn(stored, 'guardianAngel')
+      ? stored.guardianAngel : stored.justUniverse),
     group: 'gameplay',
-    label: 'a just universe',
+    label: 'guardian angel',
     // The one visible hint: the name alone cannot carry this meaning.
     hint: 'a guess that nothing else on the board could ever settle, like a boxed-in 50/50, never kills you',
     describe: 'when you click (not chord) a square in a guess that nothing else on the board could ever settle, that square is guaranteed safe, and every number shown and the mine count stay true; it covers 50/50s, chains of 50/50s, groups like 1 mine among 3 squares, and the last squares no number touches once the mine count fixes their mines; it never covers chords, guesses that opening other squares could still settle, or squares the numbers already prove',

@@ -1,7 +1,7 @@
 'use strict';
 // Known-answer tests for multidimensional action evidence, its
 // player-facing explanation, the derived session ending line, and the
-// Justice recap wording.
+// Guardian Angel recap wording.
 
 const fs = require('fs');
 const vm = require('vm');
@@ -12,7 +12,7 @@ const source = require('./game-source.js').source;
 const startIdx = source.indexOf('//-------GAME-END EVALUATION: VERDICT');
 const endIdx = source.indexOf('//-------GAME-END EVALUATION: CAPTURE');
 if (startIdx === -1 || endIdx === -1) throw new Error('section markers not found');
-globalThis.Justice = require(path.join(repo, 'justice.js'));
+globalThis.GuardianAngel = require(path.join(repo, 'guardian-angel.js'));
 globalThis.Odds = require(path.join(repo, 'odds.js'));
 vm.runInThisContext(source.slice(startIdx, endIdx));
 for (const file of ['game-data.js', 'during-game.js']) {
@@ -394,11 +394,11 @@ assertEq('fatal label says minimum-risk choice still lost',
   'died despite choosing a minimum-risk forced guess');
 assertContains('best-risk death is explained', actionEvaluationText(bestRiskDeath), 'lowest measured');
 
-const justiceSafeDeath = { ...bestRiskDeath,
+const guardianAngelSafeDeath = { ...bestRiskDeath,
   evidence: { ...bestRiskDeath.evidence, actualRisk: 0.25, bestActualRisk: 0, bestActualRiskTaken: false } };
-assertEq('a death past an entry A Just Universe made safe is needless',
-  evaluationEndingKind(justiceSafeDeath), 'needless');
-assertContains('and says so', actionEvaluationText(justiceSafeDeath), 'A Just Universe guaranteed a safe entry elsewhere');
+assertEq('a death past an entry Guardian Angel made safe is needless',
+  evaluationEndingKind(guardianAngelSafeDeath), 'needless');
+assertContains('and says so', actionEvaluationText(guardianAngelSafeDeath), 'Guardian Angel guaranteed a safe entry elsewhere');
 
 const uncertainChordDeath = {
   version: ACTION_EVALUATION_VERSION,
@@ -495,7 +495,7 @@ const protectedGuess = {
   evidence: {
     chosenRisk: 0.4, bestRisk: 0.2,
     actualRisk: 0, bestActualRisk: 0,
-    justiceProtected: true,
+    guardianAngelProtected: true,
   },
 };
 assertEq('protected legacy risk tag becomes a note, not game risk',
@@ -661,34 +661,34 @@ assertEq('summary quantifies survived excess risk',
 assertEq('summary quantifies modeled-life gap',
   Number(summary.modeledLifeGap.toFixed(3)), 0.2);
 
-// The Justice recap: the rule is cited by name, the count is right, and
+// The Guardian Angel recap: the rule is cited by name, the count is right, and
 // the wording stays strictly in the player's point of view — a forced
 // flip is a forced flip; no "actual" mine reality is ever revealed.
 assertContains('recap cites the rule',
-  justiceRecapText(2), 'A Just Universe');
+  guardianAngelRecapText(2), 'Guardian Angel');
 assertContains('recap counts the flips',
-  justiceRecapText(2), '2 forced coinflips');
-assertContains('recap singular', justiceRecapText(1), 'a forced coinflip');
+  guardianAngelRecapText(2), '2 forced coinflips');
+assertContains('recap singular', guardianAngelRecapText(1), 'a forced coinflip');
 assertEq('recap never reveals mine reality',
-  /redraw|moved|already clear|mined/.test(justiceRecapText(3)), false);
+  /redraw|moved|already clear|mined/.test(guardianAngelRecapText(3)), false);
 const seaDetail = { type: 'sea', squareCount: 5, mineCount: 2, clearWays: 3, totalWays: 5 };
 assertEq('event detail names a 50/50 plainly',
-  justiceEventDetail({ type: 'cardinality', squareCount: 2, mineCount: 1, clearWays: 1, totalWays: 2 }, 0),
+  guardianAngelEventDetail({ type: 'cardinality', squareCount: 2, mineCount: 1, clearWays: 1, totalWays: 2 }, 0),
   '#1: a 50/50 \u2014 a forced coinflip, won.');
 assertContains('event detail names a chain of 50/50s',
-  justiceEventDetail({ type: 'complement', squareCount: 6, mineCount: 3, clearWays: 1, totalWays: 2 }, 1),
+  guardianAngelEventDetail({ type: 'complement', squareCount: 6, mineCount: 3, clearWays: 1, totalWays: 2 }, 1),
   'a chain of 50/50s over 6 squares');
 assertContains('event detail counts mines among squares',
-  justiceEventDetail({ type: 'cardinality', squareCount: 3, mineCount: 1, clearWays: 2, totalWays: 3 }, 0),
+  guardianAngelEventDetail({ type: 'cardinality', squareCount: 3, mineCount: 1, clearWays: 2, totalWays: 3 }, 0),
   '1 mine among 3 squares (2 in 3 safe)');
 assertContains('event detail names the untouched squares',
-  justiceEventDetail(seaDetail, 0),
+  guardianAngelEventDetail(seaDetail, 0),
   '2 mines among the last 5 squares no number touches (3 in 5 safe)');
 assertContains('event detail calls the entry a won coinflip',
-  justiceEventDetail({ type: 'complement', squareCount: 2, mineCount: 1, clearWays: 1, totalWays: 2 }, 1),
+  guardianAngelEventDetail({ type: 'complement', squareCount: 2, mineCount: 1, clearWays: 1, totalWays: 2 }, 1),
   'a forced coinflip, won');
 assertEq('event detail never reveals mine reality',
-  /redraw|moved|already clear|mined/.test(justiceEventDetail(seaDetail, 0)),
+  /redraw|moved|already clear|mined/.test(guardianAngelEventDetail(seaDetail, 0)),
   false);
 
 // Loss types refine the fatal status with facts from the saved position.
@@ -741,9 +741,9 @@ assertEq('a needless guess carries the safe square tier only',
   [needless.evidence.mineProofTier, needless.evidence.safeProofTier].join(','), ',overlap');
 assertEq('a needless guess graded by the safe square tier', lossTypeOf(needless), 'guess-safe-overlap');
 assertEq('the loss kind is the same loss type', lossKindOf(needless), 'guess-safe-overlap');
-const justiceOnly = fatalReveal(2, { width: 3, height: 1, mines: 1, cells: '...' },
+const guardianAngelOnly = fatalReveal(2, { width: 3, height: 1, mines: 1, cells: '...' },
   { safeAvailable: false, chosenRisk: 1 / 3, bestRisk: 1 / 3, actualRisk: 1 / 3, bestActualRisk: 0 }, []);
-assertEq('a guess past an A Just Universe safe entry', lossTypeOf(justiceOnly), 'guess-safe-justice');
+assertEq('a guess past a Guardian Angel safe entry', lossTypeOf(guardianAngelOnly), 'guess-safe-guardian-angel');
 // A 1 already carrying its flag declares its other neighbors safe, so
 // opening a mine beside it proves the flag wrong, whatever the odds said.
 const flagSatisfied = fatalReveal(2, { width: 3, height: 1, mines: 1, cells: 'F1.' },
@@ -930,7 +930,7 @@ assertEq('the captured wrong-flag tag is the other reason',
       selected: [square], result: 'continued', mistakes: [], alternatives: [], choices: [],
       evidence: { playMode: 'standard', boardProgress: 0.8, firstReveal: false, startedGame: false },
       position: { width: 9, height: 9, mines: 10, cells } };
-    const result = completeGameEvaluations({ events: [{ kind: 'decision', evaluation }], justiceEnabled: false,
+    const result = completeGameEvaluations({ events: [{ kind: 'decision', evaluation }], guardianAngelEnabled: false,
       guessLedger: true }, DuringGame.positionProofs());
     return { evaluation, result };
   };
@@ -973,7 +973,7 @@ assertEq('the captured wrong-flag tag is the other reason',
     selected: [6 * 16 + 14], result: 'continued', mistakes: [], alternatives: [], choices: [],
     evidence: { playMode: 'standard', boardProgress: 161 / 216, firstReveal: false, startedGame: false },
     position: { width: 16, height: 16, mines: 40, cells } };
-  completeGameEvaluations({ events: [{ kind: 'decision', evaluation }], justiceEnabled: false,
+  completeGameEvaluations({ events: [{ kind: 'decision', evaluation }], guardianAngelEnabled: false,
     guessLedger: true }, DuringGame.positionProofs());
   assertEq('a guess past proven-safe squares is below the best one-move life', evaluation.mistakes.join(),
     'guessed-with-safe-move,chose-lower-modeled-life');

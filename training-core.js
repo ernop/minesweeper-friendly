@@ -49,7 +49,7 @@ function trainingNeighborLists(width, height) {
 }
 
 // The mines the game's clicks met. A saved final board is the layout after
-// any Justice redraw; redraws only rearrange covered sealed pockets without
+// any Guardian Angel redraw; redraws only rearrange covered sealed pockets without
 // changing a revealed number, so every recorded input replays identically on
 // it. Older traces without a final board are rebuilt from the seed and the
 // first reveal, which is exact unless a redraw happened; replay then detects

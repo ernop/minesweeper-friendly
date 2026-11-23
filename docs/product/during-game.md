@@ -247,8 +247,8 @@ Built the same day:
     allows as equally likely, as the ledger's risks do, and plays each
     remaining layout as well as any strategy can: it opens every square no
     remaining layout mines before it guesses again. It is shown only where
-    the mines were fixed: the ledger measured the guess and A just universe
-    was off, since A just universe moves mines. It is an exact count of
+    the mines were fixed: the ledger measured the guess and Guardian Angel
+    was off, since Guardian Angel moves mines. It is an exact count of
     layouts won. Since 2026-10-27 (the creator: "there should be a proper
     way to actually calculate this"), the board is first split into
     separate games: groups of squares no number, open or still to open,
@@ -281,7 +281,7 @@ Built the same day:
     the 2026-11-02 guesses, a limit 10 times higher computes 7 more Expert
     guesses (123 of 387) at up to 61 ms a guess, and 100 times higher 14
     more (130) at up to 259 ms.
-  - "Nothing else on the board could ever settle it" is A just universe's
+  - "Nothing else on the board could ever settle it" is Guardian Angel's
     test for a guess it would protect, applied to the position before the
     guess in every mode. The wait runs back over the unbroken run of
     positions where the test held, to the click that began it. (Until

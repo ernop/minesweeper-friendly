@@ -158,6 +158,25 @@ standardize"). One control keeps its own look:
   the select's look or the shared button look with its pressed state.
   Not yet changed.
 
+## Guardian Angel rename: step 2 (step 1 built 2026-11-23)
+
+When "A Just Universe" was renamed to "Guardian Angel" on 2026-11-23
+([Guardian Angel](docs/product/guardian-angel.md)), step 1 added:
+- the database version-8 upgrade (`storage.js`, `RENAMED_RECORD_FIELDS` and
+  `renameRecordFields` renaming `justice`, `justiceEnabled`, `justiceVersion`,
+  and `actionEvaluations[].evidence.justiceProtected` in saved records and the
+  trial session's attempts, plus `cleanTransferredGameRecord` on backup
+  import);
+- the read-time setting migration (`settings-core.js`, reading `justUniverse`
+  when `guardianAngel` is absent).
+
+Step 2 deletes the version-8 rename shim for the Guardian Angel fields, the
+`justUniverse` setting migration, the "named ... before 2026-11-23" schema
+notes, and their old-name migration tests once active players' browsers have
+loaded step 1 (historical `guardianAngelVersion` stamps `'just-universe-v3'`,
+`'just-universe-v4'`, `'sealed-pocket-mercy-v1'`, `'sealed-pocket-mercy-v2'`
+and the historical `justiceSaves` field stay accepted on existing records).
+
 ## Legacy panel cleanup: `panels.gameDetails` step 2 (step 1 built 2026-11-19)
 
 When the Game details popover was replaced by the adaptive below-board dock
@@ -246,7 +265,7 @@ Proposed, not decided:
     click; or forced guesses only, each at the lowest risk available;
   - *won despite avoidable risk*: a guess while a square was proven safe, by
     the easiest proof of a safe square (counting single numbers, comparing
-    overlapping numbers, whole-board reasoning, or only A Just Universe's
+    overlapping numbers, whole-board reasoning, or only Guardian Angel's
     guarantee); otherwise a riskier guess than necessary, after the opening
     or in the opening only;
   - guesses not measured (records from before the guess ledger).
@@ -256,7 +275,7 @@ Proposed, not decided:
   nine tenths open; Beginner: 7 or fewer safe squares left).
 - **Lost, level 3, what** the fatal click was, the first that applies: wrong
   flag; opened a proven mine (by proof level); guessed while a square was
-  proven safe (by proof level, or A Just Universe); a riskier guess than
+  proven safe (by proof level, or Guardian Angel); a riskier guess than
   necessary (after the opening, near or far as today); a forced guess at the
   lowest risk available. Proof-or-die rule deaths (saved games of that mode,
   removed 2026-10-21) and unmeasured risk keep their own rows; losses
@@ -378,7 +397,7 @@ kind, and settle the tree's levels and thresholds: how much riskier counts,
 whether a safe square only whole-board reasoning finds counts against the
 player, whether a win's flag mistakes matter. A game's avoidable risk comes
 from the actual risks its saved moves record, not from the guess ledger,
-whose totals deliberately keep raw mine chances under A Just Universe
+whose totals deliberately keep raw mine chances under Guardian Angel
 ([per-game stats](docs/product/per-game-stats.md), "Life lost"); the quiz
 measures wins that way.
 
@@ -782,7 +801,7 @@ game instead of rewriting the whole history twice per game. Not built:
    (about 90ms in Firefox, every click on them) and ended incomplete; the
    proof now always completes, at most 3.7 ms on 1,736 simulated Expert
    positions in Node. It completes proofs that used to stop, so in those
-   positions A just universe now applies its rule and the evaluation can
+   positions Guardian Angel now applies its rule and the evaluation can
    name a mistake it withheld. No version changed for it: the proof's
    definition (`proofVersion` `all-consistent-layouts-v1`, every consistent
    layout) is the same, each saved evaluation records whether its proof
@@ -793,7 +812,7 @@ game instead of rewriting the whole history twice per game. Not built:
    "we MUST not block the input thread": a click saves its board, and the
    reports worker judges every decision at game end
    ([Game-end evaluation](docs/product/game-end-evaluation.md), "When it is
-   judged"). Only A Just Universe's certification and Angelic play's mine
+   judged"). Only Guardian Angel's certification and Angelic play's mine
    move still prove on the click, since they decide what it opens.
 3. **Remaining freezes found by attributed measurement (2026-09-26).** In
    Firefox with the stats panel open, all measured as our own code:
@@ -1159,13 +1178,13 @@ Derived session result: a
 
 - **Kaboom.** Mines stay unfixed; any unforced guess is a mine, forced
   guesses are always safe.
-- **Justice v1 family expansion.** Asymmetric or exotic sealed structure
+- **Guardian Angel v1 family expansion.** Asymmetric or exotic sealed structure
   still refused. Angelic mode (2026-08-21) is the rest of the dual for
   play: any cell that is not a proven mine is made safe. Expanding
-  Justice certificates is a further step. Built 2026-10-21: groups are
+  Guardian Angel certificates is a further step. Built 2026-10-21: groups are
   judged one by one inside a connected region, so 50/50s and k-of-n
   groups joined by a shared number qualify
-  ([A just universe](docs/product/just-universe.md)). Built 2026-10-26: a
+  ([Guardian Angel](docs/product/guardian-angel.md)). Built 2026-10-26: a
   chain with unequal sides qualifies when the last squares no number
   touches make up exactly the difference and the mine count leaves just
   two layouts (creator report of a loss on that shape). Still refused: a
@@ -1186,9 +1205,9 @@ Generation that aims at the same families the new lists rank:
 
 ## Deferred product (already decided, not built)
 
-- **Separate Justice-on and Justice-off rankings: decided against
+- **Separate Guardian-Angel-on and Guardian-Angel-off rankings: decided against
   (2026-08-23).** Originally deferred 2026-08-20. The creator confirmed
-  the mixed lists are the product: Justice stays on and its games rank
+  the mixed lists are the product: Guardian Angel stays on and its games rank
   within the same lists. Not open for revisiting without a new explicit
   request.
 - **Per-stage motion-stat configurability.** Which metrics appear live
@@ -1252,10 +1271,10 @@ Generation that aims at the same families the new lists rank:
     report's active-rules risk line read it; "a square was proven safe"
     reads a lowest risk of exactly 0. Two readers still compare stored
     decimals within 10^-12: the report's raw risk line ("tied"), shown when
-    A Just Universe made the active risks differ, and whether the raw and
+    Guardian Angel made the active risks differ, and whether the raw and
     active risks are the same line. A gap smaller than that needs more than
-    10^12 layouts in play. Exact: save the raw verdict and whether A Just
-    Universe changed either risk. Saved games keep the tolerance where
+    10^12 layouts in play. Exact: save the raw verdict and whether Guardian
+    Angel changed either risk. Saved games keep the tolerance where
     their decimals came from raw odds (until 2026-08-23) or the listing.
 - **Deeper than one-move perfect play.** Current `guessPerfect` is
   expected remaining life after one number observation. A full
@@ -1467,7 +1486,7 @@ the one a reload brings back. Not built:
   Its mines can be rebuilt from the seed and the first reveal where the
   generator allows it, and its finished board by replaying its inputs, as
   the training worker does ([Training](docs/implementation/training.md),
-  "Replay"; exact unless a Justice redraw happened, which the replay
+  "Replay"; exact unless a Guardian Angel redraw happened, which the replay
   detects). Open: whether those traces carry what the replay transport and
   the live perf charts read (each move's recorded position), or those parts
   stay off for such games.
@@ -1500,7 +1519,7 @@ the one a reload brings back. Not built:
   "3BV N"; board-shape time lists (has 8 / has 7 / max 4 / max 3 /
   max 2 / islands / largest island / zeros); average-time charts; streaks;
   five relationship scatters; markless; states; settings; traces; four in-page motion
-  systems; "A just universe" v1; play-mode switcher; Angelic; Trial (25 identities × 4
+  systems; "Guardian Angel" v1; play-mode switcher; Angelic; Trial (25 identities × 4
   isometries, lobby → start → repeat-comparison review); Short
   trial (4 × 4); Test trial (1 × 4); correctness / throughput / IOS
   (derived); guess ledger (life lost, needless, ideal-risk, one-move

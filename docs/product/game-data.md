@@ -763,7 +763,7 @@ No longer displayed by this replacement (still in saved records or derivable):
 - State tags and music-playing status.
 - Separate throughput value: the same fact is represented by efficiency.
 - When full report scope previously exposed them: raw no-op/misclick counts,
-  flag removals/rate, Justice count, guess/life-ledger facts, and report-category
+  flag removals/rate, Guardian Angel count, guess/life-ledger facts, and report-category
   counts/magnitudes. Their report/trace/session sources are not erased. The
   flag-removal rate and the report categories' rates and magnitudes returned
   on 2026-10-20 as optional rows.

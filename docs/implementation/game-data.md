@@ -333,7 +333,7 @@ Spec: [Switch cost line](../product/game-data.md#switch-cost-line-creator-reques
   times, so a pool whose games did not change (the latest 500 when another
   session is picked, or the session when it holds the same games as a
   window) is not fitted again.
-  `solver.js` needs `justice.js` loaded first.
+  `solver.js` needs `guardian-angel.js` loaded first.
 - `game/switch-cost-line.js` (page only, so the analysis worker's imports
   never reach it):
   - `buildSwitchCostLine(record)`: built by the game data task's chart

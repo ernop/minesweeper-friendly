@@ -6,7 +6,7 @@
 //
 // For every reveal and flag in a game (shared format from corpus_actions.py and
 // user_games.js, with its mine layout), the visible board before the move is
-// run through the game's own proof engine (justice.js) at three strengths:
+// run through the game's own proof engine (guardian-angel.js) at three strengths:
 //   one      a single number settles the cell (counting alone);
 //   two      two overlapping numbers settle it (the pairwise difference rule:
 //            1-1 and 1-2 against a wall, reductions around known mines);
@@ -48,7 +48,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const Justice = require(path.join(__dirname, '..', '..', 'justice.js'));
+const GuardianAngel = require(path.join(__dirname, '..', '..', 'guardian-angel.js'));
 
 const W = 30;
 const H = 16;
@@ -126,14 +126,14 @@ function clueList(revealed, adjacent) {
 function settle(revealed, adjacent) {
   const view = { width: W, height: H, mines: MINES, revealed, adjacent };
   const clues = clueList(revealed, adjacent);
-  const [counting, overlap] = Justice.DEDUCTION_LEVELS;
-  const one = Justice.proveFacts(view, clues, counting.proof);
-  const two = Justice.proveFacts(view, clues, overlap.proof);
+  const [counting, overlap] = GuardianAngel.DEDUCTION_LEVELS;
+  const one = GuardianAngel.proveFacts(view, clues, counting.proof);
+  const two = GuardianAngel.proveFacts(view, clues, overlap.proof);
   return { view, clues, one, two };
 }
 
 function exactFacts(state) {
-  return Justice.proveFacts(state.view, state.clues);
+  return GuardianAngel.proveFacts(state.view, state.clues);
 }
 
 function exactFact(state, cell) {

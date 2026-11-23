@@ -6,7 +6,7 @@
 // chart, and event track catalog and the rows' defaults, which the settings
 // schema reads on both pages; the per-game model and the rows' drawn series,
 // which the analysis worker builds from the finished game's trace with the
-// prover (justice.js), saved positions and square distances
+// prover (guardian-angel.js), saved positions and square distances
 // (game/evaluation.js), the hand-at-rest rule and the median
 // (game/trace-metrics.js), and the replay's frame order
 // (game/replay-model.js); the record's move habits and fastclick gap, which
@@ -48,8 +48,8 @@ const DuringGame = (() => {
 
   // 3BV's units on the final layout, as pregen.js board3BV counts them: each
   // zero region is one unit, solved once any of its zeros is open; each
-  // number touching no zero is one unit, solved when it is open. A Justice
-  // redraw keeps every visible number, so the final layout floods every
+  // number touching no zero is one unit, solved when it is open. A Guardian
+  // Angel redraw keeps every visible number, so the final layout floods every
   // earlier position exactly as the game did.
   function boardUnits(width, height, mineAt) {
     const size = width * height;
@@ -264,11 +264,11 @@ const DuringGame = (() => {
 
   // The covered, unflagged squares each deduction level is the first to
   // prove safe, and those it is the first to prove mines, by level id
-  // (Justice.proveLevels).
+  // (GuardianAngel.proveLevels).
   function countsByLevel(proof, flagged) {
     const safe = {};
     const mines = {};
-    for (const level of Justice.DEDUCTION_LEVELS) {
+    for (const level of GuardianAngel.DEDUCTION_LEVELS) {
       safe[level.id] = 0;
       mines[level.id] = 0;
     }
@@ -285,7 +285,7 @@ const DuringGame = (() => {
   const NO_MOVE = 'none';
 
   // One proof's facts by square for the per-action passes: `fact` (0 none,
-  // 1 mine, 2 safe), `rank` (the index in Justice.DEDUCTION_LEVELS of the
+  // 1 mine, 2 safe), `rank` (the index in GuardianAngel.DEDUCTION_LEVELS of the
   // first level proving it, which `rankOf` maps from its id), and the
   // proven-safe squares.
   function proofSquares(proof, size, rankOf) {
@@ -305,19 +305,19 @@ const DuringGame = (() => {
   // reads only the open numbers, and within one game they only grow, so the
   // count of open squares names the position. Each proof starts from the
   // latest earlier one's facts, and each group of numbers left open is
-  // counted once in the game (Justice.proveLevels' groupCounts): a click
+  // counted once in the game (GuardianAngel.proveLevels' groupCounts): a click
   // changes only the groups beside it. The reports worker proves a game's
   // positions when it ends, for its evaluation (completeGameEvaluations) and
   // then the model, which read the same proofs.
   function positionProofs() {
-    const rankOf = new Map(Justice.DEDUCTION_LEVELS.map((level, rank) => [level.id, rank]));
+    const rankOf = new Map(GuardianAngel.DEDUCTION_LEVELS.map((level, rank) => [level.id, rank]));
     const byOpenCount = new Map();
     const groupCounts = new Map();
     return {
       structureOf(position) {
         const proven = this.of(position);
         if (proven.structure === undefined) {
-          proven.structure = Justice.buildStructure(positionView(position), undefined, proven.proof.facts);
+          proven.structure = GuardianAngel.buildStructure(positionView(position), undefined, proven.proof.facts);
         }
         return proven.structure;
       },
@@ -343,7 +343,7 @@ const DuringGame = (() => {
             }
           }
           const view = positionView(position);
-          const proof = Justice.proveLevels(view, Justice.rawClues(view), earlier, groupCounts);
+          const proof = GuardianAngel.proveLevels(view, GuardianAngel.rawClues(view), earlier, groupCounts);
           proven = { proof, squares: proofSquares(proof, position.width * position.height, rankOf) };
           byOpenCount.set(openCount, proven);
         }
@@ -364,7 +364,7 @@ const DuringGame = (() => {
   // could be opened by such a move. `squares` is proofSquares', `around`
   // each square's neighbors.
   function mostBvPerClick(squares, around, revealed, flagged, board) {
-    const best = Justice.DEDUCTION_LEVELS.map(() => null);
+    const best = GuardianAngel.DEDUCTION_LEVELS.map(() => null);
     const consider = (rank, value) => {
       if (best[rank] === null || value > best[rank]) best[rank] = value;
     };
@@ -398,7 +398,7 @@ const DuringGame = (() => {
       if (proven) consider(hardest, units.size / clicks);
     }
     const byLevel = {};
-    Justice.DEDUCTION_LEVELS.forEach((level, rank) => {
+    GuardianAngel.DEDUCTION_LEVELS.forEach((level, rank) => {
       byLevel[level.id] = best[rank] === null ? NO_MOVE : best[rank];
     });
     const offered = best.filter((value) => value !== null);
@@ -411,7 +411,7 @@ const DuringGame = (() => {
   // move counts). NO_MOVE where no such square was proven; null where such
   // squares were proven before any board-changing click.
   function stepsToSafe(squares, flagged, lastMoveCell, width) {
-    const nearest = Justice.DEDUCTION_LEVELS.map(() => null);
+    const nearest = GuardianAngel.DEDUCTION_LEVELS.map(() => null);
     for (const cell of squares.safe) {
       if (flagged.has(cell)) continue;
       const rank = squares.rank[cell];
@@ -421,7 +421,7 @@ const DuringGame = (() => {
     }
     const valueOf = (steps) => (steps === null ? NO_MOVE : steps === Infinity ? null : steps);
     const byLevel = {};
-    Justice.DEDUCTION_LEVELS.forEach((level, rank) => {
+    GuardianAngel.DEDUCTION_LEVELS.forEach((level, rank) => {
       byLevel[level.id] = valueOf(nearest[rank]);
     });
     const proven = nearest.filter((steps) => steps !== null);
@@ -525,8 +525,8 @@ const DuringGame = (() => {
     }
   }
 
-  // game: { width, height, mines (the final layout), justiceEnabled (the
-  // record's: whether A just universe was on; absent on games from before
+  // game: { width, height, mines (the final layout), guardianAngelEnabled (the
+  // record's: whether Guardian Angel was on; absent on games from before
   // it was recorded), timeMs, outcome, t, x, y (cursor samples), merged (the
   // observations they replaced), events, initialPageState, proofs
   // (positionProofs' for this game) }. The time axis is gameClock's.
@@ -574,7 +574,7 @@ const DuringGame = (() => {
     // board-changing action; the chordable numbers; and of all levels and
     // of each, the most 3BV per click of a proven move and the steps from
     // the last board-changing action to the nearest proven-safe square.
-    const levelLists = () => Object.fromEntries(Justice.DEDUCTION_LEVELS.map((level) => [level.id, []]));
+    const levelLists = () => Object.fromEntries(GuardianAngel.DEDUCTION_LEVELS.map((level) => [level.id, []]));
     const known = { startMs: [], safe: [], mines: [], safeByLevel: levelLists(), minesByLevel: levelLists(),
       areas: [], safeCells: [], minesByCountingNearLastMove: [], chordableNumbers: [],
       mostBvPerClick: [], mostBvPerClickByLevel: levelLists(), stepsToSafe: [], stepsToSafeByLevel: levelLists() };
@@ -599,7 +599,7 @@ const DuringGame = (() => {
       for (const [cell, fact] of full) if (fact === 1 && !flagged.has(cell)) mines++;
       known.mines.push(mines);
       const byLevel = countsByLevel(proof, flagged);
-      for (const level of Justice.DEDUCTION_LEVELS) {
+      for (const level of GuardianAngel.DEDUCTION_LEVELS) {
         known.safeByLevel[level.id].push(byLevel.safe[level.id]);
         known.minesByLevel[level.id].push(byLevel.mines[level.id]);
       }
@@ -622,7 +622,7 @@ const DuringGame = (() => {
       const reach = stepsToSafe(squares, flagged, lastMoveCell, width);
       known.mostBvPerClick.push(useful.all);
       known.stepsToSafe.push(reach.all);
-      for (const level of Justice.DEDUCTION_LEVELS) {
+      for (const level of GuardianAngel.DEDUCTION_LEVELS) {
         known.mostBvPerClickByLevel[level.id].push(useful.byLevel[level.id]);
         known.stepsToSafeByLevel[level.id].push(reach.byLevel[level.id]);
       }
@@ -685,10 +685,10 @@ const DuringGame = (() => {
     // the mines were also fixed, perfect play's chance to win after opening
     // the guessed square and at best (Odds.winChances), or that the exact
     // search stopped at its work limit; and where nothing else could ever
-    // settle the guess (Justice's sealed pockets), since when that had held
+    // settle the guess (Guardian Angel's sealed pockets), since when that had held
     // without a break, which the walk back reads from the proofs of pass 1.
-    // The ledger measures only modes whose mines never move unless A just
-    // universe moves them (guessLedgerAppliesTo).
+    // The ledger measures only modes whose mines never move unless Guardian
+    // Angel moves them (guessLedgerAppliesTo).
     const guessFacts = (k, cell) => {
       const evaluation = decisions[k].evaluation;
       const view = positionView(evaluation.position);
@@ -704,7 +704,7 @@ const DuringGame = (() => {
         }
         if (connected !== Infinity) facts.safestConnectedRisk = connected;
         if (unconnected !== Infinity) facts.safestUnconnectedRisk = unconnected;
-        if (game.justiceEnabled === false) {
+        if (game.guardianAngelEnabled === false) {
           facts.minesFixed = true;
           const chances = Odds.winChances(view, odds, cell);
           facts.winMeasured = chances.measured;
@@ -714,14 +714,14 @@ const DuringGame = (() => {
           }
         }
       }
-      if (Justice.certifyEntries(view, [cell], structure).has(cell)) {
+      if (GuardianAngel.certifyEntries(view, [cell], structure).has(cell)) {
         facts.unavoidable = true;
         let since = k;
         while (since > 0) {
           const before = factsAt[since - 1];
           if (before !== factsAt[since]) {
             const earlier = decisions[since - 1].evaluation.position;
-            if (!Justice.certifyEntries(positionView(earlier), [cell], game.proofs.structureOf(earlier)).has(cell)) break;
+            if (!GuardianAngel.certifyEntries(positionView(earlier), [cell], game.proofs.structureOf(earlier)).has(cell)) break;
           }
           since--;
         }

@@ -5,9 +5,9 @@
 // posts the summary. It only reads. The page's storage.js owns opening and
 // upgrading the database and sends the names and version it opened.
 
-importScripts('justice.js?v=20261103-worker-evaluation', 'solver.js?v=20261103-worker-evaluation', 'rng.js',
-  'game/evaluation.js?v=20261119-perf-charts-motion', 'game-data.js?v=20261107-score-lists',
-  'training-core.js?v=20261027-field-names');
+importScripts('guardian-angel.js?v=20261123-guardian-angel', 'solver.js?v=20261123-guardian-angel', 'rng.js',
+  'game/evaluation.js?v=20261123-guardian-angel', 'game-data.js?v=20261107-score-lists',
+  'training-core.js?v=20261123-guardian-angel');
 
 function requestResult(request) {
   return new Promise((resolve, reject) => {

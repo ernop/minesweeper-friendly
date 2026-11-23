@@ -5,7 +5,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 ## Storage (decided 2026-08-20)
 
 - All persistent data lives in one IndexedDB database
-  (`minesweeper-friendly`, version 7) with five stores: `userdata`
+  (`minesweeper-friendly`, version 8) with five stores: `userdata`
   (personal preferences, trial sessions, and play limits — one entry per kind),
   `records` (one game record per finished game), `traces` (one entry per finished game),
   `selfChecks` (one record per [self-check](self-check.md), keyed by
@@ -33,12 +33,15 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   name ([Measurement catalog](measurement-catalog.md), "Divergences
   resolved 2026-10-27"): `clicks` becomes `boardChangingClicks`,
   `wastedClicks` becomes `noOpClicks`, and `movesRanOut` becomes
-  `movesMovedOn`. The upgrade rewrites every saved record and the trial
-  session's attempts once, on the first load of the release (8,203 records
-  in the creator's 2026-10-11 export), and importing a backup that still
-  uses the old names renames them in its records. A database moving
-  history out of userdata in the same upgrade renames each record as it
-  moves it.
+  `movesMovedOn`. Version 8 (2026-11-23) renames the Guardian Angel fields
+  ([Guardian Angel](guardian-angel.md)): `justice` becomes `guardianAngel`,
+  `justiceEnabled` becomes `guardianAngelEnabled`, `justiceVersion` becomes
+  `guardianAngelVersion`, and `actionEvaluations[].evidence.justiceProtected`
+  becomes `guardianAngelProtected`. The upgrade rewrites every saved record
+  and the trial session's attempts once, on the first load of the release,
+  and importing a backup that still uses the old names renames them in its
+  records. A database moving history out of userdata in the same upgrade
+  renames each record as it moves it.
 - Open game tabs never erase each other's games. Found 2026-09-26: with the
   game open in two windows, the whole-history value was rewritten from one
   tab's older copy, dropping the 11 games finished in the other tab between
@@ -122,7 +125,10 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   three record fields (version 7, above); its upgrade step and the import's
   renaming are the code a later release deletes. The creator set that
   deletion for 2026-11-05 or any later day (2026-10-29;
-  [BACKLOG.md](../../BACKLOG.md), "Record field names: step 2").
+  [BACKLOG.md](../../BACKLOG.md), "Record field names: step 2"). The third
+  renames the Guardian Angel record fields (version 8, above) and setting
+  (`justUniverse` to `guardianAngel`); its step 2 is tracked in
+  [BACKLOG.md](../../BACKLOG.md), "Guardian Angel rename: step 2".
 
 ## Raw input traces (decided 2026-08-20)
 
@@ -370,8 +376,10 @@ browser, its profile, and this origin.
   - `README.txt` describes all of this for a reader without the app.
 - **Format.** Each item is gzip-compressed UTF-8 JSON holding `format`,
   `formatVersion`, and the item. Version 2 (2026-10-27) renamed three game
-  record fields (Storage, "Version 7"); items written before keep version 1
-  and the old names, which `README.txt` lists. The formats are
+  record fields (Storage, "Version 7"); version 3 (2026-11-23) renamed the
+  Guardian Angel game record and trace fields (Storage, "Version 8"). Items
+  written before keep their earlier format versions and field names, which
+  `README.txt` lists. The formats are
   `minesweeper-friendly-game-record` with `{ mode, record }`,
   `minesweeper-friendly-trace` with `{ trace }`,
   `minesweeper-friendly-self-check` with `{ selfCheck }`,

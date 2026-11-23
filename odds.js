@@ -1,12 +1,12 @@
 'use strict';
 
-if (typeof Justice === 'undefined') {
-  globalThis.Justice = require('./justice.js');
+if (typeof GuardianAngel === 'undefined') {
+  globalThis.GuardianAngel = require('./guardian-angel.js');
 }
 
 // Remaining-layout odds for a player view, counted exactly. Every layout
 // the visible board allows is equally likely, so a square's mine chance is
-// the layouts mining it over all layouts. Justice's layout counter counts
+// the layouts mining it over all layouts. GuardianAngel's layout counter counts
 // each group of squares the numbers link, without listing them, and the
 // groups join the sea (the squares no number touches) by their mine counts.
 // Nothing stops at a limit. Counts are BigInts, so every fact and every
@@ -36,7 +36,7 @@ function multiplyRows(a, b, maxMines) {
 // out[k] = choose(seaSize, mines - k) for k below `length`: the sea's
 // layouts when the rest of the board holds k of `mines`.
 function seaRow(seaSize, mines, length) {
-  return Justice.chooseRange(seaSize, mines - length + 1, mines).reverse();
+  return GuardianAngel.chooseRange(seaSize, mines - length + 1, mines).reverse();
 }
 
 // num / den as a number, for 0 <= num <= den. Past a double's range both
@@ -50,11 +50,11 @@ function ratio(num, den) {
   return Number(num >> bits) / Number(den >> bits);
 }
 
-// opts.structure: Justice.buildStructure's for this view when the caller
+// opts.structure: GuardianAngel.buildStructure's for this view when the caller
 // already holds it, else built here. Throws when no layout fits the view.
 function analyzeView(view, opts) {
   opts = opts || {};
-  const structure = opts.structure === undefined ? Justice.buildStructure(view) : opts.structure;
+  const structure = opts.structure === undefined ? GuardianAngel.buildStructure(view) : opts.structure;
   const size = view.width * view.height;
   const needs = structure.clues.map((clue) => clue.count);
   const minesLeft = view.mines - structure.provenMineCount;
@@ -62,7 +62,7 @@ function analyzeView(view, opts) {
   let frontierSize = 0;
   const groups = structure.components.map(({ cells }) => {
     frontierSize += cells.length;
-    const counted = Justice.countGroup(cells, structure.cluesOfCell, needs, null);
+    const counted = GuardianAngel.countGroup(cells, structure.cluesOfCell, needs, null);
     const dense = (counts) => {
       const row = counts.length > 0 ? counts[0].slice(0, cells.length + 1) : [];
       while (row.length < cells.length + 1) row.push(0n);
@@ -168,7 +168,7 @@ function lifeLayouts(view, odds, cell, cache) {
   if (fact === 1) return 0n;
   const tracked = [];
   let provenAround = 0;
-  for (const neighbor of Justice.neighbors(cell, view.width, view.height)) {
+  for (const neighbor of GuardianAngel.neighbors(cell, view.width, view.height)) {
     if (view.revealed[neighbor]) continue;
     const neighborFact = structure.facts.get(neighbor);
     if (neighborFact === 1) provenAround++;
@@ -209,7 +209,7 @@ function countLife(view, odds, cell, tracked, touched, provenSafe, seaTracked, p
   const region = [];
   for (const g of touched) for (const square of groups[g].cells) if (square !== cell) region.push(square);
   const near = region.length > 0
-    ? Justice.countGroup(region, structure.cluesOfCell, odds.needs, new Set(tracked))
+    ? GuardianAngel.countGroup(region, structure.cluesOfCell, odds.needs, new Set(tracked))
     : { boxes: [], layouts: [[1n]], mineLayouts: [] };
   const farKey = [...touched].sort((a, b) => a - b).join();
   let far = cache.far.get(farKey);
@@ -238,14 +238,14 @@ function countLife(view, odds, cell, tracked, touched, provenSafe, seaTracked, p
   const seaWaysOf = (n) => {
     let row = cache.seaRows.get(n);
     if (row === undefined) {
-      row = Justice.chooseRange(n, from, minesLeft);
+      row = GuardianAngel.chooseRange(n, from, minesLeft);
       cache.seaRows.set(n, row);
     }
     return row;
   };
   const seaRest = seaWaysOf(seaOther);
   const seaRestLess = seaOther > 0 ? seaWaysOf(seaOther - 1) : null;
-  const choose = Justice.choose;
+  const choose = GuardianAngel.choose;
   const P = far.product;
   const R = region.length;
   // kernel[j][kr]: the layouts of the far groups and the sea holding j of
@@ -363,8 +363,8 @@ function expectedLife(view, odds, cell) {
 }
 
 // Score a bare click into `clicked`. Returns null when the click is not a
-// guess: already revealed, or safe in every layout. opts.considerJustice:
-// A just universe is on, so a certified pocket's entry is safe. opts.odds:
+// guess: already revealed, or safe in every layout. opts.considerGuardianAngel:
+// Guardian Angel is on, so a certified pocket's entry is safe. opts.odds:
 // analyzeView's result for this view when the caller holds it, else
 // counted here.
 function scoreGuess(view, clicked, opts) {
@@ -386,9 +386,9 @@ function scoreGuess(view, clicked, opts) {
   // Certification depends only on this one visible position. Batch all
   // candidates so the board's proof structure is built once, rather than
   // once per covered cell on the click-critical path.
-  const certificates = opts.considerJustice === true
-    ? Justice.certifyEntries(view, odds.unproven, odds.structure) : new Map();
-  const justice = certificates.has(clicked);
+  const certificates = opts.considerGuardianAngel === true
+    ? GuardianAngel.certifyEntries(view, odds.unproven, odds.structure) : new Map();
+  const guardianAngel = certificates.has(clicked);
 
   // Each covered square's one-move life as layouts over a denominator: all
   // layouts, or for a protected square the layouts leaving it safe, since
@@ -431,7 +431,7 @@ function scoreGuess(view, clicked, opts) {
     cell: clicked,
     p,
     minP,
-    actualP: justice ? 0 : p,
+    actualP: guardianAngel ? 0 : p,
     actualMinP: certificates.size > 0 ? 0 : minP,
     bestCells,
     lifeLost: p,
@@ -443,9 +443,9 @@ function scoreGuess(view, clicked, opts) {
     // Riskier than the safest square; and so under the rules in play,
     // where a protected square is safe.
     higherRisk: mined > fewest,
-    actualHigherRisk: !justice && (certificates.size > 0 || mined > fewest),
+    actualHigherRisk: !guardianAngel && (certificates.size > 0 || mined > fewest),
     perfectPlay: chosen.life * best.of === best.life * chosen.of,
-    justice,
+    guardianAngel,
     needlessGuess: !idealRisk,
   };
 }
@@ -505,7 +505,7 @@ function winChances(view, odds, cell) {
     work += count * BigInt(group.cells.length);
     if (work > limit) return null;
     const list = [];
-    Justice.listGroupLayouts(group.cells, structure.cluesOfCell, odds.needs, (mined) => {
+    GuardianAngel.listGroupLayouts(group.cells, structure.cluesOfCell, odds.needs, (mined) => {
       list.push(mined.slice());
     });
     listed.set(g, list);
@@ -527,7 +527,7 @@ function winChances(view, odds, cell) {
   };
   for (let i = 0; i < size; i++) {
     if (kind[i] !== 1) continue;
-    for (const neighbor of Justice.neighbors(i, width, height)) if (kind[neighbor] !== 0) join(i, neighbor);
+    for (const neighbor of GuardianAngel.neighbors(i, width, height)) if (kind[neighbor] !== 0) join(i, neighbor);
   }
   // A group's positions in group.cells, by part.
   const piecesOf = (group) => {
@@ -595,7 +595,7 @@ function winChances(view, odds, cell) {
   // A part of proven-safe squares alone opens without a guess.
   const live = [...parts.values()].filter((part) => part.pieces.length > 0 || part.sea.length > 0);
   const counts = live.map((part) => {
-    let byMines = Justice.chooseRange(part.sea.length, 0, part.sea.length);
+    let byMines = GuardianAngel.chooseRange(part.sea.length, 0, part.sea.length);
     for (const piece of part.pieces) byMines = multiplyRows(byMines, piece.byMines, Infinity);
     return byMines;
   });
@@ -700,7 +700,7 @@ function winChances(view, odds, cell) {
     if (BigInt(layouts.length) !== search.layoutCount) {
       throw new Error('win chances: listed ' + layouts.length + ' layouts of ' + search.layoutCount);
     }
-    const neighborLocals = search.squares.map((square) => Justice.neighbors(square, width, height)
+    const neighborLocals = search.squares.map((square) => GuardianAngel.neighbors(square, width, height)
       .filter((neighbor) => localOf.has(neighbor)).map((neighbor) => localOf.get(neighbor)));
     const numbers = layouts.map((layout) => {
       const out = new Uint8Array(n);

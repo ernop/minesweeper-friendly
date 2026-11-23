@@ -48,7 +48,7 @@ Spec: [docs/product/settings.md](../product/settings.md). Index: [AGENTS.md](../
   unbroken groups. Each switch from
   `buildSettingRow` is one wide label with its name left, checkbox at the
   far right, and the rare schema `hint` in a dedicated middle column
-  (only `justUniverse`); `describe` remains the name's title tooltip.
+  (only `guardianAngel`, named `justUniverse` before 2026-11-23); `describe` remains the name's title tooltip.
   `buildChoiceRow` puts its radio group to the right of the setting name.
   A field listed in `CHOICE_PREVIEWS` (`numberDisplay`, `flagStyle`,
   `mineStyle`) also shows each choice as `.cell` squares in a
@@ -106,7 +106,7 @@ Spec: [docs/product/settings.md](../product/settings.md). Index: [AGENTS.md](../
   turns that pair into `difficulty: 'custom'` with the preset's dimensions
   as `customBoard` and `customBoardDraft` (2026-10-20, when the mode menu
   became the custom entries; [Play modes](../product/play-modes.md)).
-  `justUniverse` is frozen into `justiceEnabledForGame` at first reveal —
+  `guardianAngel` is frozen into `guardianAngelEnabledForGame` at first reveal —
   a change on the settings page applies from the next game (the old
   drawer's mid-game lock UI retired with the drawer).
   `collapseDuplicateCharts` gates the progressive-disclosure dedupe in

@@ -1,11 +1,11 @@
 'use strict';
 
-// Deterministic policy and correctness tests for sealed-pocket mercy.
-// Run: node tests/justice-test.js
+// Deterministic policy and correctness tests for Guardian Angel.
+// Run: node tests/guardian-angel-test.js
 
 const fs = require('node:fs');
 const path = require('node:path');
-const Justice = require('../justice.js');
+const GuardianAngel = require('../guardian-angel.js');
 
 let failures = 0;
 
@@ -31,7 +31,7 @@ function makeBoard(rows) {
     }
   }
   const adjacent = mines.map((mine, index) => (mine ? 0
-    : Justice.neighbors(index, width, height).filter((neighbor) => mines[neighbor]).length));
+    : GuardianAngel.neighbors(index, width, height).filter((neighbor) => mines[neighbor]).length));
   return {
     view: {
       width,
@@ -50,7 +50,7 @@ function validRedraw(board, redrawn, clicked) {
   if (redrawn.filter(Boolean).length !== board.view.mines) return false;
   for (let i = 0; i < redrawn.length; i++) {
     if (!board.view.revealed[i]) continue;
-    const count = Justice.neighbors(i, board.view.width, board.view.height)
+    const count = GuardianAngel.neighbors(i, board.view.width, board.view.height)
       .filter((neighbor) => redrawn[neighbor]).length;
     if (count !== board.view.adjacent[i]) return false;
   }
@@ -61,23 +61,23 @@ function validRedraw(board, redrawn, clicked) {
 {
   const minedEntry = makeBoard(['.*', '##']);
   const safeEntry = makeBoard(['.#', '*#']);
-  const minedCertificate = Justice.certifyEntry(minedEntry.view, 1);
-  const safeCertificate = Justice.certifyEntry(safeEntry.view, 1);
+  const minedCertificate = GuardianAngel.certifyEntry(minedEntry.view, 1);
+  const safeCertificate = GuardianAngel.certifyEntry(safeEntry.view, 1);
   check('1-in-3: certified cardinality pocket',
     minedCertificate !== null && minedCertificate.type === 'cardinality');
   check('1-in-3: qualification independent of hidden layout',
     JSON.stringify(minedCertificate) === JSON.stringify(safeCertificate));
   check('1-in-3: exact entry odds recorded',
     minedCertificate.clearWays === 2 && minedCertificate.totalWays === 3);
-  const batched = Justice.certifyEntries(minedEntry.view, [1, 2, 3]);
+  const batched = GuardianAngel.certifyEntries(minedEntry.view, [1, 2, 3]);
   check('1-in-3: batch certification covers every pocket entry',
     batched.size === 3 && [1, 2, 3].every((entry) => batched.has(entry)));
   check('1-in-3: batch reuses one pocket certificate',
     batched.get(1) === batched.get(2) && batched.get(2) === batched.get(3));
-  const redrawn = Justice.redrawEntry(
+  const redrawn = GuardianAngel.redrawEntry(
     minedCertificate, 1, minedEntry.mines, () => 0);
   check('1-in-3: mined entry redrawn clear', validRedraw(minedEntry, redrawn, 1));
-  const unchanged = Justice.redrawEntry(
+  const unchanged = GuardianAngel.redrawEntry(
     safeCertificate, 1, safeEntry.mines, () => 0);
   check('1-in-3: already-safe entry leaves layout unchanged',
     unchanged.every((mine, index) => mine === safeEntry.mines[index]));
@@ -90,13 +90,13 @@ function validRedraw(board, redrawn, clicked) {
     '#.#',
     '##*',
   ]);
-  const certificate = Justice.certifyEntry(board.view, board.at(0, 0));
+  const certificate = GuardianAngel.certifyEntry(board.view, board.at(0, 0));
   check('2-in-8: certified without layout enumeration',
     certificate !== null
       && certificate.type === 'cardinality'
       && certificate.mineCount === 2
       && certificate.cells.length === 8);
-  const redrawn = Justice.redrawEntry(
+  const redrawn = GuardianAngel.redrawEntry(
     certificate, board.at(0, 0), board.mines, () => 0);
   check('2-in-8: conditioned redraw valid',
     validRedraw(board, redrawn, board.at(0, 0)));
@@ -105,13 +105,13 @@ function validRedraw(board, redrawn, clicked) {
 // 3. An even alternating chain has exactly two equal-total layouts.
 {
   const board = makeBoard(['*.#.*.#']);
-  const certificate = Justice.certifyEntry(board.view, 0);
+  const certificate = GuardianAngel.certifyEntry(board.view, 0);
   check('alternating chain: complement certificate',
     certificate !== null
       && certificate.type === 'complement'
       && certificate.partitionA.length === 2
       && certificate.partitionB.length === 2);
-  const redrawn = Justice.redrawEntry(certificate, 0, board.mines, () => 0);
+  const redrawn = GuardianAngel.redrawEntry(certificate, 0, board.mines, () => 0);
   check('alternating chain: switches to the clear complement',
     validRedraw(board, redrawn, 0));
 }
@@ -119,13 +119,13 @@ function validRedraw(board, redrawn, clicked) {
 // 4. Sealed sea remnant behind proven mines.
 {
   const board = makeBoard(['.*#**.']);
-  const certificate = Justice.certifyEntry(board.view, 3);
+  const certificate = GuardianAngel.certifyEntry(board.view, 3);
   check('sealed sea: certified k-of-n remnant',
     certificate !== null
       && certificate.type === 'sea'
       && certificate.cells.length === 2
       && certificate.mineCount === 1);
-  const redrawn = Justice.redrawEntry(certificate, 3, board.mines, () => 0);
+  const redrawn = GuardianAngel.redrawEntry(certificate, 3, board.mines, () => 0);
   check('sealed sea: conditioned redraw valid', validRedraw(board, redrawn, 3));
   check('sealed sea: mine moves to partner', redrawn[2] === true);
 }
@@ -145,9 +145,9 @@ function validRedraw(board, redrawn, clicked) {
     '#####*####',
   ]);
   check('corner 1: sea entry not certified',
-    Justice.certifyEntry(board.view, board.at(5, 9)) === null);
+    GuardianAngel.certifyEntry(board.view, board.at(5, 9)) === null);
   check('corner 1: neighbor entry not certified',
-    Justice.certifyEntry(board.view, board.at(1, 1)) === null);
+    GuardianAngel.certifyEntry(board.view, board.at(1, 1)) === null);
 }
 
 // 6. A geometrically open flank can reveal which side contains the mine.
@@ -159,25 +159,25 @@ function validRedraw(board, redrawn, clicked) {
     '...#',
   ]);
   check('open-flank pair: not certified',
-    Justice.certifyEntry(board.view, board.at(2, 1)) === null);
+    GuardianAngel.certifyEntry(board.view, board.at(2, 1)) === null);
 }
 
 // 7. Knowable cells are not ambiguous entries.
 {
   const board = makeBoard(['.**']);
-  check('provable mine: not certified', Justice.certifyEntry(board.view, 2) === null);
+  check('provable mine: not certified', GuardianAngel.certifyEntry(board.view, 2) === null);
 }
 
 // 8. Disconnected complement pockets are certified and redrawn separately.
 {
   const board = makeBoard(['*.#.*.#*.**.#.*.#']);
-  const first = Justice.certifyEntry(board.view, 0);
-  const second = Justice.certifyEntry(board.view, 10);
+  const first = GuardianAngel.certifyEntry(board.view, 0);
+  const second = GuardianAngel.certifyEntry(board.view, 10);
   check('disconnected pockets: first independently certified',
     first !== null && first.type === 'complement' && first.cells.includes(0));
   check('disconnected pockets: second independently certified',
     second !== null && second.type === 'complement' && second.cells.includes(10));
-  const redrawn = Justice.redrawEntry(first, 0, board.mines, () => 0);
+  const redrawn = GuardianAngel.redrawEntry(first, 0, board.mines, () => 0);
   check('disconnected pockets: first redraw leaves second untouched',
     second.cells.every((cell) => redrawn[cell] === board.mines[cell]));
 }
@@ -194,14 +194,14 @@ function validRedraw(board, redrawn, clicked) {
     '..*.#...',
   ]);
   const clicked = board.at(2, 4);
-  const left = Justice.certifyEntry(board.view, clicked);
-  const right = Justice.certifyEntry(board.view, board.at(4, 4));
+  const left = GuardianAngel.certifyEntry(board.view, clicked);
+  const right = GuardianAngel.certifyEntry(board.view, board.at(4, 4));
   check('shared-number 50/50s: the clicked pair certified alone',
     left !== null && left.cells.length === 2 && left.cells.includes(board.at(2, 3))
       && left.clearWays === 1 && left.totalWays === 2);
   check('shared-number 50/50s: the other pair certified alone',
     right !== null && right.cells.length === 2 && right.cells.includes(board.at(4, 3)));
-  const redrawn = Justice.redrawEntry(left, clicked, board.mines, () => 0);
+  const redrawn = GuardianAngel.redrawEntry(left, clicked, board.mines, () => 0);
   check('shared-number 50/50s: mined entry redrawn clear', validRedraw(board, redrawn, clicked));
   check('shared-number 50/50s: the other pair untouched',
     right.cells.every((cell) => redrawn[cell] === board.mines[cell]));
@@ -216,11 +216,11 @@ function validRedraw(board, redrawn, clicked) {
     '#.#.',
     '*.*.',
   ]);
-  const certificate = Justice.certifyEntry(board.view, board.at(0, 2));
+  const certificate = GuardianAngel.certifyEntry(board.view, board.at(0, 2));
   check('subtracted 50/50: certified',
     certificate !== null && certificate.mineCount === 1
       && certificate.cells.length === 2 && certificate.cells.includes(board.at(0, 1)));
-  const redrawn = Justice.redrawEntry(certificate, board.at(0, 2), board.mines, () => 0);
+  const redrawn = GuardianAngel.redrawEntry(certificate, board.at(0, 2), board.mines, () => 0);
   check('subtracted 50/50: conditioned redraw valid',
     validRedraw(board, redrawn, board.at(0, 2)));
 }
@@ -238,17 +238,17 @@ function validRedraw(board, redrawn, clicked) {
     '...*..',
   ]);
   const [a, b, c, d] = [board.at(3, 0), board.at(2, 1), board.at(3, 1), board.at(2, 0)];
-  const certificate = Justice.certifyEntry(board.view, c);
+  const certificate = GuardianAngel.certifyEntry(board.view, c);
   const sides = (cells) => cells.slice().sort((x, y) => x - y).join();
   check('corner 50/50: the clicked square certified with the corner square',
     certificate !== null && certificate.type === 'complement'
       && certificate.cells.length === 4 && certificate.clearWays === 1 && certificate.totalWays === 2
       && [sides(certificate.partitionA), sides(certificate.partitionB)].sort().join('|')
         === [sides([a, b]), sides([c, d])].sort().join('|'));
-  const batched = Justice.certifyEntries(board.view, [a, b, c, d]);
+  const batched = GuardianAngel.certifyEntries(board.view, [a, b, c, d]);
   check('corner 50/50: every square shares the one certificate, the corner square included',
     batched.size === 4 && [a, b, c, d].every((cell) => batched.get(cell) === batched.get(c)));
-  const redrawn = Justice.redrawEntry(certificate, c, board.mines, () => 0);
+  const redrawn = GuardianAngel.redrawEntry(certificate, c, board.mines, () => 0);
   check('corner 50/50: mined entry redrawn clear', validRedraw(board, redrawn, c)
     && redrawn[a] && redrawn[b] && !redrawn[d]);
 
@@ -258,16 +258,16 @@ function validRedraw(board, redrawn, clicked) {
     '.**#..', '.*#*..', '.*..*.', '...*..',
   ].map((row) => row + '.' + mirrored(row)));
   check('two corners open at once: not certified',
-    Justice.certifyEntry(twice.view, twice.at(3, 1)) === null
-      && Justice.certifyEntry(twice.view, twice.at(2, 0)) === null);
+    GuardianAngel.certifyEntry(twice.view, twice.at(3, 1)) === null
+      && GuardianAngel.certifyEntry(twice.view, twice.at(2, 0)) === null);
 
   // A corner group a square outside could still tell apart: the 50/50 at
   // the lower left may leave the square below the group's middle square
   // safe, and opened, it would count that middle square and no other.
   const seen = makeBoard(['....*#', '**..#*', '..#*..', '..*#..']);
   check('corner group that a square outside can tell apart: not certified',
-    Justice.certifyEntry(seen.view, seen.at(4, 0)) === null
-      && Justice.certifyEntry(seen.view, seen.at(5, 0)) === null);
+    GuardianAngel.certifyEntry(seen.view, seen.at(4, 0)) === null
+      && GuardianAngel.certifyEntry(seen.view, seen.at(5, 0)) === null);
 }
 
 // 9. Equal-sized overlapping constraints can prove their one-sided cells.
@@ -283,7 +283,7 @@ function validRedraw(board, redrawn, clicked) {
     revealed: [false, false, false, false, false],
     adjacent: [0, 0, 0, 0, 0],
   };
-  const facts = Justice.proveFacts(view, [
+  const facts = GuardianAngel.proveFacts(view, [
     { covered: [0, 1, 2, 3], count: 3 },
     { covered: [0, 1, 2, 4], count: 2 },
   ]);
@@ -307,13 +307,13 @@ function validRedraw(board, redrawn, clicked) {
     { covered: [1, 3], count: 1 },
     { covered: [2, 4], count: 1 },
   ];
-  const local = Justice.proveFacts(view, clues, { global: false, exact: false });
+  const local = GuardianAngel.proveFacts(view, clues, { global: false, exact: false });
   check('local count/subset rules alone do not find higher-order fact',
     !local.has(0));
-  const numbers = Justice.proveFacts(view, clues, { global: false });
+  const numbers = GuardianAngel.proveFacts(view, clues, { global: false });
   check('every layout the numbers allow proves it without the mine total',
     numbers.get(0) === 2 && numbers.complete === true && numbers.method === 'all-number-layouts');
-  const exact = Justice.proveFacts(view, clues);
+  const exact = GuardianAngel.proveFacts(view, clues);
   check('complete solver proves higher-order safe', exact.get(0) === 2);
   check('complete solver labels exhaustive result', exact.complete === true
     && exact.method === 'all-consistent-layouts');
@@ -331,8 +331,8 @@ function validRedraw(board, redrawn, clicked) {
     (y === 1 ? '.' : (y === 0 ? x % 3 === 0 : x % 3 === 1) ? '*' : '#')).join(''));
   const strip = makeBoard(rows);
   const startedAt = Date.now();
-  const facts = Justice.proveFacts(strip.view, Justice.rawClues(strip.view));
-  const levels = Justice.proveLevels(strip.view, Justice.rawClues(strip.view));
+  const facts = GuardianAngel.proveFacts(strip.view, GuardianAngel.rawClues(strip.view));
+  const levels = GuardianAngel.proveLevels(strip.view, GuardianAngel.rawClues(strip.view));
   const elapsedMs = Date.now() - startedAt;
   const safeColumns = (cell) => cell % width % 3 === 2;
   check('a 160-square group with 2^80 + 2 layouts is proved completely',
@@ -343,11 +343,11 @@ function validRedraw(board, redrawn, clicked) {
   check('the count takes under a second (' + elapsedMs + ' ms)', elapsedMs < 1000);
 }
 
-// Justice.proveLevels, every level in one pass, against each level's own
+// GuardianAngel.proveLevels, every level in one pass, against each level's own
 // proof: each fact at the first level whose proof proves it, and the facts,
 // completeness, and method of the full proof.
-function levelsInOnePassAgree(view, clues, proven = Justice.proveLevels(view, clues)) {
-  const proofs = Justice.DEDUCTION_LEVELS.map((level) => Justice.proveFacts(view, clues, level.proof));
+function levelsInOnePassAgree(view, clues, proven = GuardianAngel.proveLevels(view, clues)) {
+  const proofs = GuardianAngel.DEDUCTION_LEVELS.map((level) => GuardianAngel.proveFacts(view, clues, level.proof));
   const full = proofs[proofs.length - 1];
   const { facts, levelOf } = proven;
   if (facts.size !== full.size || levelOf.size !== full.size
@@ -355,7 +355,7 @@ function levelsInOnePassAgree(view, clues, proven = Justice.proveLevels(view, cl
   for (const [cell, fact] of full) {
     if (facts.get(cell) !== fact) return false;
     const first = proofs.findIndex((proof) => proof.has(cell));
-    if (levelOf.get(cell) !== Justice.DEDUCTION_LEVELS[first].id) return false;
+    if (levelOf.get(cell) !== GuardianAngel.DEDUCTION_LEVELS[first].id) return false;
   }
   return true;
 }
@@ -364,8 +364,8 @@ function levelsInOnePassAgree(view, clues, proven = Justice.proveLevels(view, cl
 // level keeping every fact of the levels below it.
 {
   const levelsOf = (board) => {
-    const clues = Justice.rawClues(board.view);
-    const proofs = Justice.DEDUCTION_LEVELS.map((level) => Justice.proveFacts(board.view, clues, level.proof));
+    const clues = GuardianAngel.rawClues(board.view);
+    const proofs = GuardianAngel.DEDUCTION_LEVELS.map((level) => GuardianAngel.proveFacts(board.view, clues, level.proof));
     const nested = proofs.every((facts, i) => i === 0
       || [...proofs[i - 1]].every(([cell, fact]) => facts.get(cell) === fact))
       && levelsInOnePassAgree(board.view, clues);
@@ -374,12 +374,12 @@ function levelsInOnePassAgree(view, clues, proven = Justice.proveLevels(view, cl
       if (open) return;
       const first = proofs.findIndex((facts) => facts.has(cell));
       levels[cell] = first === -1 ? null
-        : (proofs[first].get(cell) === 1 ? 'mine ' : 'safe ') + Justice.DEDUCTION_LEVELS[first].id;
+        : (proofs[first].get(cell) === 1 ? 'mine ' : 'safe ') + GuardianAngel.DEDUCTION_LEVELS[first].id;
     });
     return { nested, levels };
   };
   check('deduction levels: counting, overlap, all numbers, mine total, in that order',
-    Justice.DEDUCTION_LEVELS.map((level) => level.id).join() === 'counting,overlap,allNumbers,mineTotal');
+    GuardianAngel.DEDUCTION_LEVELS.map((level) => level.id).join() === 'counting,overlap,allNumbers,mineTotal');
 
   // A 1 touching one covered square; then a 1 touching that mine, one
   // number at a time.
@@ -415,11 +415,11 @@ function levelsInOnePassAgree(view, clues, proven = Justice.proveLevels(view, cl
       9: 'mine mineTotal', 14: 'safe mineTotal' }));
   // A proof without the mine total does not replace the full proof a click
   // asks for again.
-  const clues = Justice.rawClues(totalBoard.view);
-  const full = Justice.proveFacts(totalBoard.view, clues);
-  Justice.proveFacts(totalBoard.view, clues, { global: false });
+  const clues = GuardianAngel.rawClues(totalBoard.view);
+  const full = GuardianAngel.proveFacts(totalBoard.view, clues);
+  GuardianAngel.proveFacts(totalBoard.view, clues, { global: false });
   check('the full proof stays cached past a proof without the mine total',
-    Justice.proveFacts(totalBoard.view, clues) === full && full.get(9) === 1);
+    GuardianAngel.proveFacts(totalBoard.view, clues) === full && full.get(9) === 1);
 }
 
 // 11. Random small constraint systems agree with full brute force.
@@ -466,8 +466,8 @@ function levelsInOnePassAgree(view, clues, proven = Justice.proveLevels(view, cl
       revealed: new Array(size).fill(false),
       adjacent: new Array(size).fill(0),
     };
-    const facts = Justice.proveFacts(view, clues);
-    const numberFacts = Justice.proveFacts(view, clues, { global: false });
+    const facts = GuardianAngel.proveFacts(view, clues);
+    const numberFacts = GuardianAngel.proveFacts(view, clues, { global: false });
     if (!facts.complete || !numberFacts.complete || models.length === 0) matched = false;
     const factIn = (layouts, cell) => (layouts.every((mask) => ((mask >> cell) & 1) === 1) ? 1
       : layouts.every((mask) => ((mask >> cell) & 1) === 0) ? 2 : undefined);
@@ -511,7 +511,7 @@ function levelsInOnePassAgree(view, clues, proven = Justice.proveLevels(view, cl
   let seaCompleted = 0;
   const checkPosition = (label, view, structure) => {
     const { width, height, revealed, adjacent } = view;
-    const neighbors = (cell) => Justice.neighbors(cell, width, height);
+    const neighbors = (cell) => GuardianAngel.neighbors(cell, width, height);
     const covered = [];
     for (let cell = 0; cell < revealed.length; cell++) if (!revealed[cell]) covered.push(cell);
     if (covered.length > 14) return;
@@ -526,13 +526,13 @@ function levelsInOnePassAgree(view, clues, proven = Justice.proveLevels(view, cl
       if (consistent(layout)) layouts.push(layout);
     }
     const seen = new Set();
-    for (const [entry, certificate] of Justice.certifyEntries(view, covered)) {
+    for (const [entry, certificate] of GuardianAngel.certifyEntries(view, covered)) {
       if (!layouts.some((layout) => layout[entry]) || !layouts.some((layout) => !layout[entry])) {
         failure = label + ': certified a proven cell ' + entry;
         return;
       }
       for (const layout of layouts.filter((candidate) => candidate[entry])) {
-        if (!validRedraw({ view }, Justice.redrawEntry(certificate, entry, layout, random), entry)) {
+        if (!validRedraw({ view }, GuardianAngel.redrawEntry(certificate, entry, layout, random), entry)) {
           failure = label + ': invalid redraw of entry ' + entry;
         }
       }
@@ -569,7 +569,7 @@ function levelsInOnePassAgree(view, clues, proven = Justice.proveLevels(view, cl
       const cell = Math.floor(random() * size);
       if (!mines[cell]) { mines[cell] = true; placed++; }
     }
-    const neighbors = (cell) => Justice.neighbors(cell, width, height);
+    const neighbors = (cell) => GuardianAngel.neighbors(cell, width, height);
     const adjacent = mines.map((mine, cell) => (mine ? 0 : neighbors(cell).filter((n) => mines[n]).length));
     const revealed = new Array(size).fill(false);
     const open = (start) => {
@@ -586,7 +586,7 @@ function levelsInOnePassAgree(view, clues, proven = Justice.proveLevels(view, cl
     open(safe[Math.floor(random() * safe.length)]);
     while (failure === null) {
       const view = { width, height, mines: mineTotal, revealed: revealed.slice(), adjacent };
-      const structure = Justice.buildStructure(view);
+      const structure = GuardianAngel.buildStructure(view);
       const provenSafe = [...structure.facts].filter(([cell, status]) => status === 2 && !revealed[cell]);
       if (provenSafe.length > 0) {
         for (const [cell] of provenSafe) open(cell);
@@ -634,7 +634,7 @@ function levelsInOnePassAgree(view, clues, proven = Justice.proveLevels(view, cl
       const cell = Math.floor(random() * size);
       if (!mines[cell]) { mines[cell] = true; placed++; }
     }
-    const neighbors = (cell) => Justice.neighbors(cell, width, height);
+    const neighbors = (cell) => GuardianAngel.neighbors(cell, width, height);
     const adjacent = mines.map((mine, cell) => (mine ? 0 : neighbors(cell).filter((n) => mines[n]).length));
     const revealed = new Array(size).fill(false);
     const open = (start) => {
@@ -659,9 +659,9 @@ function levelsInOnePassAgree(view, clues, proven = Justice.proveLevels(view, cl
     let earlier;
     while (failure === null) {
       const view = { width, height, mines: mineTotal, revealed: revealed.slice(), adjacent };
-      const clues = Justice.rawClues(view);
+      const clues = GuardianAngel.rawClues(view);
       if (earlier !== undefined) resumed++;
-      const proven = Justice.proveLevels(view, clues, earlier, groupCounts);
+      const proven = GuardianAngel.proveLevels(view, clues, earlier, groupCounts);
       if (!levelsInOnePassAgree(view, clues, proven)) failure = 'board ' + board + ' position ' + positions;
       positions++;
       earlier = proven;
@@ -676,15 +676,15 @@ function levelsInOnePassAgree(view, clues, proven = Justice.proveLevels(view, cl
     + (failure ? ' (' + failure + ')' : ''), failure === null && resumed >= 2000 && reused >= 2000);
 }
 
-// 12. Chords categorically bypass Justice in the game integration. This is
+// 12. Chords categorically bypass Guardian Angel in the game integration. This is
 // an origin rule, not something the pure cell certifier can infer.
 {
   const source = require('./game-source.js').source;
   const chordBody = source.slice(
     source.indexOf('function chord('), source.indexOf('function checkWin('));
-  check('chord integration: never calls Justice', !chordBody.includes('attemptJustice'));
-  check('direct reveal integration: calls Justice before mine test',
-    source.indexOf('attemptJustice(index)') < source.indexOf('if (cell.mine)', source.indexOf('function revealCell(')));
+  check('chord integration: never calls Guardian Angel', !chordBody.includes('attemptGuardianAngel'));
+  check('direct reveal integration: calls Guardian Angel before mine test',
+    source.indexOf('attemptGuardianAngel(index)') < source.indexOf('if (cell.mine)', source.indexOf('function revealCell(')));
 }
 
 console.log(failures === 0 ? '\nall tests passed' : '\n' + failures + ' FAILURES');

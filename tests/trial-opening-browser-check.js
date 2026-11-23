@@ -67,7 +67,7 @@ function solvedBv3(width, height, mineAt, open) {
     page.on('pageerror', (error) => errors.push(error.stack));
     await page.goto(origin);
     await page.waitForFunction(() => preferenceUIReady);
-    await page.evaluate(() => updateSettings({ trialGiveOpening: true, justUniverse: false }));
+    await page.evaluate(() => updateSettings({ trialGiveOpening: true, guardianAngel: false }));
     await page.selectOption('#play-mode-select', 'standard');
     await page.locator('#custom-width').fill('9');
     await page.locator('#custom-height').fill('9');

@@ -7,7 +7,7 @@
 //-------PLAY HISTORY (every finished game kept per mode)-------
 
 // Version stamps each record carries: the random stream, the board
-// placement algorithm, the Justice rule its game ran under, and the guess
+// placement algorithm, the Guardian Angel rule its game ran under, and the guess
 // scoring its ledger used.
 const RNG_VERSION = GameRandom.VERSION;
 // One version string per board generator (generators.js); a record's
@@ -15,12 +15,13 @@ const RNG_VERSION = GameRandom.VERSION;
 // through. The default generator's string predates the registry.
 const BOARD_VERSION = BoardGenerators.byId(BoardGenerators.DEFAULT_ID).version;
 const BOARD_VERSIONS = new Set(BoardGenerators.SPECS.map((g) => g.version));
-const JUSTICE_VERSION = 'just-universe-v4';
-const JUSTICE_VERSIONS = new Set([
+const GUARDIAN_ANGEL_VERSION = 'guardian-angel-v4';
+const GUARDIAN_ANGEL_VERSIONS = new Set([
   'sealed-pocket-mercy-v1',
   'sealed-pocket-mercy-v2',
   'just-universe-v3',
-  JUSTICE_VERSION,
+  'just-universe-v4',
+  GUARDIAN_ANGEL_VERSION,
 ]);
 const ODDS_VERSIONS = new Set(['guess-ledger-v1', 'guess-ledger-v2', Odds.VERSION]);
 
@@ -99,14 +100,14 @@ const GAME_RECORD_SCHEMA = [
   { field: 'states', valid: (v) => v === undefined || (Array.isArray(v) && v.every((s) => typeof s === 'string')), example: '["sleepy"]', describe: 'player-defined state tags active when the game finished (see the states panel); absent on games recorded before 2026-08-20' },
   { field: 'musicPlaying', valid: (v) => v === undefined || typeof v === 'boolean', example: 'true', describe: 'whether this machine heard audio playing during the game (sampled about once a minute from the local base system); absent when that endpoint never answered, on every origin other than the local player origin, or on games recorded before 2026-08-22' },
   { field: 'flagsBlocked', valid: (v) => v === undefined || v === true, example: 'true', describe: 'true when a reached daily play limit\u2019s no-flags penalty kept the player from placing flags for the whole game (fixed when the board went into play; removing a flag stayed allowed); absent = flags allowed, as on every game before 2026-10-14' },
-  { field: 'justice', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'clicks into guesses that nothing else on the board could ever settle, each made safe by "a just universe" (the forced coinflips won); absent on games recorded before 2026-08-20' },
-  { field: 'justiceEnabled', valid: (v) => v === undefined || typeof v === 'boolean', example: 'true', describe: 'whether "a just universe" was frozen on for this game at its first reveal; absent on earlier games' },
-  { field: 'seed', valid: (v) => v === undefined || (typeof v === 'string' && /^[0-9a-f]{32}$/.test(v)), example: '"2f4c5a107ad399e681137b2dc51490aa"', describe: '128-bit seed for initial placement and for "a just universe"; absent on earlier games' },
+  { field: 'guardianAngel', valid: (v) => v === undefined || isNumber(v), example: '1', describe: 'clicks into guesses that nothing else on the board could ever settle, each made safe by "guardian angel" (the forced coinflips won; named justice before 2026-11-23); absent on games recorded before 2026-08-20' },
+  { field: 'guardianAngelEnabled', valid: (v) => v === undefined || typeof v === 'boolean', example: 'true', describe: 'whether "guardian angel" was frozen on for this game at its first reveal (named justiceEnabled before 2026-11-23); absent on earlier games' },
+  { field: 'seed', valid: (v) => v === undefined || (typeof v === 'string' && /^[0-9a-f]{32}$/.test(v)), example: '"2f4c5a107ad399e681137b2dc51490aa"', describe: '128-bit seed for initial placement and for "guardian angel"; absent on earlier games' },
   { field: 'firstRevealIndex', valid: (v) => v === undefined || (Number.isInteger(v) && v >= 0), example: '0', describe: 'the cell of the game-starting reveal on an unopened board, as row * width + column; with the seed, RNG version, and board version it rebuilds the initial mine layout without the trace; absent on Endgame drill games and games recorded before 2026-09-27' },
   { field: 'rngVersion', valid: (v) => v === undefined || v === RNG_VERSION, example: '"' + RNG_VERSION + '"', describe: 'algorithm that turns seed into the game random stream; absent on earlier games' },
   { field: 'boardVersion', valid: (v) => v === undefined || BOARD_VERSIONS.has(v), example: '"' + BOARD_VERSION + '"', describe: 'board placement algorithm used with the seed (one version string per board generator); absent on earlier games' },
   { field: 'generator', valid: (v) => v === undefined || BoardGenerators.validStoredGenerator(v), example: '{"id":"pink-noise","params":{"alpha":1,"scale":8,"contrast":2}}', describe: 'non-default board generator this board was placed with (id plus its complete parameter set, the same facts the top score key\u2019s +generator suffix carries); absent = the default uniform generator' },
-  { field: 'justiceVersion', valid: (v) => v === undefined || JUSTICE_VERSIONS.has(v), example: '"' + JUSTICE_VERSION + '"', describe: 'version of the rules for which guesses "a just universe" covers and how it keeps them safe; v2 added the all-consistent-layout proof prepass; v3 judges each 50/50 or group on its own when a shared number links it to other unknown squares; v4 covers an uneven chain of 50/50s whose shortfall the last squares no number touches make up, once the mine count leaves just two layouts; absent on earlier games' },
+  { field: 'guardianAngelVersion', valid: (v) => v === undefined || GUARDIAN_ANGEL_VERSIONS.has(v), example: '"' + GUARDIAN_ANGEL_VERSION + '"', describe: 'version of the rules for which guesses "guardian angel" covers and how it keeps them safe (named justiceVersion before 2026-11-23); v2 added the all-consistent-layout proof prepass; v3 judges each 50/50 or group on its own when a shared number links it to other unknown squares; v4 covers an uneven chain of 50/50s whose shortfall the last squares no number touches make up, once the mine count leaves just two layouts; absent on earlier games' },
   { field: 'maxAdjacent', valid: (v) => v === undefined || isNumber(v), example: '4', describe: 'highest adjacent-mine number on the finished board; absent on games recorded before 2026-08-21' },
   { field: 'hasSeven', valid: (v) => v === undefined || typeof v === 'boolean', example: 'true', describe: 'whether the finished board contains at least one 7; absent on earlier games' },
   { field: 'zeroCount', valid: (v) => v === undefined || isNumber(v), example: '41', describe: 'how many finished-board cells have adjacent-mine count 0; absent on earlier games' },

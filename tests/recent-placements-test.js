@@ -22,7 +22,7 @@ vm.runInThisContext(section('//-------RECENT PLACEMENTS: COMPUTATION', '//------
 vm.runInThisContext(section('//-------RANK WINDOWS AND AGES', '//-------DAY CATEGORIES'));
 vm.runInThisContext(section('//-------DAY CATEGORIES', '//-------RECENT PLACEMENTS: COMPUTATION'));
 vm.runInThisContext(section('//-------GAME DATA RANKING', '//-------GAME DATA CHART'));
-globalThis.Justice = require(path.join(repo, 'justice.js'));
+globalThis.GuardianAngel = require(path.join(repo, 'guardian-angel.js'));
 vm.runInThisContext(section('//-------GAME-END EVALUATION: VERDICT', '//-------GAME-END EVALUATION: CAPTURE'));
 vm.runInThisContext(section('//-------SESSION SUMMARY: COMPUTATION', '//-------SESSION SUMMARY: DISPLAY'));
 vm.runInThisContext(section('//-------STREAK RANKINGS: COMPUTATION-------', '//-------STREAK RANKINGS: COMPUTATION END'));

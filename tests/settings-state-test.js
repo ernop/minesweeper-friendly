@@ -45,9 +45,14 @@ context.stored = {
   gameDataSessionMetrics: { unknown: true }, gameDataShowValues: 'yes', boardGenerator: 'missing',
   boardGeneratorParams: { unknown: { scale: 4 } },
   boardOffsetX: Infinity, boardOffsetY: -1001, numberDisplay: 'emoji',
-  perfChartMode: 'unknown', boardChartMode: 'unknown', justUniverse: 'true',
+  perfChartMode: 'unknown', boardChartMode: 'unknown', guardianAngel: 'true',
 };
 assert.deepEqual(plain(run('settingsFrom(stored)')), defaults);
+// Settings saved before 2026-11-23 named guardianAngel "justUniverse".
+assert.equal(run('settingsFrom({ justUniverse: false }).guardianAngel'), false);
+assert.equal(run('settingsFrom({ justUniverse: true }).guardianAngel'), true);
+assert.equal(run('settingsFrom({ guardianAngel: false, justUniverse: true }).guardianAngel'), false);
+assert.equal(run('!("justUniverse" in settingsFrom({ justUniverse: false }))'), true);
 for (const size of [null, '64', 0, 33, 64.5, Infinity, -16]) {
   context.size = size;
   assert.equal(run('settingsFrom({ cellSize: size }).cellSize'), 28);

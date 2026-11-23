@@ -18,12 +18,12 @@ players!"; and of proving each position from scratch: "that seems
 wasteful"):
 
 - A click saves only what it did and the board before it, in the raw
-  trace. It proves nothing and scores no guess. A Just Universe's rule
+  trace. It proves nothing and scores no guess. Guardian Angel's rule
   check and Angelic play's mine move still run on the click, since they
   decide what the click opens.
 - When the game ends, the reports worker judges every saved decision from
   its saved board, off the input thread: facts, risks, one-move life,
-  mistakes, alternatives, the misclick count, the A Just Universe events,
+  mistakes, alternatives, the misclick count, the Guardian Angel events,
   and the guess ledger. Each board is proved once for this and for the
   live perf charts. Each proof continues from the game's previous board,
   since a fact proved there still holds, and a group of numbers the click
@@ -60,7 +60,7 @@ wasteful"):
   - **raw risk quality** — chosen mine probability, lowest available
     mine probability, and whether the minimum was taken;
   - **actual risk under the active rules** — chosen and best immediate
-    loss probability after Justice or mode protection is applied. Raw
+    loss probability after Guardian Angel or mode protection is applied. Raw
     risk can remain nonzero while actual risk is zero; that action is not
     called game-risking;
   - **one-move modeled quality** — chosen and best measured expected
@@ -165,7 +165,7 @@ wasteful"):
      here too.
   2. **Game risk** — a survived action that added actual immediate loss
      probability under the active mode and protection rules. Raw-risk
-     differences canceled by Justice or Angelic protection do not qualify.
+     differences canceled by Guardian Angel or Angelic protection do not qualify.
   3. **Early-game guess** (added 2026-08-24) — a survived action that
      would be game risk, taken while under a tenth of the board's safe
      squares were revealed (`evidence.boardProgress`, derived from the
@@ -189,7 +189,7 @@ wasteful"):
      sea-versus-frontier comparisons; it is not presented as long-horizon
      optimality.
   6. **Measurement notes** — legacy or incomplete evidence that cannot
-     honestly be classified further, plus the factual Justice recap.
+     honestly be classified further, plus the factual Guardian Angel recap.
 - Display: the compact stats stay in the 320px sidebar, while the action
   analysis occupies a centered, responsive column below the board and
   above rankings/charts. Category sections appear in the severity order
@@ -250,9 +250,9 @@ wasteful"):
   losses imported from records that stored the old five-way verdict keep
   their old kind rather than having modern detail invented for them, and
   the report shows their old wording.
-- The Justice recap (win or loss alike): when the game had Justice
-  events, a second block cites the rule by name — 'Due to the rule "A
-  Just Universe", you won a forced coinflip: every click into a guess that
+- The Guardian Angel recap (win or loss alike): when the game had Guardian Angel
+  events, a second block cites the rule by name — 'Due to the rule "Guardian
+  Angel", you won a forced coinflip: every click into a guess that
   nothing else on the board could ever settle goes your way.'
   (count-pluralized) — with one detail line per event naming the guess in
   player words ("#1: a 50/50", "a chain of 50/50s over 6 squares", "1 mine
@@ -382,8 +382,8 @@ all numbers and the mine total together. In order of precedence:
    every consistent layout, or the mine total).
 3. **Guessed while a safe move existed**, graded by the easiest tier that
    proves any covered square safe: `guess-safe-counting`,
-   `guess-safe-overlap`, `guess-safe-whole-board`; or `guess-safe-justice`
-   when no square was proven safe but A Just Universe guaranteed a safe
+   `guess-safe-overlap`, `guess-safe-whole-board`; or `guess-safe-guardian-angel`
+   when no square was proven safe but Guardian Angel guaranteed a safe
    entry.
 4. **Higher-risk forced guess**, graded by distance (squares in any
    direction, so a diagonal neighbor is 1): `guess-higher-near` when a
@@ -459,7 +459,7 @@ Every win has exactly one **win type**, named by the worst guess it
 survived. A guess is a click on a square that might hold a mine, after the
 first click (the guess ledger's definition, [per-game stats](per-game-stats.md));
 a chord is never one. Its risk is the actual risk under the active rules, the
-same risk the Game risk category uses, so a guess that A Just Universe made
+same risk the Game risk category uses, so a guess that Guardian Angel made
 safe risked nothing. Worst first, the first that applies:
 
 1. `win-guess-safe`, "won despite guessing while a safe move was
@@ -544,7 +544,7 @@ survived. A loss's kind is its loss type, with three refinements:
   riskier guess was just as bad. An equally bad fatal click keeps its own
   kind, since it is itself an instance of the worst offense. The survived
   guesses are the same ones win types use (the same stored tags, so a guess
-  A Just Universe made safe is no offense). On the 2026-10-11 export this
+  Guardian Angel made safe is no offense). On the 2026-10-11 export this
   moves 1 Beginner, 35 Intermediate, and 103 Expert losses.
 - Proof-or-die's rule death with no proven-safe move, legacy verdicts, and
   unjudged losses are not ranked, so they keep their kinds.
@@ -563,7 +563,7 @@ creator's saved games:
   still the best one-move choice; 3,908 were riskier and not the best; 885
   had the lowest risk, 330 of them not the best one-move choice.
 - On the 145 forced guesses where perfect play's exact chance to win
-  finishes (scored without A Just Universe, which that chance does not
+  finishes (scored without Guardian Angel, which that chance does not
   model), the guess won as many layouts as any square in: lowest risk and
   best one-move choice, 100 of 106; lowest risk only, 2 of 15; riskier and
   not the best, 4 of 22; riskier but the best one-move choice, 1 of 2.

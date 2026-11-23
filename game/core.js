@@ -26,7 +26,7 @@ let flagsRemoved = 0;  // flag states the player turned off; each placement
 let unusedCorrectFlags = 0; // win-only correct flags never consumed by a chord
 let activeFlagEpisodes = new Map(); // cell index -> placement evaluation/use state
 let flagEpisodes = []; // every placement, retained until the outcome is known
-let gameSeed = null;    // 128-bit seed for placement and Justice redraws
+let gameSeed = null;    // 128-bit seed for placement and Guardian Angel redraws
 let firstRevealIndex = null; // the game-starting reveal's cell on an unopened board
 let gameRandom = null;  // the one deterministic random stream for this game
 // Frozen per board at newGame so a mid-board settings import cannot make
@@ -76,7 +76,7 @@ const modeOptions = document.getElementById('mode-options');
 const customForm = document.getElementById('custom-form');
 const boardGeneratorChoice = document.getElementById('board-generator');
 const boardLabPanel = document.getElementById('board-lab-panel');
-const justiceLive = document.getElementById('justice-live');
+const guardianAngelLive = document.getElementById('guardian-angel-live');
 // The status line beside the backup controls carries every area's
 // progress and failure messages.
 const backupStatus = document.getElementById('backup-status');

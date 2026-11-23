@@ -1,11 +1,12 @@
-# A just universe — implementation notes
+# Guardian Angel — implementation notes
 
-Spec: [docs/product/just-universe.md](../product/just-universe.md). Index: [AGENTS.md](../../AGENTS.md).
+Spec: [docs/product/guardian-angel.md](../product/guardian-angel.md). Index: [AGENTS.md](../../AGENTS.md).
 
-- A just universe ([A just universe](../product/just-universe.md)): the judge and redraw
-  are `justice.js` — pure logic on a view {width, height, mines,
+- Guardian Angel ([Guardian Angel](../product/guardian-angel.md); renamed from
+  "A Just Universe" 2026-11-23): the judge and redraw
+  are `guardian-angel.js` — pure logic on a view {width, height, mines,
   revealed[], adjacent[]} (flags invisible by design), exporting the
-  `Justice` global / CommonJS module, loaded before the `game/` scripts in
+  `GuardianAngel` global / CommonJS module, loaded before the `game/` scripts in
   `index.html`; the page wiring is in `game/play.js`. Exact player rule
   (player words since 2026-10-21): a click on a square in a guess that
   nothing else on the board could ever settle is guaranteed safe. The code
@@ -66,7 +67,7 @@ Spec: [docs/product/just-universe.md](../product/just-universe.md). Index: [AGEN
   constraint family exposed 1,048,576 layouts and took ~693ms. The current
   certificate-shape judge itself enumerates no ambiguous pocket layouts.
   Its canonical proof prepass counts every layout with no work limit
-  (since 2026-11-02, Justice's counter,
+  (since 2026-11-02, Guardian Angel's counter,
   [per-game stats](per-game-stats.md), "Guess ledger") and returns a Map
   annotated with `complete` and `method`, always complete for the full
   proof. A visible-position cache of the full proof (`lastExactProof`)
@@ -83,18 +84,18 @@ Spec: [docs/product/just-universe.md](../product/just-universe.md). Index: [AGEN
   witness only after certification: an already-clear entry returns it
   unchanged; a mined cardinality/sea entry directly samples k locations
   excluding the click; a mined complement entry switches partitions.
-  Game side: only `revealCell` calls `attemptJustice(index)`, before its
+  Game side: only `revealCell` calls `attemptGuardianAngel(index)`, before its
   mine test and never on the first reveal; it certifies and redraws, and
-  records nothing else. `chord` never calls Justice; wrong flags remain
+  records nothing else. `chord` never calls Guardian Angel; wrong flags remain
   fatal. The events are counted at game end (since 2026-11-03; until then
-  on the click): in the reports worker, `justiceDetailOf`
+  on the click): in the reports worker, `guardianAngelDetailOf`
   (game/evaluation.js, inside `completeGameEvaluations`) certifies each
   saved reveal's entry again on its saved board and returns a
   {type, squareCount, mineCount, clearWays, totalWays} detail for every
   qualifying entry, whether or not a redraw occurred. `completeGameRecord`
-  stores their count as `justice`; `justiceDetails` (reset in newGame)
+  stores their count as `guardianAngel`; `guardianAngelDetails` (reset in newGame)
   holds them for the end-game recap, whose
-  `justiceGuessName` names it "a 50/50", "a chain of 50/50s over N
+  `guardianAngelGuessName` names it "a 50/50", "a chain of 50/50s over N
   squares", "M mines among N squares", or "... among the last N squares no
   number touches"). Whether the entry's cell was mined
   before the redraw is deliberately not tracked past the redraw itself:
@@ -102,23 +103,23 @@ Spec: [docs/product/just-universe.md](../product/just-universe.md). Index: [AGEN
   directive 2026-08-23) — recap, details, stats, and record never reveal
   or refer to an "actual" mine reality, and the historical `justiceSaves`
   field stopped being written the same day it was added. When the
-  worker's judgment arrives, `showJusticeSurvivals` attaches one
-  `.justice-live-word` chip to #justice-live at the board's right,
+  worker's judgment arrives, `showGuardianAngelSurvivals` attaches one
+  `.guardian-angel-live-word` chip to #guardian-angel-live at the board's right,
   wording the count as "you won a forced coinflip" (pluralized) —
   nothing pops up mid-game, and no chip appears when the count is zero
   (2026-08-23). `reportResult` stores
-  `justiceEnabled`, `seed`, `rngVersion`, `boardVersion`,
-  and `justiceVersion`; rankings intentionally remain mixed (confirmed
+  `guardianAngelEnabled`, `seed`, `rngVersion`, `boardVersion`,
+  and `guardianAngelVersion` (`guardian-angel-v4`); rankings intentionally remain mixed (confirmed
   as the product 2026-08-23, no longer a deferral). `rng.js`
   exports `GameRandom`: `createSeed` obtains 128
   bits from `crypto.getRandomValues`, and `fromSeed` implements
-  `xoshiro128ss-v1`, the single stream used by `placeMines` and Justice.
+  `xoshiro128ss-v1`, the single stream used by `placeMines` and Guardian Angel.
   Initial-board replay needs mode + first click + seed + RNG/board versions;
-  Justice replay also needs the input trace and Justice version.
-  just-universe-help.html is a standalone explainer document (its "?"
+  Guardian Angel replay also needs the input trace and Guardian Angel version.
+  `guardian-angel-help.html` is a standalone explainer document (its "?"
   popover on the settings row was removed in the 2026-08-23 caption
   purge; the schema no longer carries `helpFile`). Correctness:
-  `node tests/justice-test.js`
+  `node tests/guardian-angel-test.js`
   (deterministic fixtures including safe-entry counting semantics, the
   chord-origin rule, the 2026-10-21 board with two 50/50s sharing a number,
   a 50/50 pinned only by subtraction, and the 2026-10-26 corner with its
@@ -133,5 +134,5 @@ Spec: [docs/product/just-universe.md](../product/just-universe.md). Index: [AGEN
   removing the sea-completed chain's invariance, boundary, size, or mine
   count check);
   `node tests/rng-test.js` freezes the RNG version's
-  output sequence; scale: `node tests/justice-bench.js` (100x100 boards,
+  output sequence; scale: `node tests/guardian-angel-bench.js` (100x100 boards,
   10,000-cell structural proof and direct redraw; no timing threshold).

@@ -21,7 +21,7 @@ Spec: [docs/product/measurement.md](../product/measurement.md). Index: [AGENTS.m
   loads `game-data.js` and reads the fastclick gap through its catalog
   entry, so a value of an earlier definition stays out), the
   loss types and likely-misclick reasons in the report's exact wording (it
-  loads the GAME-END EVALUATION: VERDICT span and `justice.js`, like the
+  loads the GAME-END EVALUATION: VERDICT span and `guardian-angel.js`, like the
   tests, so it can never re-implement `lossTypeOf`), guess-policy per key, a summed-risk luck
   calibration table, and paired state-tag/music contrasts. Output JSON goes
   to `--out` (`analysis/history/out/` is ignored); see
@@ -34,7 +34,7 @@ Spec: [docs/product/measurement.md](../product/measurement.md). Index: [AGENTS.m
   research page opened at `http://127.0.0.1:8018/analysis/judgment/judge.html`
   (creator request 2026-10-14; [BACKLOG.md](../../BACKLOG.md), "Game results
   as one tree per board type"). Like the history summary it loads the
-  VERDICT span with `justice.js`, and adds `odds.js`, `solver.js`, and
+  VERDICT span with `guardian-angel.js`, and adds `odds.js`, `solver.js`, and
   `rng.js` for every covered square's mine chance, the recomputed one-step
   model, and clean wins' final boards. The bank
   (`analysis/judgment/judgment-problems.json`) and the creator's latest

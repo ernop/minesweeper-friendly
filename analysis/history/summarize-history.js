@@ -46,7 +46,7 @@ const outPath = option('--out', null);
 
 const repo = path.join(__dirname, '..', '..');
 // The loss type reads the saved position through the solver.
-globalThis.Justice = require(path.join(repo, 'justice.js'));
+globalThis.GuardianAngel = require(path.join(repo, 'guardian-angel.js'));
 const source = fs.readFileSync(path.join(repo, 'game', 'evaluation.js'), 'utf8');
 const startIdx = source.indexOf('//-------GAME-END EVALUATION: VERDICT');
 const endIdx = source.indexOf('//-------GAME-END EVALUATION: CAPTURE');
@@ -361,7 +361,7 @@ for (const [key, list] of byKey) {
   };
 }
 
-// Realized guess deaths against summed modeled risk, Justice-free games
+// Realized guess deaths against summed modeled risk, Guardian-Angel-free games
 // only (a certified pocket rewrites the outcome). `1 - exp(-lifeLost)` is
 // the survival-model approximation for the summed per-guess probabilities;
 // exact per-guess products need the trace export.
@@ -375,7 +375,7 @@ const calibration = [
   { label: 'over 0.50', low: 0.50, high: Infinity },
 ].map((bucket) => ({ ...bucket, games: 0, guessDeaths: 0, expectedDeaths: 0 }));
 for (const game of games) {
-  if (!Number.isFinite(game.lifeLost) || game.justice !== 0) continue;
+  if (!Number.isFinite(game.lifeLost) || game.guardianAngel !== 0) continue;
   const bucket = calibration.find((b) => game.lifeLost > b.low && game.lifeLost <= b.high)
     || calibration[0];
   bucket.games++;

@@ -80,7 +80,7 @@ async function completePendingGames(storedHistory, trial) {
         drill: record.playMode === 'endgame-drill',
         needZini: true, needBoardMetrics: true, needCadence: true, needMoveHabits: true, needFastclickGap: true,
         gameId: record.endedAt, timeMs: record.timeMs, outcome: record.outcome,
-        justiceEnabled: record.justiceEnabled, guessLedger: guessLedgerAppliesTo(record.playMode),
+        guardianAngelEnabled: record.guardianAngelEnabled, guessLedger: guessLedgerAppliesTo(record.playMode),
         trace: { t: stored.sampleT, x: stored.sampleX, y: stored.sampleY, merged: storedMergedObservations(stored),
           events: stored.events, wallMs: record.endedAt - stored.startedAt,
           initialPageState: stored.initialPageState },

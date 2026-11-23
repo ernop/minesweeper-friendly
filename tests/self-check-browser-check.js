@@ -1,7 +1,7 @@
 'use strict';
 // Self-check page in a real browser: the version-5 upgrade from version 3 and
-// from both version-4 builds keeps history and self-checks, the version-7
-// upgrade renames saved record fields from each and from version 6, check-in answers,
+// from both version-4 builds keeps history and self-checks, the version-8
+// upgrade renames saved record fields from each and from versions 6 and 7, check-in answers,
 // frame-timed stimuli with event-timed responses, early presses, a stop, one
 // complete 10-counter test, storage, history, and backup round trip.
 //
@@ -32,16 +32,28 @@ async function serveWorkingTree(context) {
   });
 }
 
-// The three databases that exist in the wild before version 5: version 3,
-// and the two different version-4 builds of 2026-09-26 (the local player
-// origin's added selfChecks; the public one moved history into records);
-// and version 6, the last before the record field renames.
-const SEEDED_RECORD = { endedAt: 1, outcome: 'win', clicks: 3, wastedClicks: 1, movesRanOut: 2 };
-const RENAMED_RECORD = { endedAt: 1, outcome: 'win', boardChangingClicks: 3, noOpClicks: 1, movesMovedOn: 2 };
+// The databases that exist in the wild before version 8: version 3,
+// the two different version-4 builds of 2026-09-26 (the local player
+// origin's added selfChecks; the public one moved history into records),
+// version 6 (before measurement renames), and version 7 (before Guardian Angel).
+const SEEDED_RECORD = {
+  endedAt: 1, outcome: 'win', clicks: 3, wastedClicks: 1, movesRanOut: 2,
+  justice: 1, justiceEnabled: true, justiceVersion: 'just-universe-v4',
+  actionEvaluations: [{ version: 'action-evaluation-v1', action: 'reveal', result: 'continued',
+    mistakes: [], evidence: { justiceProtected: true } }],
+};
+const RENAMED_RECORD = {
+  endedAt: 1, outcome: 'win', boardChangingClicks: 3, noOpClicks: 1, movesMovedOn: 2,
+  guardianAngel: 1, guardianAngelEnabled: true, guardianAngelVersion: 'just-universe-v4',
+  actionEvaluations: [{ version: 'action-evaluation-v1', action: 'reveal', result: 'continued',
+    mistakes: [], evidence: { guardianAngelProtected: true } }],
+};
 const SEEDED_TRIAL = { playMode: 'trial', endedHow: 'done',
-  results: [{ identityIndex: 0, endedAt: 2, outcome: 'loss', clicks: 4, wastedClicks: 0 }] };
+  results: [{ identityIndex: 0, endedAt: 2, outcome: 'loss', clicks: 4, wastedClicks: 0,
+    justice: 0, justiceEnabled: false }] };
 const RENAMED_TRIAL = { playMode: 'trial', endedHow: 'done',
-  results: [{ identityIndex: 0, endedAt: 2, outcome: 'loss', boardChangingClicks: 4, noOpClicks: 0 }] };
+  results: [{ identityIndex: 0, endedAt: 2, outcome: 'loss', boardChangingClicks: 4, noOpClicks: 0,
+    guardianAngel: 0, guardianAngelEnabled: false }] };
 const SEEDED_CHECK = {
   startedAt: 5, endedAt: 6, timeZone: 'UTC', utcOffsetMin: 0, occasion: 'routine',
   sleepiness: { scale: 'kss-9-v1', rating: 3 },
@@ -54,7 +66,7 @@ const SEEDED_CHECK = {
 async function seedDatabase(page, layout) {
   await page.goto(ORIGIN + '/__seed.html');
   await page.evaluate(({ layout, record, check, trial }) => new Promise((resolve, reject) => {
-    const version = { 'version-3': 3, 'local-version-4': 4, 'public-version-4': 4, 'version-6': 6 }[layout];
+    const version = { 'version-3': 3, 'local-version-4': 4, 'public-version-4': 4, 'version-6': 6, 'version-7': 7 }[layout];
     const request = indexedDB.open('minesweeper-friendly', version);
     request.onupgradeneeded = () => {
       const db = request.result;
@@ -62,15 +74,15 @@ async function seedDatabase(page, layout) {
       traces.createIndex('boardsByModeAndSize', ['mode', 'finalBoard.cells.length']);
       const userdata = db.createObjectStore('userdata');
       userdata.put(trial, 'trial');
-      if (layout === 'public-version-4' || layout === 'version-6') {
+      if (layout === 'public-version-4' || layout === 'version-6' || layout === 'version-7') {
         db.createObjectStore('records').put(record, ['9x9/10@standard', record.endedAt]);
       } else {
         userdata.put({ '9x9/10@standard': [record] }, 'history');
       }
-      if (layout === 'local-version-4' || layout === 'version-6') {
+      if (layout === 'local-version-4' || layout === 'version-6' || layout === 'version-7') {
         db.createObjectStore('selfChecks', { keyPath: 'startedAt' }).put(check);
       }
-      if (layout === 'version-6') db.createObjectStore('playSpans', { keyPath: 'startedAt' });
+      if (layout === 'version-6' || layout === 'version-7') db.createObjectStore('playSpans', { keyPath: 'startedAt' });
     };
     request.onsuccess = () => { request.result.close(); resolve(); };
     request.onerror = () => reject(request.error);
@@ -148,15 +160,15 @@ async function answerStimulus(page, at) {
     // Every earlier database ends with the same five stores: history in
     // records under the current field names, the trial session's attempts
     // renamed too, self-checks kept, nothing lost or duplicated.
-    for (const layout of ['version-3', 'local-version-4', 'public-version-4', 'version-6']) {
+    for (const layout of ['version-3', 'local-version-4', 'public-version-4', 'version-6', 'version-7']) {
       const state = await upgradedFrom(browser, layout);
-      assert.equal(state.version, 7, layout);
+      assert.equal(state.version, 8, layout);
       assert.deepEqual(state.stores, ['playSpans', 'records', 'selfChecks', 'traces', 'userdata'], layout);
       assert.equal(state.userdataHistory, undefined, layout + ': history left userdata');
       assert.deepEqual(state.recordKeys, [['9x9/10@standard', 1]], layout);
       assert.deepEqual(state.records, [RENAMED_RECORD], layout);
       assert.deepEqual(state.trial, RENAMED_TRIAL, layout);
-      assert.deepEqual(state.checks, ['local-version-4', 'version-6'].includes(layout) ? [SEEDED_CHECK] : [], layout);
+      assert.deepEqual(state.checks, ['local-version-4', 'version-6', 'version-7'].includes(layout) ? [SEEDED_CHECK] : [], layout);
     }
 
     await page.goto(ORIGIN + '/self-check.html');

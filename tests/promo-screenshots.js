@@ -137,7 +137,7 @@ function planProvenMoves(page) {
     let reveals = 0;
     while (!revealed.every((shown, i) => shown || mineAt[i])) {
       const view = { width, height, mines, revealed: revealed.slice(), adjacent };
-      const facts = Justice.proveFacts(view, Justice.rawClues(view));
+      const facts = GuardianAngel.proveFacts(view, GuardianAngel.rawClues(view));
       const safes = [];
       const certainMines = [];
       for (const [cell, fact] of facts) {

@@ -377,17 +377,19 @@ a zero is a pure function of the layout and is computed where it is shown
 (the training page's Openings). Absent on Endgame drill games, whose first
 input meets pre-opened cells, and on games recorded before it existed.
 
-Justice — how many clicks into a guess that nothing else on the board could
-ever settle were guaranteed safe (see [A just universe](just-universe.md));
+Guardian Angel — how many clicks into a guess that nothing else on the board could
+ever settle were guaranteed safe (see [Guardian Angel](guardian-angel.md));
 the stats table's row reads "Forced coinflips won", the end-of-game chip's
 words (2026-10-21; "Justice" before) — joined the schema on 2026-08-20
+(field `guardianAngel`, named `justice` before 2026-11-23)
 under the same absence rules as wasted clicks. It increments on every
 qualifying entry whether the hidden cell was originally clear or required
 a redraw. Zero is a normal value and is recorded; the stats table always
 shows the row when the field exists. Since 2026-11-03 the count comes from
 the reports worker's judgment at game end
 ([Game-end evaluation](game-end-evaluation.md), "When it is judged");
-the click saves the redraw in the trace. `justiceEnabled` records the setting
+the click saves the redraw in the trace. `guardianAngelEnabled` (named
+`justiceEnabled` before 2026-11-23) records the setting
 state frozen at the first reveal so the rules of the game remain knowable,
 although rankings deliberately continue mixing both states for now.
 
@@ -419,7 +421,7 @@ the values its `oddsVersion` names.
 
 - **Life lost** (absolute). Each guess costs its mine probability. A 19%
   death click spends 0.19 lives in the multiverse whether you lived or
-  died. A just universe may still rearrange a covered guess so you live; the
+  died. Guardian Angel may still rearrange a covered guess so you live; the
   0.19 remains on the ledger (the remaining chance you lived was played
   out, not erased).
 - **Life needless.** Cost above the safest available cell:
@@ -437,7 +439,7 @@ the values its `oddsVersion` names.
   (1 − p(die)) × (1 − expected min
   remaining risk after the number that click would show). The expectation
   weighs each number by the consistent whole-board layouts that show it.
-  When Justice would certify the cell, death risk for this score is 0 (you
+  When Guardian Angel would certify the cell, death risk for this score is 0 (you
   will live) but absolute life-lost still uses the raw p. The best value is
   the highest over every covered square, proven-safe ones included; a
   proven-safe square's value is never below any guess's, because the
@@ -455,9 +457,9 @@ the values its `oddsVersion` names.
   each layout of the clicked square's group once, including layouts the
   remaining mine count rules out.
 
-A chip (olive, in the Justice stack, shown at game end like the rest of
+A chip (olive, in the Guardian Angel stack, shown at game end like the rest of
 the stack) prints the raw p and either
-`ideal`, `justice`, or the needless extra; its hover text names the
+`ideal`, `guardian angel`, or the needless extra; its hover text names the
 reason (a provably safe square was available, or the safest square's
 odds). The ledger exists only where the standard mine gamble is real:
 Standard, 3BV countdown, the Trial modes, and the Endgame drill. Angelic
@@ -612,11 +614,11 @@ proven before it.
 
 Seed — every new board receives a cryptographically generated 128-bit seed.
 `xoshiro128ss-v1` expands it into the one deterministic random stream used
-for initial mine placement and every Justice redraw. Finished records and
-traces store `seed`, `rngVersion`, `boardVersion`, and `justiceVersion`.
+for initial mine placement and every Guardian Angel redraw. Finished records and
+traces store `seed`, `rngVersion`, `boardVersion`, and `guardianAngelVersion` (named `justiceVersion` before 2026-11-23).
 The seed plus board mode, first click, RNG version, and board version
 reproduces the initial board. Reproducing later redraws also requires
-replaying the stored input trace under the recorded Justice version,
+replaying the stored input trace under the recorded Guardian Angel version,
 because redraws consume the stream only when the player's path triggers
 them. A bare seed without those version names is not claimed to be a
 permanent replay format.

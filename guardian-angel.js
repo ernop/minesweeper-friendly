@@ -2,9 +2,9 @@
 
 const VISIBLE_PROOF_VERSION = 'all-consistent-layouts-v1';
 
-//-------SEALED-POCKET MERCY (pure logic, no DOM, no hidden-state judgment)-------
+//-------GUARDIAN ANGEL: SEALED-POCKET MERCY (pure logic, no DOM, no hidden-state judgment)-------
 //
-// A Justice event is a bare click into a certified sealed pocket: a group
+// A Guardian Angel event is a bare click into a certified sealed pocket: a group
 // of still-unknown cells whose possible mine arrangements all look
 // identical from everywhere outside the group. No outside play can make
 // the first entry knowable, so that entry is guaranteed safe.
@@ -31,7 +31,7 @@ const VISIBLE_PROOF_VERSION = 'all-consistent-layouts-v1';
 // ordinary Minesweeper in v1; that is the rule's explicit boundary, not a
 // timeout or degraded answer.
 
-function justiceNeighbors(index, width, height) {
+function guardianAngelNeighbors(index, width, height) {
   const x = index % width;
   const y = (index - x) / width;
   const result = [];
@@ -52,7 +52,7 @@ function rawClues(view) {
   const clues = [];
   for (let i = 0; i < size; i++) {
     if (!view.revealed[i]) continue;
-    const covered = justiceNeighbors(i, view.width, view.height)
+    const covered = guardianAngelNeighbors(i, view.width, view.height)
       .filter((n) => !view.revealed[n]);
     if (covered.length > 0) clues.push({ covered, count: view.adjacent[i] });
   }
@@ -60,7 +60,7 @@ function rawClues(view) {
 }
 
 // The latest exact proof. One click proves its position several times
-// (misclick, evidence, Justice); a proof of another position replaces it.
+// (misclick, evidence, Guardian Angel); a proof of another position replaces it.
 let lastExactProof = null;
 
 function exactProofKey(view, clues) {
@@ -876,7 +876,7 @@ function buildStructure(view, proofOptions, provenFacts) {
   const seaComponents = [];
   const seaComponentOfCell = new Map();
   // Each sea square's component index plus one, 0 while unassigned. The
-  // neighbors are walked in place, in justiceNeighbors' order (each
+  // neighbors are walked in place, in guardianAngelNeighbors' order (each
   // component's cell order depends on it), without a list per square: this
   // fill runs on every structure, early in a game over most of the board.
   const seaIndexOf = new Int32Array(size);
@@ -1034,7 +1034,7 @@ function externalCoveredNeighbors(structure, cells) {
   const inPocket = new Set(cells);
   const external = new Set();
   for (const cell of cells) {
-    for (const neighbor of justiceNeighbors(
+    for (const neighbor of guardianAngelNeighbors(
       cell, structure.view.width, structure.view.height)) {
       if (!structure.view.revealed[neighbor] && !inPocket.has(neighbor)) {
         external.add(neighbor);
@@ -1049,7 +1049,7 @@ function cardinalityBoundaryIsSealed(structure, cells) {
   for (const observer of external) {
     if (structure.facts.get(observer) === 1) continue;
     let touched = 0;
-    for (const neighbor of justiceNeighbors(
+    for (const neighbor of guardianAngelNeighbors(
       observer, structure.view.width, structure.view.height)) {
       if (inPocket.has(neighbor)) touched++;
     }
@@ -1066,7 +1066,7 @@ function complementBoundaryIsSealed(structure, shape) {
     if (structure.facts.get(observer) === 1) continue;
     let touchedA = 0;
     let touchedB = 0;
-    for (const neighbor of justiceNeighbors(
+    for (const neighbor of guardianAngelNeighbors(
       observer, structure.view.width, structure.view.height)) {
       if (aSet.has(neighbor)) touchedA++;
       if (bSet.has(neighbor)) touchedB++;
@@ -1335,10 +1335,10 @@ function redrawEntry(certificate, clicked, currentMines, random) {
   return result;
 }
 
-const Justice = {
+const GuardianAngel = {
   PROOF_VERSION: VISIBLE_PROOF_VERSION,
   DEDUCTION_LEVELS,
-  neighbors: justiceNeighbors,
+  neighbors: guardianAngelNeighbors,
   rawClues,
   proveFacts,
   proveLevels,
@@ -1357,4 +1357,4 @@ const Justice = {
   countAt,
 };
 
-if (typeof module !== 'undefined' && module.exports) module.exports = Justice;
+if (typeof module !== 'undefined' && module.exports) module.exports = GuardianAngel;

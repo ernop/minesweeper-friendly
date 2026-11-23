@@ -57,7 +57,7 @@ function seedHistory() {
       for (let cell = 0; cell < width * height; cell++) cells += cell % 2 === 0 ? int(0, 4) : '.';
       tx.objectStore(RECORD_STORE).put({ endedAt, outcome: win ? 'win' : 'loss', timeMs: int(20000, 200000),
         bv3: int(20, 180), boardChangingClicks: int(20, 250), noOpClicks: int(0, 8), misclicks: 0, flagsPlaced: int(0, mines),
-        flagsRemoved: 0, mousePathPx: int(2000, 40000), states: [], justice: 0, justiceEnabled: true,
+        flagsRemoved: 0, mousePathPx: int(2000, 40000), states: [], guardianAngel: 0, guardianAngelEnabled: true,
         playMode: 'standard', maxAdjacent: int(3, 6), zeroCount: int(10, 90), islandCount: int(3, 30), largestIsland: int(2, 12),
         actionEvaluations: [{ version: 'action-evaluation-v1', action: 'reveal', actionNumber: int(1, 90), atMs: 1000,
           selected: [0], result: win ? 'continued' : 'death', mistakes: ['chose-higher-risk'],
@@ -132,7 +132,7 @@ async function main() {
     await page.goto('http://127.0.0.1:8099/');
     await ready();
     await page.evaluate(seedHistory);
-    await page.evaluate(() => updateSettings({ difficulty: 'intermediate', justUniverse: true }));
+    await page.evaluate(() => updateSettings({ difficulty: 'intermediate', guardianAngel: true }));
     await page.reload();
     const startupMs = await ready();
     await page.evaluate(instrument);
@@ -197,7 +197,7 @@ async function main() {
         revealed: cells.map((c) => c.revealed), adjacent: cells.map((c) => (c.revealed ? c.adjacent : 0)) };
       const flagged = cells.some((c) => c.flagged);
       let target = -1, flag = false;
-      for (const [cell, fact] of Justice.proveFacts(view, Justice.rawClues(view))) {
+      for (const [cell, fact] of GuardianAngel.proveFacts(view, GuardianAngel.rawClues(view))) {
         if (fact === 1 && !flagged) { target = cell; flag = true; break; }
         if (fact === 2 && target === -1) target = cell;
       }

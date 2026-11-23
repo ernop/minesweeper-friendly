@@ -13,7 +13,7 @@ const { chromium } = require(process.argv[2]);
     page.on('pageerror', error => errors.push(error.message));
     await page.goto('http://127.0.0.1:8099/');
     await page.waitForFunction(() => preferenceUIReady);
-    await page.evaluate(() => { settings.justUniverse = false; });
+    await page.evaluate(() => { settings.guardianAngel = false; });
     const first = page.locator('#board .cell').first();
     await first.click({ button: 'right' });
     let events = await page.evaluate(() => trace.events);

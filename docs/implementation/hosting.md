@@ -107,9 +107,9 @@ Specification: [Play statistics](../product/hosting.md#play-statistics).
   console.error(error); }`; these are the runtime's only `console.error`
   calls.
 - An Expert Standard win and a pink-noise Expert win send, for example:
-  `/_event?v=1&e=game&p=<player>&s=<page load>&n=2&t=74&pg=%2F&m=expert%3Astandard&r=win&d=61.234&w=30&h=16&mines=99&just=1&bbbv=152&clicks=180&flags=70&bbbvs=2.482&eff=84.444&ioe=0.817`
+  `/_event?v=1&e=game&p=<player>&s=<page load>&n=2&t=74&pg=%2F&m=expert%3Astandard&r=win&d=61.234&w=30&h=16&mines=99&guardian_angel=1&bbbv=152&clicks=180&flags=70&bbbvs=2.482&eff=84.444&ioe=0.817`
   and
-  `/_event?v=1&e=game&p=<player>&s=<page load>&n=3&t=112&pg=%2F&m=expert%3Astandard%3Apink-noise&r=win&d=98.765&w=30&h=16&mines=99&g_alpha=1.5&g_scale=8&g_contrast=2&g_stretch=-1.5&just=1&bbbv=181&clicks=230&flags=85&bbbvs=1.833&eff=78.696&ioe=0.757`.
+  `/_event?v=1&e=game&p=<player>&s=<page load>&n=3&t=112&pg=%2F&m=expert%3Astandard%3Apink-noise&r=win&d=98.765&w=30&h=16&mines=99&g_alpha=1.5&g_scale=8&g_contrast=2&g_stretch=-1.5&guardian_angel=1&bbbv=181&clicks=230&flags=85&bbbvs=1.833&eff=78.696&ioe=0.757`.
 - `tests/play-statistics-test.js` checks that every page loads the module
   under one tag and that local, test, and Pages origins send nothing. It
   runs the real deferral chain and `reportResult` for four games (Expert

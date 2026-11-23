@@ -62,7 +62,7 @@ not select categories from the lost board.
 1. **One score key.** Only the current board dimensions/mine count, play mode,
    and generator including its parameters supply records. Other difficulties,
    custom configurations, modes, or generator settings played in the same
-   period do not appear. Justice on/off intentionally share rankings. Markless
+   period do not appear. Guardian Angel on/off intentionally share rankings. Markless
    status, session states, and music do not create separate score keys.
 2. **Wins in the chosen wall-clock period.** Only completed wins can earn these
    placements. “Today” starts at local midnight, not session start; it includes

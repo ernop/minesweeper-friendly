@@ -7,14 +7,14 @@ a task needs.
 ## Project
 
 A minesweeper clone of minesweeper.online's standard mode (same mechanics,
-classic-Windows look), growing toward friendlier variants such as A just
-universe and Angelic play (the no-guess modes were removed 2026-10-21). The
+classic-Windows look), growing toward friendlier variants such as Guardian Angel
+and Angelic play (the no-guess modes were removed 2026-10-21). The
 friendliness axis and the deduction levels that grade how hard each fact
-is to know and define "solvable" (`Justice.DEDUCTION_LEVELS`) are in
+is to know and define "solvable" (`GuardianAngel.DEDUCTION_LEVELS`) are in
 [docs/product/design-axis.md](docs/product/design-axis.md).
 
 Runtime: `index.html` + `style.css` load `storage.js`; pure `rng.js` /
-`justice.js` / `board-shape.js` / `zini.js` / `board-metrics.js`;
+`guardian-angel.js` / `board-shape.js` / `zini.js` / `board-metrics.js`;
 `board-metrics-ui.js` (historical backfill in `board-metrics-worker.js`); pure
 `endgame.js` / `solver.js` / `generators.js` / `pregen.js` / `odds.js` /
 `trial.js`; shared `game-data.js` / `during-game.js` (pure, the during-the-game
@@ -22,7 +22,7 @@ model and rows, also in `analysis-worker.js`) / `board-icons.js` / `settings-cor
 `analysis-client.js` (named worker queues in `analysis-worker.js`, using
 `trend-fit.js` for exact slope selection; its switch-cost lane runs
 `switch-cost-worker.js`, which reads saved traces and runs the pure
-`switch-cost.js` with `training-core.js`, `justice.js`, `solver.js`, and
+`switch-cost.js` with `training-core.js`, `guardian-angel.js`, `solver.js`, and
 `rng.js`); pure `switch-cost.js` (the page reads its constants); the pure
 `play-limits.js` (daily play limits, after `settings-core.js`); then the game page's own scripts in `game/` (below). No dependencies, no
 build step. The settings page is
@@ -61,7 +61,7 @@ interrupt play (creator decision 2026-10-11;
 [Play statistics](docs/product/hosting.md#play-statistics)).
 The training page is `training.html` + `training-page.js`, loading
 `style.css`, `training.css`, and `storage.js`; `training-worker.js` reads the
-saved games and runs the pure `training-core.js` with `justice.js`,
+saved games and runs the pure `training-core.js` with `guardian-angel.js`,
 `solver.js`, `rng.js`, and `game/evaluation.js`.
 
 ### Game page code (`game/`)
@@ -97,7 +97,7 @@ Files, in load order:
 | --- | --- |
 | `core.js` | the current game's state, shared DOM handles (incl. the page status line) |
 | `layout.js` | board position solver, wiring, and editor; zoom and pixel ratio; docked columns; clearance |
-| `play.js` | top panel (LCDs, face), generator glue and Generator menu, new-game flow, reveal/flag/chord, win/loss, A just universe |
+| `play.js` | top panel (LCDs, face), generator glue and Generator menu, new-game flow, reveal/flag/chord, win/loss, Guardian Angel |
 | `play-modes.js` | other modes menu, mode predicates and labels; 3BV countdown (the code's "pregen"), Endgame drill, Board lab, trials on the live board |
 | `play-limits.js` | daily play limits: the play spans (every saved one; this tab's begin, heartbeat, and ending), the closed-board gate and notice, the no-flags penalty gate, today's use in the top bar |
 | `evaluation.js` | game-end evaluation: pure verdict model; the game-end judgment of the saved decisions (run in the reports worker); raw capture at the click |
@@ -201,7 +201,7 @@ the file path, plus the section heading when the file holds several.
 | Board chrome, page layout (game setup rows, top bar, settings row, footer), board position | [docs/product/board-and-layout.md](docs/product/board-and-layout.md) | [docs/implementation/board-and-layout.md](docs/implementation/board-and-layout.md) |
 | Play modes (Angelic, Endgame drill, trials, 3BV countdown, Board lab; the removed no-guess modes) | [docs/product/play-modes.md](docs/product/play-modes.md) | [docs/implementation/play-modes.md](docs/implementation/play-modes.md) |
 | Board generators, top score keys | [docs/product/board-generators.md](docs/product/board-generators.md) | [docs/implementation/board-generators.md](docs/implementation/board-generators.md) |
-| A just universe | [docs/product/just-universe.md](docs/product/just-universe.md) | [docs/implementation/just-universe.md](docs/implementation/just-universe.md) |
+| Guardian Angel | [docs/product/guardian-angel.md](docs/product/guardian-angel.md) | [docs/implementation/guardian-angel.md](docs/implementation/guardian-angel.md) |
 | Game-end evaluation, action evidence | [docs/product/game-end-evaluation.md](docs/product/game-end-evaluation.md) | [docs/implementation/game-end-evaluation.md](docs/implementation/game-end-evaluation.md) |
 | Result presentation and ordering | [docs/product/results.md](docs/product/results.md) | [docs/implementation/results.md](docs/implementation/results.md) |
 | Game data chart, shared session, switch cost line | [docs/product/game-data.md](docs/product/game-data.md) | [docs/implementation/game-data.md](docs/implementation/game-data.md) |

@@ -2,7 +2,7 @@
 
 // One game on the board: the top panel (LCDs and face), board helpers, the
 // board generator glue and Generator menu, the new-game flow, reveal / flag /
-// chord, win and loss, and A just universe (sealed-pocket mercy, misclick
+// chord, win and loss, and Guardian Angel (sealed-pocket mercy, misclick
 // facts, the guess ledger).
 
 //-------TOP PANEL (LCD digits, face icons)-------
@@ -283,10 +283,10 @@ function newGame(deal = true) {
   // time played was real: close the play span so today's use keeps it, and
   // the session results count the board as abandoned.
   playSpanEnd('restarted');
-  justiceDetails = [];
+  guardianAngelDetails = [];
   gameState = 'ready';
   minesPlaced = false;
-  justiceEnabledForGame = null;
+  guardianAngelEnabledForGame = null;
   flagsCount = 0;
   revealedCount = 0;
   boardChangingClicks = 0;
@@ -304,7 +304,7 @@ function newGame(deal = true) {
   gameRandom = GameRandom.fromSeed(gameSeed);
   firstRevealIndex = null;
   gameGenerator = activeGenerator();
-  justiceLive.textContent = '';
+  guardianAngelLive.textContent = '';
   clearInterval(timerInterval);
   timerInterval = null;
   leftDown = false;
@@ -449,14 +449,14 @@ function revealCell(index) {
   let firstReveal = false;
   if (!minesPlaced) {
     placeMinesForPlayMode(index);
-    justiceEnabledForGame = justiceAppliesToMode() && settings.justUniverse;
+    guardianAngelEnabledForGame = guardianAngelAppliesToMode() && settings.guardianAngel;
     gameState = 'playing';
     startTimer();
     firstReveal = true;
   } else if (gameState === 'ready') {
     gameState = 'playing';
     startTimer();
-    justiceEnabledForGame = justiceAppliesToMode() && settings.justUniverse;
+    guardianAngelEnabledForGame = guardianAngelAppliesToMode() && settings.guardianAngel;
     firstReveal = true;
   }
 
@@ -474,7 +474,7 @@ function revealCell(index) {
     }
     applyMineMap(saved);
   } else if (!firstReveal && cell.mine) {
-    attemptJustice(index);
+    attemptGuardianAngel(index);
   }
   if (cell.mine) {
     lose([index], actionEvaluation);
@@ -592,7 +592,7 @@ function toggleFlag(index, evaluation) {
   if (gameState === 'ready' && minesPlaced) {
     gameState = 'playing';
     startTimer();
-    justiceEnabledForGame = justiceAppliesToMode() && settings.justUniverse;
+    guardianAngelEnabledForGame = guardianAngelAppliesToMode() && settings.guardianAngel;
   }
   if (cell.flagged) finishFlagEpisode(index, 'flag-removed');
   cell.flagged = !cell.flagged;
@@ -718,22 +718,22 @@ function finish() {
   clearPresses();
 }
 
-//-------A JUST UNIVERSE (sealed-pocket mercy)-------
+//-------GUARDIAN ANGEL (sealed-pocket mercy)-------
 
 // Qualification happens before the hidden layout is consulted. Every bare
-// click into a certified sealed pocket is one Justice event whether that
+// click into a certified sealed pocket is one Guardian Angel event whether that
 // cell was already clear or needed a conditional redraw. Chords never enter
 // this path: a wrong flag is the player's mistake. The click itself certifies
 // only a mined entry, which must be redrawn there; the game's end counts
 // every event from the saved boards (completeGameEvaluations).
-let justiceEnabledForGame = null; // frozen from the setting on first reveal
+let guardianAngelEnabledForGame = null; // frozen from the setting on first reveal
 
-// Per-event Justice details of the finished game ({type, squareCount,
+// Per-event Guardian Angel details of the finished game ({type, squareCount,
 // mineCount, clearWays, totalWays}) for the end-of-game recap, set when its
 // evaluation completes.
-let justiceDetails = [];
+let guardianAngelDetails = [];
 
-function justiceAppliesToMode() {
+function guardianAngelAppliesToMode() {
   return settings.playMode === 'standard'
     || settings.playMode === 'pregen-10-3bv-desc'
     || Trial.isPlayMode(settings.playMode);
@@ -750,49 +750,49 @@ function playerView() {
 }
 
 // A mined entry the visible board certifies is redrawn clear.
-function attemptJustice(index) {
-  if (justiceEnabledForGame !== true) return;
+function attemptGuardianAngel(index) {
+  if (guardianAngelEnabledForGame !== true) return;
   let redrawn;
   try {
-    const certificate = Justice.certifyEntry(playerView(), index);
+    const certificate = GuardianAngel.certifyEntry(playerView(), index);
     if (certificate === null) return;
-    redrawn = Justice.redrawEntry(
+    redrawn = GuardianAngel.redrawEntry(
       certificate, index, cells.map((c) => c.mine), gameRandom);
   } catch (err) {
-    backupStatus.textContent = 'justice solver failed: ' + err.message;
+    backupStatus.textContent = 'guardian angel solver failed: ' + err.message;
     throw err;
   }
   let mineTotal = 0;
   for (const mine of redrawn) if (mine) mineTotal++;
-  if (mineTotal !== config.mines) throw new Error('justice redraw changed the mine total');
+  if (mineTotal !== config.mines) throw new Error('guardian angel redraw changed the mine total');
   for (let i = 0; i < cells.length; i++) {
     if (!cells[i].revealed) continue;
     if (neighbors(i).filter((n) => redrawn[n]).length !== cells[i].adjacent) {
-      throw new Error('justice redraw contradicts revealed cell ' + i);
+      throw new Error('guardian angel redraw contradicts revealed cell ' + i);
     }
   }
   for (let i = 0; i < cells.length; i++) cells[i].mine = redrawn[i];
   for (let i = 0; i < cells.length; i++) {
     cells[i].adjacent = cells[i].mine ? 0 : neighbors(i).filter((n) => cells[n].mine).length;
   }
-  if (cells[index].mine) throw new Error('justice entry remained mined');
+  if (cells[index].mine) throw new Error('guardian angel entry remained mined');
 }
 
 // The only thing shown beside the board at game end is the count of
-// Justice survivals (creator request 2026-08-23). Guess-odds risk chips
+// Guardian Angel survivals (creator request 2026-08-23). Guess-odds risk chips
 // are withheld for now; they may return once they can be shown with a
 // proper explanation. The measurements themselves are still recorded.
-function showJusticeSurvivals() {
-  const count = justiceDetails.length;
+function showGuardianAngelSurvivals() {
+  const count = guardianAngelDetails.length;
   if (count === 0) return;
   const word = document.createElement('div');
-  word.className = 'justice-live-word';
+  word.className = 'guardian-angel-live-word';
   word.textContent = count === 1
     ? 'you won a forced coinflip'
     : 'you won ' + count + ' forced coinflips';
   word.title = 'Guesses that nothing else on the board could ever settle '
-    + 'are forced coinflips; A Just Universe makes you win every one';
-  justiceLive.appendChild(word);
+    + 'are forced coinflips; Guardian Angel makes you win every one';
+  guardianAngelLive.appendChild(word);
   scheduleBoardLayout();
 }
 

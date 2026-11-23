@@ -69,7 +69,7 @@ const MOMENT_KIND_LABELS = {
   'known-through-own-flag': 'Known death through the player\u2019s own flag, which the numbers contradicted',
   'gamble-on-own-flag': 'Gamble on the player\u2019s own flag, which was itself a guess',
   unnecessary: 'Unnecessary gamble: a square was proven safe',
-  'unnecessary-justice': 'Unnecessary gamble: A Just Universe guaranteed a safe entry elsewhere',
+  'unnecessary-guardian-angel': 'Unnecessary gamble: Guardian Angel guaranteed a safe entry elsewhere',
   worse: 'Worse gamble: a safer square existed',
   best: 'Best gamble: the lowest risk available',
   'flag-on-safe': 'Flag placed on a proven-safe square',
@@ -398,7 +398,7 @@ function momentFacts(problem, moment) {
     if (moment.moreInformative) life += ': the chosen square scored best';
     rows.push(['One-step survival model', life]);
   }
-  if (moment.justiceProtected) rows.push(['A Just Universe', 'guaranteed this square safe']);
+  if (moment.guardianAngelProtected) rows.push(['Guardian Angel', 'guaranteed this square safe']);
   if (moment.besideNumber !== undefined) {
     rows.push(['Beside a revealed number', moment.besideNumber ? 'yes' : 'no']);
   }
@@ -472,8 +472,8 @@ function gameAnalysis(problem, record) {
   if (typeof problem.guesses === 'number') {
     let guesses = String(problem.guesses);
     if (typeof problem.lifeLost === 'number' && problem.guesses > 0) {
-      guesses += problem.justiceEnabled
-        ? '; raw mine chances sum to ' + problem.lifeLost.toFixed(2) + ', ignoring A Just Universe'
+      guesses += problem.guardianAngelEnabled
+        ? '; raw mine chances sum to ' + problem.lifeLost.toFixed(2) + ', ignoring Guardian Angel'
         : '; mine chances sum to ' + problem.lifeLost.toFixed(2) + ', '
           + problem.lifeNeedless.toFixed(2) + ' of it above the safest square';
     }
@@ -481,7 +481,7 @@ function gameAnalysis(problem, record) {
   }
   rows.push(['The game\u2019s report says', problem.today.text]);
   rows.push(['Picked as', bank.strata.find((stratum) => stratum.id === problem.stratum).label]);
-  rows.push(['A Just Universe', problem.justiceEnabled ? 'on' : 'off']);
+  rows.push(['Guardian Angel', problem.guardianAngelEnabled ? 'on' : 'off']);
   return rows;
 }
 

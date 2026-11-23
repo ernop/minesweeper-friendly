@@ -23,7 +23,7 @@ The design axis mapped so far, ordered by who bears the burden of ambiguity:
    guess is a mine, forced guesses are always safe. Unbuilt.
 7. The angelic dual of Kaboom: any guess consistent with your information
    succeeds; you die only by contradicting known facts. First step
-   implemented 2026-08-20 as "A just universe" ([just-universe.md](just-universe.md)): clicks
+   implemented 2026-08-20 as "A just universe", renamed 2026-11-23 to "Guardian Angel" ([guardian-angel.md](guardian-angel.md)): clicks
    into a guess that nothing else on the board could ever settle are
    guaranteed safe; open-field gambles and all
    chords stay deadly. The rest of the dual is the Angelic play mode
@@ -100,7 +100,7 @@ work limit left its level, and the levels above it, unmeasured.
    It decides between layouts whose mine counts differ, and it can prove
    squares no number touches.
 
-Worked examples, from the tests (`tests/justice-test.js`, "Deduction
+Worked examples, from the tests (`tests/guardian-angel-test.js`, "Deduction
 levels"); letters are covered squares, a dot an open zero:
 
 ```

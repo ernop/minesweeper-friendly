@@ -28,7 +28,7 @@ wqhich are duplicative and needlessly complex"):
   with another mode continue as that mode on a custom board of the preset's
   size, so the rankings they play into are unchanged.
 
-- **Standard.** Today's first-click-safe random boards. "A just universe"
+- **Standard.** Today's first-click-safe random boards. "Guardian Angel"
   applies here and in the Trial modes (frozen from the setting on the
   first click, or when a given opening is used). It does not apply in
   Angelic.
@@ -49,8 +49,8 @@ wqhich are duplicative and needlessly complex"):
   Every candidate has its own replayable seed. The upper-right cell opens
   automatically and the timer starts after generation; that supplied opening
   is not counted as a player click. The current batch position and 3BV appear
-  in the mode options row. Gameplay otherwise follows Standard, including A just
-  universe and guess measurement, while history and rankings remain separate
+  in the mode options row. Gameplay otherwise follows Standard, including Guardian
+  Angel and guess measurement, while history and rankings remain separate
   under this mode's key.
   A persistent "challenge progress" table precedes the charts with columns
   `run`, `3BV`, and `time`. Each finished board adds one row in ranked deal
@@ -100,9 +100,9 @@ wqhich are duplicative and needlessly complex"):
     fails, use another thing. that's a very bad pattern.").
 - **Angelic.** The rest of the angelic dual of Kaboom: a click (or chord
   cell) that is not a proven mine is made safe; you die only by
-  contradicting known facts (clicking a proven mine). A just universe is
+  contradicting known facts (clicking a proven mine). Guardian Angel is
   the sealed-pocket special case; this mode covers every consistent
-  guess. Justice is off here — the mode is the mercy.
+  guess. Guardian Angel is off here — the mode is the mercy.
 - **Endgame drill (2026-08-30).** Repeated quick training on realistic
   endgame positions. Each deal generates a full board with the selected
   generator, then presents it late-game: every safe cell is revealed
@@ -130,7 +130,7 @@ wqhich are duplicative and needlessly complex"):
 
 ## Visible-information solver
 
-`Justice.proveFacts` is the canonical proof engine used by Angelic, the
+`GuardianAngel.proveFacts` is the canonical proof engine used by Angelic, the
 Endgame drill, misclick classification, guess scoring, and action reports. It receives only revealed numbers, covered-cell locations, board
 dimensions, and the total mine count. Player flags are annotations and the
 hidden layout is never evidence.
@@ -144,7 +144,7 @@ value in every globally consistent layout. This is general constraint
 solving rather than a catalog of named patterns. Its stages are the
 deduction levels ([design axis](design-axis.md), "Deduction levels"):
 counting, overlap, the search without the mine total, then the search
-joined through it. `Justice.proveLevels` runs them in one pass, recording
+joined through it. `GuardianAngel.proveLevels` runs them in one pass, recording
 the first level proving each fact, for the live perf charts' moves
 available.
 
@@ -190,7 +190,7 @@ odds either completed independently or remained explicitly unmeasured.
   full-width row under that; per-board cards wrap below. Start another trial stays inert for a short
   moment so a trailing click cannot begin a new session. Leaving the
   mode or changing size while a session is running ends it; that
-  review is not kept. Justice follows the user setting (default on).
+  review is not kept. Guardian Angel follows the user setting (default on).
   Solve-time, 3BV/s, and efficiency omit losses; counts, overlays, and
   motion metrics keep them.
   The review leads with later meetings of the same identity vs first

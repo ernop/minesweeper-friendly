@@ -60,7 +60,7 @@ check('trace samples survive JSON exactly', () => {
   };
   const document = JSON.parse(JSON.stringify(archiveTraceDocument(trace)));
   assert.equal(document.format, 'minesweeper-friendly-trace');
-  assert.equal(document.formatVersion, 2);
+  assert.equal(document.formatVersion, 3);
   assert.deepEqual(document.trace.events, trace.events);
   assert.deepEqual(Float64Array.from(document.trace.sampleT), trace.sampleT);
   assert.deepEqual(Float32Array.from(document.trace.sampleX), trace.sampleX);
@@ -69,16 +69,16 @@ check('trace samples survive JSON exactly', () => {
 
 check('documents name their format', () => {
   assert.deepEqual(archiveRecordDocument('9x9/10@standard', { endedAt: 1 }), {
-    format: 'minesweeper-friendly-game-record', formatVersion: 2,
+    format: 'minesweeper-friendly-game-record', formatVersion: 3,
     mode: '9x9/10@standard', record: { endedAt: 1 } });
   assert.deepEqual(archiveSelfCheckDocument({ startedAt: 2 }), {
-    format: 'minesweeper-friendly-self-check', formatVersion: 2, selfCheck: { startedAt: 2 } });
+    format: 'minesweeper-friendly-self-check', formatVersion: 3, selfCheck: { startedAt: 2 } });
   assert.deepEqual(archiveProblemItemDocument('problemAttempts', { startedAt: 3 }), {
-    format: 'minesweeper-problems-attempt', formatVersion: 2, attempt: { startedAt: 3 } });
+    format: 'minesweeper-problems-attempt', formatVersion: 3, attempt: { startedAt: 3 } });
   assert.deepEqual(archiveProblemItemDocument('pointingRuns', { startedAt: 4 }), {
-    format: 'minesweeper-problems-pointing-run', formatVersion: 2, run: { startedAt: 4 } });
+    format: 'minesweeper-problems-pointing-run', formatVersion: 3, run: { startedAt: 4 } });
   assert.deepEqual(archiveProblemItemDocument('drillAttempts', { startedAt: 5 }), {
-    format: 'minesweeper-problems-drill-attempt', formatVersion: 2, attempt: { startedAt: 5 } });
+    format: 'minesweeper-problems-drill-attempt', formatVersion: 3, attempt: { startedAt: 5 } });
 });
 
 check('README documents every directory and format', () => {

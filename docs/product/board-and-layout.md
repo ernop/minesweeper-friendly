@@ -256,7 +256,7 @@ laggy"; asked whether the game is "max efficient" and to test and fix it.
   the game since that day, takes about 115 of them, and the charts' models
   about 140). The freeze after a game ends was cut to 26-31 ms, so its
   limit went from 70 to 35.
-- Click-time evidence (the visible-position proof, guess odds, and Justice
+- Click-time evidence (the visible-position proof, guess odds, and Guardian Angel
   certification) keeps its exact definitions and results; only its cost
   may change. Built 2026-09-26: expert flags, chords, and guesses that took
   up to about 0.6 s in Firefox now take a few milliseconds, with a rare
@@ -431,7 +431,7 @@ charts).
   controls, hover cards, or lower sections never move the board. The
   scrollbar gutter is reserved so page growth cannot shift the board.
   Top-stage `min-height` reserves room for the docked details panel and any
-  board Justice callout so sections below never overlap them.
+  board Guardian Angel callout so sections below never overlap them.
 - **Replay transport**: sits directly under the board once a game ends
   ([Path and choice replay](replay.md)), sized to
   `min(stageWidth, max(340px, boardFrameWidth))` and centered under the
@@ -486,4 +486,4 @@ charts).
   sections (`#result-analysis`, `#result-ranks`, `#pregen-charts`) share
   regular `Arial, Helvetica, sans-serif` (bold headings and tabular values)
   with `#game-sidebar` and `#motion-stats`. Only board `.cell` numerals and
-  live Justice callouts keep the chunky `Arial Black` face.
+  live Guardian Angel callouts keep the chunky `Arial Black` face.

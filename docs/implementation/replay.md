@@ -74,7 +74,7 @@ Spec: [docs/product/replay.md](../product/replay.md). Index: [AGENTS.md](../../A
   ring, dashed, dashed-thin, fill, flag, badge, crosshair, leader).
   Solver layers come from `replaySolverRead` (`Odds.analyzeView`'s exact
   counts and its structure's facts, every position measured since
-  2026-11-02; until then bounded `Justice.proveFacts` facts and no
+  2026-11-02; until then bounded `GuardianAngel.proveFacts` facts and no
   percentages over budget, the legend saying so; a solver exception
   propagates — never shown as "too complex"), cached per decision
   index in `replaySolverCache`. `scheduleReplayPrecompute` fills that cache

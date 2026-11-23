@@ -11,7 +11,7 @@
 // The first click is the middle square, kept free of mines with its
 // neighbors.
 
-const Justice = require('../justice.js');
+const GuardianAngel = require('../guardian-angel.js');
 const Odds = require('../odds.js');
 
 const LEVELS = [
@@ -32,7 +32,7 @@ function playGame(level, seed, onGuess) {
   const { width, height, mines } = level;
   const random = seeded(seed);
   const size = width * height;
-  const near = (square) => Justice.neighbors(square, width, height);
+  const near = (square) => GuardianAngel.neighbors(square, width, height);
   const mine = new Array(size).fill(false);
   const first = Math.floor(height / 2) * width + Math.floor(width / 2);
   const kept = new Set([first, ...near(first)]);
@@ -65,7 +65,7 @@ function playGame(level, seed, onGuess) {
       revealed: revealed.slice(),
       adjacent: revealed.map((isOpen, square) => (isOpen ? adjacent[square] : 0)),
     };
-    const safe = [...Justice.proveFacts(view, Justice.rawClues(view))]
+    const safe = [...GuardianAngel.proveFacts(view, GuardianAngel.rawClues(view))]
       .find(([square, fact]) => fact === 2 && !revealed[square]);
     if (safe !== undefined) {
       open(safe[0]);

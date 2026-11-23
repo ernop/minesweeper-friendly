@@ -1,15 +1,15 @@
 'use strict';
 
-if (typeof Justice === 'undefined') {
-  globalThis.Justice = require('./justice.js');
+if (typeof GuardianAngel === 'undefined') {
+  globalThis.GuardianAngel = require('./guardian-angel.js');
 }
 
-// Board helpers and visible-fact questions on top of Justice.proveFacts:
+// Board helpers and visible-fact questions on top of GuardianAngel.proveFacts:
 // first-click-safe placement, angelic saves, misclick classification, and
 // the cell classes the endgame drill and the game-end evaluation ask for.
 
 function solverNeighbors(index, width, height) {
-  return Justice.neighbors(index, width, height);
+  return GuardianAngel.neighbors(index, width, height);
 }
 
 function adjacentMap(width, height, mineAt) {
@@ -71,7 +71,7 @@ function randomPlacement(width, height, mineCount, safeIndex, rng) {
 }
 
 function factsFor(view) {
-  return Justice.proveFacts(view, Justice.rawClues(view));
+  return GuardianAngel.proveFacts(view, GuardianAngel.rawClues(view));
 }
 
 function isProvenSafe(view, cell) {

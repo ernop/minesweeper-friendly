@@ -96,7 +96,7 @@ data are allowed. The creator's own play counts like anyone's (no exclusion).
   | `d` | the final time in seconds as the result shows it (millisecond precision) |
   | `w`, `h`, `mines` | board width, height, and mine count |
   | `g_<key>` | each parameter of the generator in `m`, in schema order, present exactly when `m` names a generator (pink noise: `g_alpha`, `g_scale`, `g_contrast`, `g_stretch`) |
-  | `just` | whether A just universe was on for the game |
+  | `guardian_angel` | whether Guardian Angel was on for the game (named `just` before 2026-11-23) |
   | `bbbv` | the record's 3BV (an Endgame drill's: the presented remnant's) |
   | `clicks`, `flags` | board-changing clicks; flags placed |
   | `bbbvs`, `eff`, `ioe` | 3BV/s, efficiency in percent, and IOE, present exactly where the result screen shows them (wins) |

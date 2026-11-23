@@ -78,7 +78,7 @@ function evaluationRiskDelta(evaluation) {
       && typeof evidence.bestActualRisk === 'number') {
     return Math.max(0, evidence.actualRisk - evidence.bestActualRisk);
   }
-  if (evidence.playMode === 'angelic' || evidence.justiceProtected === true) return 0;
+  if (evidence.playMode === 'angelic' || evidence.guardianAngelProtected === true) return 0;
   if (typeof evidence.chosenRisk === 'number'
       && typeof evidence.bestRisk === 'number') {
     return Math.max(0, evidence.chosenRisk - evidence.bestRisk);
@@ -199,7 +199,7 @@ function evaluationEndingKind(evaluation) {
   if (mistakes.has('guessed-with-safe-move')
       || mistakes.has('opened-unproven-with-safe-move')
       || evidence.safeAvailable === true
-      || evaluationJusticeSafeAvailable(evidence)) return 'needless';
+      || evaluationGuardianAngelSafeAvailable(evidence)) return 'needless';
   if (mistakes.has('chose-higher-risk') || evaluation.action === 'proof-open') {
     return 'forced';
   }
@@ -245,9 +245,9 @@ function evaluationProvenSafeAvailable(evidence) {
   return evidence.safeAvailable === true || evidence.bestRisk === 0;
 }
 
-// A safe entry existed under the active rules (A Just Universe certifies
+// A safe entry existed under the active rules (Guardian Angel certifies
 // some guesses) even where no square was proven safe.
-function evaluationJusticeSafeAvailable(evidence) {
+function evaluationGuardianAngelSafeAvailable(evidence) {
   return evidence.bestActualRisk === 0;
 }
 
@@ -261,7 +261,7 @@ function fatalActionStatusKind(evaluation) {
     || (Array.isArray(evidence.openedProvenMines)
       && evidence.openedProvenMines.length > 0);
   const safeAvailable = evaluationProvenSafeAvailable(evidence)
-    || evaluationJusticeSafeAvailable(evidence);
+    || evaluationGuardianAngelSafeAvailable(evidence);
   if (provenMine) return safeAvailable ? 'mine-safe' : 'mine-forced';
   if (evaluation.action === 'proof-open') {
     return safeAvailable ? 'proof-safe' : 'proof-forced';
@@ -290,7 +290,7 @@ function fatalActionStatusKind(evaluation) {
 //   (docs/product/design-axis.md, "Deduction levels") counting and overlap,
 //   or 'whole-board' for all numbers and the mine total together. The
 //   tiers are measured once on the evidence (fatalProofTiers). A guess where
-//   only A Just Universe guaranteed a safe entry is its own kind.
+//   only Guardian Angel guaranteed a safe entry is its own kind.
 // - A higher-risk forced guess is graded by how far the nearest
 //   lowest-risk square was from the chosen one.
 // Every other status is its own loss type, as is a refinable status whose
@@ -304,7 +304,7 @@ const LOSS_TYPE_LABELS = {
   'guess-safe-counting': 'died after guessing while counting single numbers proved a square safe',
   'guess-safe-overlap': 'died after guessing while comparing overlapping numbers proved a square safe',
   'guess-safe-whole-board': 'died after guessing while only whole-board reasoning proved a square safe',
-  'guess-safe-justice': 'died after guessing while A Just Universe guaranteed a safe entry',
+  'guess-safe-guardian-angel': 'died after guessing while Guardian Angel guaranteed a safe entry',
   'guess-higher-near': 'died from a higher-risk forced guess with a lowest-risk square within 2 squares',
   'guess-higher-far': 'died from a higher-risk forced guess with every lowest-risk square 3 or more squares away',
   ...FATAL_STATUS_LABELS,
@@ -426,7 +426,7 @@ function besideFlagSatisfiedNumber(position, cell) {
   for (const [number, count] of positionNumbers(position)) {
     if (count === 0 || squareDistance(position.width, number, cell) !== 1) continue;
     let flags = 0;
-    for (const around of Justice.neighbors(number, position.width, position.height)) {
+    for (const around of GuardianAngel.neighbors(number, position.width, position.height)) {
       if (flagged.has(around)) flags++;
     }
     if (flags === count) return true;
@@ -442,12 +442,12 @@ function besideFlagSatisfiedNumber(position, cell) {
 // whole-board reasoning and the exhaustive prover never runs.
 function easiestProofTier(position, fact, cell) {
   const view = positionView(position);
-  const clues = Justice.rawClues(view);
+  const clues = GuardianAngel.rawClues(view);
   const proves = (facts) => (cell === undefined
     ? [...facts.values()].includes(fact) : facts.get(cell) === fact);
-  const [counting, overlap] = Justice.DEDUCTION_LEVELS;
-  if (proves(Justice.proveFacts(view, clues, counting.proof))) return 'counting';
-  if (proves(Justice.proveFacts(view, clues, overlap.proof))) return 'overlap';
+  const [counting, overlap] = GuardianAngel.DEDUCTION_LEVELS;
+  if (proves(GuardianAngel.proveFacts(view, clues, counting.proof))) return 'counting';
+  if (proves(GuardianAngel.proveFacts(view, clues, overlap.proof))) return 'overlap';
   return 'whole-board';
 }
 
@@ -517,7 +517,7 @@ function refinedLossType(evaluation, status) {
   // was mined.
   if (proofOrDie && evaluation.action === 'chord' && !provenMine) {
     return evaluationProvenSafeAvailable(evidence)
-      || evaluationJusticeSafeAvailable(evidence) ? 'proof-safe' : 'proof-forced';
+      || evaluationGuardianAngelSafeAvailable(evidence) ? 'proof-safe' : 'proof-forced';
   }
   if (position === undefined || status === 'proof-safe' || status === 'proof-forced') {
     return status;
@@ -529,7 +529,7 @@ function refinedLossType(evaluation, status) {
   if (provenMine) return 'mine-' + storedProofTier(evidence.mineProofTier);
   if (status === 'guess-safe') {
     return evaluationProvenSafeAvailable(evidence)
-      ? 'guess-safe-' + storedProofTier(evidence.safeProofTier) : 'guess-safe-justice';
+      ? 'guess-safe-' + storedProofTier(evidence.safeProofTier) : 'guess-safe-guardian-angel';
   }
   if (status === 'guess-higher') {
     const distance = nearestLowestRiskDistance(evaluation);
@@ -627,7 +627,7 @@ function lossKindOf(evaluation) {
 // sometimes you'll WIN by accident"): one exclusive kind per win, named by
 // the worst guess the player survived. A guess is a click on a square that
 // might hold a mine, after the first click; its risk is the actual risk
-// under the active rules, so a guess A Just Universe made safe risked
+// under the active rules, so a guess Guardian Angel made safe risked
 // nothing. Worst first: a guess past a proven-safe square, a higher-risk
 // forced guess, the same before the board opened up (filed apart, as early
 // losses are), lowest-risk guesses only, none. The saved action evaluations
@@ -686,7 +686,7 @@ function winTypeOf(record) {
 // square; 'higher', riskier than the lowest available after the opening;
 // 'early', the same in the opening. Undefined when the saved evaluations
 // hold none. The tags are stored only where the risk under the active rules
-// was higher, so a guess A Just Universe made safe is no such guess.
+// was higher, so a guess Guardian Angel made safe is no such guess.
 function worstSurvivedGuess(evaluations) {
   let worst;
   for (const evaluation of evaluations) {
@@ -713,7 +713,7 @@ const FATAL_OFFENSE_RANKS = {
   'guess-early-min': 0, 'guess-min': 0, 'guess-early-unmeasured': 0, 'guess-unmeasured': 0,
   'guess-early-higher': 1, 'guess-higher-near': 1, 'guess-higher-far': 1, 'guess-higher': 1,
   'guess-safe-counting': 2, 'guess-safe-overlap': 2, 'guess-safe-whole-board': 2,
-  'guess-safe-justice': 2, 'guess-safe': 2, 'proof-safe': 2,
+  'guess-safe-guardian-angel': 2, 'guess-safe': 2, 'proof-safe': 2,
   'flag-wrong': 3, 'mine-counting': 3, 'mine-overlap': 3, 'mine-whole-board': 3,
   'mine-safe': 3, 'mine-forced': 3,
 };
@@ -857,8 +857,8 @@ function actionEvaluationText(evaluation) {
   }
   if (evaluation.result === 'death' && parts.length === 0
       && typeof evidence.chosenRisk === 'number') {
-    parts.push(evaluationJusticeSafeAvailable(evidence)
-      ? 'A Just Universe guaranteed a safe entry elsewhere; the selected square was not one and happened to be mined.'
+    parts.push(evaluationGuardianAngelSafeAvailable(evidence)
+      ? 'Guardian Angel guaranteed a safe entry elsewhere; the selected square was not one and happened to be mined.'
       : 'No guaranteed-safe reveal was available. The selected square had the lowest measured mine risk and happened to be mined.');
   }
   if (actionEvaluationCategory(evaluation) === 'earlyGuess'
@@ -1202,29 +1202,29 @@ function evaluationCropBounds(position, evaluation, padding = 2) {
   return { colFrom, colTo, rowFrom, rowTo, cropped: true };
 }
 
-// The end-of-game Justice recap, win or loss: cited by rule name, with
+// The end-of-game Guardian Angel recap, win or loss: cited by rule name, with
 // the count of forced coinflips the player won. Strictly the player's
 // point of view (creator request 2026-08-23): there is no "actual" mine
 // reality to report — a forced flip is a forced flip, neither a life
 // nor a death, and whether any entry involved a redraw is never revealed.
-function justiceRecapText(count) {
+function guardianAngelRecapText(count) {
   const flips = count === 1
     ? 'a forced coinflip' : count + ' forced coinflips';
-  return 'Due to the rule "A Just Universe", you won ' + flips
+  return 'Due to the rule "Guardian Angel", you won ' + flips
     + ': every click into a guess that nothing else on the board could '
     + 'ever settle goes your way.';
 }
 
-// One recap line per Justice event of the just-finished game, naming the
+// One recap line per Guardian Angel event of the just-finished game, naming the
 // guess in plain words (creator 2026-10-21: no coined terms with players).
 // The counts and odds are the player's own information (derived from
 // visible clues); nothing here peeks behind the board.
-function justiceEventDetail(detail, index) {
-  return '#' + (index + 1) + ': ' + justiceGuessName(detail)
+function guardianAngelEventDetail(detail, index) {
+  return '#' + (index + 1) + ': ' + guardianAngelGuessName(detail)
     + ' \u2014 a forced coinflip, won.';
 }
 
-function justiceGuessName(detail) {
+function guardianAngelGuessName(detail) {
   if (detail.squareCount === 2 && detail.totalWays === 2) return 'a 50/50';
   if (detail.type === 'complement') {
     return 'a chain of 50/50s over ' + detail.squareCount + ' squares';
@@ -1300,7 +1300,7 @@ function prependMistakes(evaluation, mistakes) {
   evaluation.mistakes = [...mistakes, ...evaluation.mistakes];
 }
 
-// `context`: { proofs, justiceEnabled, guessLedger } (completeGameEvaluations).
+// `context`: { proofs, guardianAngelEnabled, guessLedger } (completeGameEvaluations).
 // Returns the guess's score (Odds.scoreGuess), or null when the ledger
 // scores no guess here.
 function completeReveal(evaluation, proof, context) {
@@ -1317,7 +1317,7 @@ function completeReveal(evaluation, proof, context) {
   evidence.safeAvailable = safeAvailable;
   const guess = context.guessLedger && !evidence.startedGame && !provenSafe
     ? Odds.scoreGuess(positionView(position), index,
-      { odds: context.proofs.oddsOf(position), considerJustice: context.justiceEnabled })
+      { odds: context.proofs.oddsOf(position), considerGuardianAngel: context.guardianAngelEnabled })
     : null;
   const measuredGuess = guess !== null;
   evidence.oddsMeasured = measuredGuess;
@@ -1326,7 +1326,7 @@ function completeReveal(evaluation, proof, context) {
     evidence.bestRisk = guess.minP;
     evidence.actualRisk = guess.actualP;
     evidence.bestActualRisk = guess.actualMinP;
-    evidence.justiceProtected = guess.justice === true;
+    evidence.guardianAngelProtected = guess.guardianAngel === true;
     evidence.bestActualRiskTaken = !guess.actualHigherRisk;
     evidence.expectedLife = guess.expectedLife;
     evidence.bestExpectedLife = guess.bestExpectedLife;
@@ -1383,7 +1383,7 @@ function completeChord(evaluation, proof) {
   const { position, evidence } = evaluation;
   const { facts } = proof;
   const flags = positionFlags(position);
-  const flagged = Justice.neighbors(evaluation.triggerCell, position.width, position.height)
+  const flagged = GuardianAngel.neighbors(evaluation.triggerCell, position.width, position.height)
     .filter((cell) => flags.has(cell));
   const wrongFlags = flagged.filter((cell) => facts.get(cell) === 2);
   const openedMines = evaluation.selected.filter((cell) => facts.get(cell) === 1);
@@ -1450,15 +1450,15 @@ function fatalTiersOfProof(evaluation, proof) {
   return tiers;
 }
 
-// A Justice event (attemptJustice): a reveal after the game began into an
+// A Guardian Angel event (attemptGuardianAngel): a reveal after the game began into an
 // entry its board certifies, mined or not. Deliberately not recorded:
 // whether the entry was mined before a redraw. The player's point of view is
 // the only one that exists (creator request 2026-08-23) — a forced flip is a
 // forced flip.
-function justiceDetailOf(evaluation, proof, context) {
+function guardianAngelDetailOf(evaluation, proof, context) {
   const index = evaluation.selected[0];
-  if (!context.justiceEnabled || evaluation.evidence.startedGame || proof.facts.has(index)) return null;
-  const certificate = Justice.certifyEntries(positionView(evaluation.position), [index],
+  if (!context.guardianAngelEnabled || evaluation.evidence.startedGame || proof.facts.has(index)) return null;
+  const certificate = GuardianAngel.certifyEntries(positionView(evaluation.position), [index],
     context.proofs.structureOf(evaluation.position)).get(index);
   if (certificate === undefined) return null;
   return {
@@ -1471,17 +1471,17 @@ function justiceDetailOf(evaluation, proof, context) {
 }
 
 // Judges a finished game's decisions in place, each from its saved board.
-// `game`: { events (its trace's), justiceEnabled (the record's), guessLedger
+// `game`: { events (its trace's), guardianAngelEnabled (the record's), guessLedger
 // (guessLedgerAppliesTo its play mode) }; `proofs`:
 // DuringGame.positionProofs() for this game. Returns `completed`, the parts
 // judged on each decision but a no-op, in order (applyCompletedEvaluations
-// puts them on the page's copies); the misclick count; the Justice events'
+// puts them on the page's copies); the misclick count; the Guardian Angel events'
 // details; and, where the mode keeps one, the guess ledger.
 function completeGameEvaluations(game, proofs) {
-  const context = { proofs, justiceEnabled: game.justiceEnabled === true, guessLedger: game.guessLedger };
+  const context = { proofs, guardianAngelEnabled: game.guardianAngelEnabled === true, guessLedger: game.guessLedger };
   const completed = [];
   const guesses = [];
-  const justiceDetails = [];
+  const guardianAngelDetails = [];
   let misclicks = 0;
   for (const event of game.events) {
     if (event.kind !== 'decision' || event.evaluation.action === 'no-op') continue;
@@ -1489,13 +1489,13 @@ function completeGameEvaluations(game, proofs) {
     // A game judged at a later load (completePendingGames) may meet newer
     // code than captured it; the stamps name the code that judged it.
     evaluation.evidence.oddsVersion = Odds.VERSION;
-    evaluation.evidence.proofVersion = Justice.PROOF_VERSION;
+    evaluation.evidence.proofVersion = GuardianAngel.PROOF_VERSION;
     const { proof } = proofs.of(evaluation.position);
     if (evaluation.action === 'reveal') {
       const guess = completeReveal(evaluation, proof, context);
       if (guess !== null) guesses.push(guess);
-      const justice = justiceDetailOf(evaluation, proof, context);
-      if (justice !== null) justiceDetails.push(justice);
+      const guardianAngel = guardianAngelDetailOf(evaluation, proof, context);
+      if (guardianAngel !== null) guardianAngelDetails.push(guardianAngel);
     } else if (evaluation.action === 'chord') {
       completeChord(evaluation, proof);
     } else if (evaluation.action === 'flag-place' || evaluation.action === 'flag-remove') {
@@ -1511,7 +1511,7 @@ function completeGameEvaluations(game, proofs) {
   return {
     completed,
     misclicks,
-    justiceDetails,
+    guardianAngelDetails,
     ...(game.guessLedger ? { ledger: {
       guesses: guesses.length,
       guessIdealRisk: guesses.filter((guess) => guess.idealRisk).length,
@@ -1581,7 +1581,7 @@ function actionEvaluationBase(action, actionNumber, selected, triggerCell, optio
     evidence: {
       playMode: settings.playMode,
       oddsVersion: Odds.VERSION,
-      proofVersion: Justice.PROOF_VERSION,
+      proofVersion: GuardianAngel.PROOF_VERSION,
       // The fraction of the board's safe squares already revealed when
       // the action was taken; the early-game guess category thresholds
       // on it (older records derive it from the saved position instead).
@@ -1595,7 +1595,7 @@ function actionEvaluationBase(action, actionNumber, selected, triggerCell, optio
 }
 
 // `startedGame`: this reveal moved the game from ready to playing, so
-// neither A just universe nor the guess ledger applies to it.
+// neither Guardian Angel nor the guess ledger applies to it.
 function captureRevealAction(index, startedGame) {
   const evaluation = actionEvaluationBase('reveal', inputActionCount, [index]);
   evaluation.evidence.firstReveal = startedGame && revealedCount === 0;

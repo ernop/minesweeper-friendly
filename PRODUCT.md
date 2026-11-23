@@ -16,8 +16,8 @@ both. Player-facing pitch in `promo/PROMO.md`; unbuilt work in
   [docs/product/design-axis.md](docs/product/design-axis.md); the no-guess
   modes built on it were removed 2026-10-21, see
   [docs/product/play-modes.md](docs/product/play-modes.md)).
-  First variant implemented 2026-08-20: "A just universe"
-  ([docs/product/just-universe.md](docs/product/just-universe.md)).
+  First variant implemented 2026-08-20: "Guardian Angel" (named "A just universe" until 2026-11-23;
+  [docs/product/guardian-angel.md](docs/product/guardian-angel.md)).
 - The public game is https://minesweeper-friendly.fuseki.net/ . Every push
   to master releases that site. GitHub Pages still publishes the repository
   and redirects visitors there. The page links back to the repo via a subtle
@@ -41,7 +41,7 @@ single-file spec; older references cite them as `PRODUCT.md "Heading"`.
 
 - [docs/product/play-modes.md](docs/product/play-modes.md) — Choosing a mode (preset links, the other modes menu) and every mode (Standard, Angelic, Endgame drill, trials, 3BV countdown, Board lab) and the removed no-guess modes, with the visible-information solver. Section: "Play modes".
 - [docs/product/board-generators.md](docs/product/board-generators.md) — The Generator menu, each generator, and the top score keys that rankings are stored under. Section: "Board generators and top score keys".
-- [docs/product/just-universe.md](docs/product/just-universe.md) — A click into a guess that nothing else on the board could ever settle (a boxed-in 50/50 and the like) is safe; open-field gambles and chords stay deadly. Section: "A just universe".
+- [docs/product/guardian-angel.md](docs/product/guardian-angel.md) — A click into a guess that nothing else on the board could ever settle (a boxed-in 50/50 and the like) is safe; open-field gambles and chords stay deadly. Section: "Guardian Angel" (named "A just universe" until 2026-11-23).
 
 ### After a game
 

@@ -97,7 +97,7 @@ function setupPregenBoard() {
   };
 
   // Regenerate the chosen candidate from its own seed. This consumes exactly
-  // the placement portion of the stream, leaving Justice redraws replayable.
+  // the placement portion of the stream, leaving Guardian Angel redraws replayable.
   gameSeed = candidate.seed;
   gameRandom = GameRandom.fromSeed(gameSeed);
   const opening = config.width - 1;
@@ -109,7 +109,7 @@ function setupPregenBoard() {
   applyMineMap(mineAt);
   floodReveal(opening);
   gameState = 'playing';
-  justiceEnabledForGame = justiceAppliesToMode() && settings.justUniverse;
+  guardianAngelEnabledForGame = guardianAngelAppliesToMode() && settings.guardianAngel;
   startTimer();
   checkWin();
 }
@@ -244,7 +244,7 @@ function setupEndgameDrill() {
     throw err;
   }
   // The deal's seed replays the board and the window search alike; the
-  // fresh stream is never drawn from again (justice is off in drills).
+  // fresh stream is never drawn from again (Guardian Angel is off in drills).
   gameSeed = deal.seed;
   gameRandom = GameRandom.fromSeed(deal.seed);
   applyMineMap(deal.mineAt);
@@ -387,7 +387,7 @@ function setupTrialBoard() {
     trialPresentation.openedAtStart = cells.flatMap((cell, index) => cell.revealed ? [index] : []);
     gameState = 'playing';
     startTimer();
-    justiceEnabledForGame = settings.justUniverse;
+    guardianAngelEnabledForGame = settings.guardianAngel;
     checkWin();
   }
 }

@@ -52,7 +52,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   are comparisons conditional on one feature, not proof that the boards
   have equal overall difficulty or that a result is difficulty-adjusted.
 - Board-shape lists (2026-08-21), same row format, over timed wins of
-  this mode whose finished board (after any Justice redraw) matches this
+  this mode whose finished board (after any Guardian Angel redraw) matches this
   game. Measured at game end and stored: `maxAdjacent`, `hasSeven`,
   `zeroCount`, `islandCount`, `largestIsland`. Absence on earlier
   records means not measured; those games stay off these lists.
@@ -382,8 +382,8 @@ middle? that's okay."
     guess in the opening, or after it with a lowest-risk square within 2
     squares or every one 3 or more away; the proof that showed a safe
     square or the mine (counting single numbers, comparing overlapping
-    numbers, only whole-board reasoning; for a safe entry also A Just
-    Universe's guarantee, and Proof-or-die's rule death); and "survived it,
+    numbers, only whole-board reasoning; for a safe entry also Guardian
+    Angel's guarantee, and Proof-or-die's rule death); and "survived it,
     died later" under a guess family when an earlier survived guess was
     worse than the fatal click. A family that has only one type (the wrong
     flag; a win's guess past a safe square) is itself the leaf.

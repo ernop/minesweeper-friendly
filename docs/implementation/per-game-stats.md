@@ -189,7 +189,7 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   designed "not measured" state, not a hidden error.
 - Guess ledger ([Guess ledger](../product/per-game-stats.md)), since
   2026-11-02 (`guess-ledger-v3`): `odds.js` counts every remaining layout
-  exactly with Justice's counter (below) and scores a bare unproven click,
+  exactly with Guardian Angel's counter (below) and scores a bare unproven click,
   with no work limit. `analyzeView(view, opts)` (`opts.structure`: a
   structure the caller already built under the default options, the live
   perf charts' guess facts) returns each number group's boxes and layouts
@@ -200,7 +200,7 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   ratio of BigInt counts into a double, cutting both to their top 1,000 bits
   past the double range, so a count past 10^308 still gives its exact ratio
   to double precision.
-- Justice's counter (`justice.js`, "LAYOUT COUNTS", the method of
+- Guardian Angel's counter (`guardian-angel.js`, "LAYOUT COUNTS", the method of
   JSMinesweeper's probability engine,
   [reference/jsminesweeper.md](../../reference/jsminesweeper.md)): covered
   squares beside exactly the same numbers form one box; a group's numbers
@@ -211,7 +211,7 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   mined tallies. Groups join each other and the sea by products of their
   rows by mine count and the sea's binomials (`multiplyCounts`,
   `chooseRange`). The work grows with how many numbers are open across the
-  order, not with the layouts: `tests/justice-test.js` 10a counts 2^80 + 2
+  order, not with the layouts: `tests/guardian-angel-test.js` 10a counts 2^80 + 2
   layouts in one group of 160 squares in about 20 ms, where the listing it
   replaced stopped at its 2,000,000-visit limit. The problem is NP-complete
   in the worst case (Kaye 2000), and there is no limit: a position past
@@ -235,7 +235,7 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
 - `scoreGuess`: the best is the highest life over every covered square;
   squares are taken in increasing order of layouts mining them, and the
   scan stops once a square's survival, which bounds its life, falls below
-  the best found. A square A just universe would protect is always scored,
+  the best found. A square Guardian Angel would protect is always scored,
   its life divided by its safe layouts, since it cannot die. `perfectPlay`
   compares products of BigInt counts exactly. On 832 Expert guesses of
   simulated games guessing the safest square, in Node on 2026-11-02: a
@@ -255,7 +255,7 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   group once, so the number distribution was wrong whenever the group's
   layouts held different mine counts, and a number only a ruled-out layout
   shows became a hypothetical position the proof rejects ("visible clues
-  are inconsistent", justice.js). Once `noteGuess` stopped catching errors
+  are inconsistent", guardian-angel.js). Once `noteGuess` stopped catching errors
   (2026-10-21), every guess into such a group threw before its reveal, so
   the square never opened; an Intermediate endgame hit it on 2026-10-22.
   `history.js` accepts all three versions on saved games (`ODDS_VERSIONS`).
@@ -271,7 +271,7 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   modes where hidden mines really kill; angelic records nothing, its ledger
   fields stay absent, as they are on saved games of the removed
   proof-or-die), gates it. Until 2026-11-03 `noteGuess` scored the click in
-  `revealCell` before Justice. Proven-safe clicks and clicks with
+  `revealCell` before Guardian Angel. Proven-safe clicks and clicks with
   p(mine) = 0 are not guesses. Every guess is measured; until 2026-11-02 an
   over-budget position returned `{measured: false}` and `oddsUnmeasured`
   omitted the whole ledger from that record — no invented odds. A thrown
@@ -279,7 +279,7 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   shows it (`analysisFailure`), and the game stays pending. Until
   2026-11-03 it left `revealCell` before the reveal; until 2026-10-21
   `noteGuess` caught it, wrote "guess odds failed" in the backup status
-  line, and dropped the ledger, and `scoreGuess` caught a Justice
+  line, and dropped the ledger, and `scoreGuess` caught a Guardian Angel
   certification error and scored the guess as if no square were protected,
   recording wrong protected risks without a word.
   `scoreGuess` stores absolute p (`lifeLost`), excess over min p

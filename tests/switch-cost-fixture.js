@@ -183,7 +183,7 @@ function playGame(random, gameIndex, endedAtFloor) {
   const endedAt = Math.max(endedAtFloor, FIRST_ENDED_AT + gameIndex * 90000) + endT + 17;
   const startedAt = endedAt - endT - 20;
   const trace = {
-    endedAt, mode: key, outcome, justiceEnabled: false, seed, rngVersion: GameRandom.VERSION, boardVersion: UNIFORM,
+    endedAt, mode: key, outcome, guardianAngelEnabled: false, seed, rngVersion: GameRandom.VERSION, boardVersion: UNIFORM,
     startedAt, events,
     sampleT: samples.map((s) => s[0]), sampleX: samples.map((s) => s[1]), sampleY: samples.map((s) => s[2]),
     ...(gameIndex % 2 === 0 ? { finalBoard: {
@@ -194,7 +194,7 @@ function playGame(random, gameIndex, endedAtFloor) {
   };
   const record = {
     endedAt, outcome, timeMs: endT - startT, bv3: Math.max(1, moves - flagsPlaced), boardChangingClicks: moves,
-    noOpClicks: 0, flagsPlaced, flagsRemoved: 0, mousePathPx: 0, playMode: 'standard', justiceEnabled: false,
+    noOpClicks: 0, flagsPlaced, flagsRemoved: 0, mousePathPx: 0, playMode: 'standard', guardianAngelEnabled: false,
     seed, rngVersion: GameRandom.VERSION, boardVersion: UNIFORM, actionEvaluations: [], states: [],
   };
   return { key, record, trace };

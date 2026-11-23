@@ -72,7 +72,7 @@ Index: [AGENTS.md](../../AGENTS.md).
   real games. Then one scripted Beginner win, chosen so its rows read as a
   strong game and none as the script's: first click in the corner (an
   opening about 2 times in 3, the center 1 in 3); only boards of 3BV 10 to
-  12 that `Justice.proveFacts` solves without a guess, others restarted
+  12 that `GuardianAngel.proveFacts` solves without a guess, others restarted
   (each restart is an abandoned board in the session); reveals of proven
   safe squares, openings first, and 2 flags on proven mines; presses at
   2.35 3BV/s with lognormal gaps (log sigma 0.6, none under 230 ms), the

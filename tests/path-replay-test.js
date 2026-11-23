@@ -11,7 +11,7 @@ const start = source.indexOf('//-------PATH REPLAY: COMPUTATION');
 const end = source.indexOf('//-------PATH REPLAY: DISPLAY');
 if (start < 0 || end <= start) throw new Error('path replay markers not found');
 vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'board-icons.js'), 'utf8'));
-globalThis.Justice = require(path.join(__dirname, '..', 'justice.js'));
+globalThis.GuardianAngel = require(path.join(__dirname, '..', 'guardian-angel.js'));
 vm.runInThisContext(source.slice(source.indexOf('//-------GAME-END EVALUATION: VERDICT'),
   source.indexOf('//-------GAME-END EVALUATION: CAPTURE')));
 vm.runInThisContext(source.slice(start, end));

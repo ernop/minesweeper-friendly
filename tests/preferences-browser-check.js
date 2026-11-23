@@ -93,7 +93,7 @@ const { chromium } = require(process.argv[2]);
   assert(!('history' in prefs));
   console.log('History import/export do not transfer preferences');
   await page.evaluate(() => importPreferences(JSON.stringify({
-    difficulty: 'beginner', cellSize: 28, resultView: 'game', justUniverse: false,
+    difficulty: 'beginner', cellSize: 28, resultView: 'game', guardianAngel: false,
     replayPosition: { endedAt: null, step: 0 }, gameDataSwitchCost: false,
     panels: { ...PANEL_OPEN_DEFAULTS, motionStats: true }, pathView: 'off', replayOverlays: { ...REPLAY_OVERLAY_DEFAULTS },
   })));

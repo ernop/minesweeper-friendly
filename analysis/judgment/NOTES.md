@@ -19,7 +19,7 @@ node analysis/judgment/build-problems.js <minesweeper-friendly-history-*.json> \
 
 Then open `http://127.0.0.1:8018/analysis/judgment/judge.html` on the local
 origin. `--survey` prints how many games each kind could draw from and writes
-nothing. Node only, standard library plus the game's own `justice.js`,
+nothing. Node only, standard library plus the game's own `guardian-angel.js`,
 `odds.js`, `solver.js`, `rng.js`, and the `GAME-END EVALUATION: VERDICT` span
 of `game/evaluation.js`. On the 2026-10-11 export (6,817 games with full
 evidence) a build takes about 3 s and writes 163 problems (1.1 MB).
@@ -39,7 +39,7 @@ moves from its saved action evaluations, each shown on the visible board
 before the move (the move's square ringed in magenta; for a chord, the
 number, with the squares it opened shaded). A loss always includes its fatal
 move. A clean win has no saved moves, so it shows its final board, rebuilt
-from the seed (only games without a Just Universe redraw).
+from the seed (only games without a Guardian Angel redraw).
 
 Questions: for every move, best available, fine, poor, blunder, or can't
 tell; for the game, a category (losses: known death, unnecessary gamble,
@@ -80,7 +80,7 @@ The order of problems is a fixed shuffle.
   recomputes the comparison from the saved position with the game's own
   `Odds.scoreGuess` call, so only real comparisons appear.
 - The guess ledger's `lifeLost` and `lifeNeedless` deliberately keep raw mine
-  chances under A Just Universe ([per-game stats](../../docs/product/per-game-stats.md),
+  chances under Guardian Angel ([per-game stats](../../docs/product/per-game-stats.md),
   "Life lost"), and every game in the bank had it on. A win's machine figure
   is therefore the avoidable risk of its saved riskier guesses, each under
   the active rules, not a share of the ledger.

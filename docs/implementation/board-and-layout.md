@@ -76,13 +76,13 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   triggers a Firefox `ResizeObserver loop completed with undelivered
   notifications` error), keeping `#details-resize` height and `#top-stage`
   `min-height` synced so `#result-analysis` and `#result-ranks` below never
-  overlap the docked sidebar or Justice callouts. `syncDetailsDockMaxHeight`
+  overlap the docked sidebar or Guardian Angel callouts. `syncDetailsDockMaxHeight`
   caps `--details-dock-max-height` in band view when `.during-game` is
   absent or closed to `Math.min(viewportRoom, Math.max(580,
   gameArea.offsetHeight))` (`GAME_DATA_BAND_COMPACT_MAX_HEIGHT = 580`). A
   single ResizeObserver in `initBoardPositionControls` watches `#top-stage`
   width changes plus `#page-head`, `#mode-options`, `#board-lab-panel`,
-  `#game-frame`, `#justice-live`, and `#board-position-panel` and schedules
+  `#game-frame`, `#guardian-angel-live`, and `#board-position-panel` and schedules
   `syncBoardLayout`.
   The sidebar contains `#result-summary`, `#sidebar-controls` (wrapping
   flex row holding `#top-right` and `#scores-nav`), `#results`, and
@@ -267,7 +267,7 @@ arrives); worker latency cannot move the board after startup reveals it.
 
 Spec: [Input latency](../product/board-and-layout.md#input-latency-user-report-2026-09-26).
 Each board action runs, before it mutates the board, the visible-position
-proof (misclick classification, evidence, and Justice all share one cached
+proof (misclick classification, evidence, and Guardian Angel all share one cached
 proof), then guess scoring for reveals or `Odds.analyzeView` for flags and
 chords. These run in the input handler. Measured in the browsers with real
 input and an 80 MB (structured-clone) synthetic history, expert flags,
@@ -279,12 +279,12 @@ then visited every combination of component layouts, adding every sea cell
 per combination; positions near its 250,000-visit budget cost about 250ms
 (V8) to 600ms (SpiderMonkey), frequently only to return unmeasured. The
 join now groups layouts by mine count ([per-game stats](per-game-stats.md))
-and the proof search is flattened ([A just universe](just-universe.md)).
+and the proof search is flattened ([Guardian Angel](guardian-angel.md)).
 Visit budgets, completeness, and every threshold decision are unchanged.
 
 - Equivalence: 23,287 positions from seeded full games (9x9, 16x16, 30x16,
   30x24; reveals, guesses, flags, chords) give identical proofs, guess
-  scores, Justice certificates, and odds (sums within 1e-9 relative; the
+  scores, Guardian Angel certificates, and odds (sums within 1e-9 relative; the
   former per-layout addition itself drifts up to about 3e-11).
   `node tests/performance-benchmark.js 7ca3198` repeats this on seeded
   games and reports totals and the slowest position.
