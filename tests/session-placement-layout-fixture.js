@@ -133,7 +133,7 @@
       check(label + ': details controls and stats fit their panel',
         gameSidebar.scrollWidth <= gameSidebar.clientWidth + 1);
 
-      guardianAngelLive.innerHTML = '<span class="guardian-angel-live-word" style="animation:none">you won a forced coinflip</span>';
+      guardianAngelLive.innerHTML = '<span class="guardian-angel-live-word" style="animation:none">your Guardian Angel intervened once to keep you safe</span>';
       syncBoardLayout();
       await wait();
       const historyTop = rect(resultRanks).top;

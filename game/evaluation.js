@@ -1202,17 +1202,33 @@ function evaluationCropBounds(position, evaluation, padding = 2) {
   return { colFrom, colTo, rowFrom, rowTo, cropped: true };
 }
 
-// The end-of-game Guardian Angel recap, win or loss: cited by rule name, with
-// the count of forced coinflips the player won. Strictly the player's
-// point of view (creator request 2026-08-23): there is no "actual" mine
-// reality to report — a forced flip is a forced flip, neither a life
-// nor a death, and whether any entry involved a redraw is never revealed.
+// Player-facing Guardian Angel post-game phrasing (shared by the board-side
+// chip, the after-game recap, the per-event detail lines, and the stats
+// table). Strictly the player's point of view (creator request 2026-08-23):
+// there is no "actual" mine reality to report — every click into a guess
+// nothing else on the board could settle counts equally, and whether any
+// entry involved a redraw is never revealed.
+const GUARDIAN_ANGEL_CHIP_TITLE =
+  'Every click into a guess that nothing else on the board could ever settle '
+  + 'is guaranteed safe by Guardian Angel.';
+
+const GUARDIAN_ANGEL_STATS_LABEL = 'Guardian Angel interventions';
+
+function guardianAngelTimesPhrase(count) {
+  if (count === 1) return 'once';
+  if (count === 2) return 'twice';
+  return count + ' times';
+}
+
+function guardianAngelChipText(count) {
+  return 'your Guardian Angel intervened ' + guardianAngelTimesPhrase(count)
+    + ' to keep you safe';
+}
+
 function guardianAngelRecapText(count) {
-  const flips = count === 1
-    ? 'a forced coinflip' : count + ' forced coinflips';
-  return 'Due to the rule "Guardian Angel", you won ' + flips
-    + ': every click into a guess that nothing else on the board could '
-    + 'ever settle goes your way.';
+  return 'Your Guardian Angel intervened ' + guardianAngelTimesPhrase(count)
+    + ' to keep you safe: every click into a guess that nothing else on the '
+    + 'board could ever settle is guaranteed safe.';
 }
 
 // One recap line per Guardian Angel event of the just-finished game, naming the
@@ -1221,7 +1237,7 @@ function guardianAngelRecapText(count) {
 // visible clues); nothing here peeks behind the board.
 function guardianAngelEventDetail(detail, index) {
   return '#' + (index + 1) + ': ' + guardianAngelGuessName(detail)
-    + ' \u2014 a forced coinflip, won.';
+    + ' \u2014 kept safe by Guardian Angel.';
 }
 
 function guardianAngelGuessName(detail) {
@@ -1316,8 +1332,11 @@ function completeReveal(evaluation, proof, context) {
   if (provenMine) evidence.knowledgeSource = 'visible-deduction';
   evidence.safeAvailable = safeAvailable;
   const guess = context.guessLedger && !evidence.startedGame && !provenSafe
-    ? Odds.scoreGuess(positionView(position), index,
-      { odds: context.proofs.oddsOf(position), considerGuardianAngel: context.guardianAngelEnabled })
+    ? Odds.scoreGuess(context.proofs.viewOf(position), index, {
+        odds: context.proofs.oddsOf(position),
+        considerGuardianAngel: context.guardianAngelEnabled,
+        ...(context.guardianAngelEnabled ? { certificates: context.proofs.certificatesOf(position) } : {}),
+      })
     : null;
   const measuredGuess = guess !== null;
   evidence.oddsMeasured = measuredGuess;
@@ -1453,14 +1472,12 @@ function fatalTiersOfProof(evaluation, proof) {
 // A Guardian Angel event (attemptGuardianAngel): a reveal after the game began into an
 // entry its board certifies, mined or not. Deliberately not recorded:
 // whether the entry was mined before a redraw. The player's point of view is
-// the only one that exists (creator request 2026-08-23) — a forced flip is a
-// forced flip.
+// the only one that exists (creator request 2026-08-23).
 function guardianAngelDetailOf(evaluation, proof, context) {
   const index = evaluation.selected[0];
   if (!context.guardianAngelEnabled || evaluation.evidence.startedGame || proof.facts.has(index)) return null;
-  const certificate = GuardianAngel.certifyEntries(positionView(evaluation.position), [index],
-    context.proofs.structureOf(evaluation.position)).get(index);
-  if (certificate === undefined) return null;
+  const certificate = context.proofs.certificateOf(evaluation.position, index);
+  if (certificate === null) return null;
   return {
     type: certificate.type,
     squareCount: certificate.cells.length,

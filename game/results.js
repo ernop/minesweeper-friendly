@@ -146,7 +146,7 @@ function reportResult(outcome, endedAt = Date.now()) {
     if (trace !== finishedTrace || resultViewRevision !== resultRevision
         || !['won', 'lost'].includes(gameState)) return;
     guardianAngelDetails = result.evaluation.guardianAngelDetails;
-    showGuardianAngelSurvivals();
+    showGuardianAngelSurvivals(record.guardianAngel);
     // The path's less useful actions are the ones the judgment found mistakes in.
     renderPathView();
     finalMotion = { gameId: record.endedAt, metrics: result.metrics, spatial: result.spatial,
@@ -907,10 +907,10 @@ function buildGameStats(record) {
               + '%)'
             : String(record.unusedCorrectFlags)]] : []),
     ...measurementRow('unflaggedMineShare'),
-    // A Guardian Angel event is any click Guardian Angel covers — a forced
-    // coinflip the rule guarantees the player wins.
+    // A Guardian Angel event is any click Guardian Angel covers — a guess
+    // nothing else on the board could ever settle, guaranteed safe.
     ...(fullAnalysis && record.guardianAngel !== undefined
-      ? [['Forced coinflips won', String(record.guardianAngel)]] : []),
+      ? [[GUARDIAN_ANGEL_STATS_LABEL, String(record.guardianAngel)]] : []),
     ...(clicksOverBv3Of(record) !== undefined
       ? [['Clicks over 3BV', String(clicksOverBv3Of(record))]]
       : []),
@@ -1029,6 +1029,7 @@ async function renderResultAsync(record, modeRecords, options = {}) {
 
 function showScoresForCurrentMode() {
   resultViewRevision++;
+  showGuardianAngelSurvivals(0);
   rememberPreference('resultView', 'scores');
   rememberPreference('reviewList', null);
   const modeRecords = history[modeKey()] || [];

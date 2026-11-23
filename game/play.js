@@ -2,8 +2,8 @@
 
 // One game on the board: the top panel (LCDs and face), board helpers, the
 // board generator glue and Generator menu, the new-game flow, reveal / flag /
-// chord, win and loss, and Guardian Angel (sealed-pocket mercy, misclick
-// facts, the guess ledger).
+// chord, win and loss, and Guardian Angel (live redraw, post-game chip, and
+// guess-ledger mode gate).
 
 //-------TOP PANEL (LCD digits, face icons)-------
 
@@ -88,19 +88,7 @@ function setLcd(container, value) {
 //-------BOARD HELPERS-------
 
 function neighbors(index) {
-  const x = index % config.width;
-  const y = (index - x) / config.width;
-  const result = [];
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      if (dx === 0 && dy === 0) continue;
-      const nx = x + dx;
-      const ny = y + dy;
-      if (nx < 0 || nx >= config.width || ny < 0 || ny >= config.height) continue;
-      result.push(ny * config.width + nx);
-    }
-  }
-  return result;
+  return GuardianAngel.neighbors(index, config.width, config.height);
 }
 
 // Mines are placed on the first reveal so that cell is never a mine
@@ -752,9 +740,10 @@ function playerView() {
 // A mined entry the visible board certifies is redrawn clear.
 function attemptGuardianAngel(index) {
   if (guardianAngelEnabledForGame !== true) return;
+  const view = playerView();
   let redrawn;
   try {
-    const certificate = GuardianAngel.certifyEntry(playerView(), index);
+    const certificate = GuardianAngel.certifyEntry(view, index);
     if (certificate === null) return;
     redrawn = GuardianAngel.redrawEntry(
       certificate, index, cells.map((c) => c.mine), gameRandom);
@@ -762,36 +751,29 @@ function attemptGuardianAngel(index) {
     backupStatus.textContent = 'guardian angel solver failed: ' + err.message;
     throw err;
   }
-  let mineTotal = 0;
-  for (const mine of redrawn) if (mine) mineTotal++;
-  if (mineTotal !== config.mines) throw new Error('guardian angel redraw changed the mine total');
-  for (let i = 0; i < cells.length; i++) {
-    if (!cells[i].revealed) continue;
-    if (neighbors(i).filter((n) => redrawn[n]).length !== cells[i].adjacent) {
-      throw new Error('guardian angel redraw contradicts revealed cell ' + i);
-    }
+  if (!Solver.layoutAgrees(view, redrawn)) {
+    throw new Error('guardian angel redraw contradicts the visible board');
   }
-  for (let i = 0; i < cells.length; i++) cells[i].mine = redrawn[i];
-  for (let i = 0; i < cells.length; i++) {
-    cells[i].adjacent = cells[i].mine ? 0 : neighbors(i).filter((n) => cells[n].mine).length;
-  }
-  if (cells[index].mine) throw new Error('guardian angel entry remained mined');
+  if (redrawn[index]) throw new Error('guardian angel entry remained mined');
+  applyMineMap(redrawn);
 }
 
 // The only thing shown beside the board at game end is the count of
-// Guardian Angel survivals (creator request 2026-08-23). Guess-odds risk chips
-// are withheld for now; they may return once they can be shown with a
-// proper explanation. The measurements themselves are still recorded.
-function showGuardianAngelSurvivals() {
-  const count = guardianAngelDetails.length;
-  if (count === 0) return;
+// Guardian Angel interventions (creator request 2026-08-23; wording updated
+// 2026-11-23). Guess-odds risk chips are withheld for now; they may return
+// once they can be shown with a proper explanation. The measurements
+// themselves are still recorded.
+function showGuardianAngelSurvivals(count = guardianAngelDetails.length) {
+  const hadChip = guardianAngelLive.childElementCount > 0;
+  guardianAngelLive.textContent = '';
+  if (!(count > 0)) {
+    if (hadChip) scheduleBoardLayout();
+    return;
+  }
   const word = document.createElement('div');
   word.className = 'guardian-angel-live-word';
-  word.textContent = count === 1
-    ? 'you won a forced coinflip'
-    : 'you won ' + count + ' forced coinflips';
-  word.title = 'Guesses that nothing else on the board could ever settle '
-    + 'are forced coinflips; Guardian Angel makes you win every one';
+  word.textContent = guardianAngelChipText(count);
+  word.title = GUARDIAN_ANGEL_CHIP_TITLE;
   guardianAngelLive.appendChild(word);
   scheduleBoardLayout();
 }

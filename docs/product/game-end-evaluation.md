@@ -251,22 +251,24 @@ wasteful"):
   their old kind rather than having modern detail invented for them, and
   the report shows their old wording.
 - The Guardian Angel recap (win or loss alike): when the game had Guardian Angel
-  events, a second block cites the rule by name — 'Due to the rule "Guardian
-  Angel", you won a forced coinflip: every click into a guess that
-  nothing else on the board could ever settle goes your way.'
-  (count-pluralized) — with one detail line per event naming the guess in
-  player words ("#1: a 50/50", "a chain of 50/50s over 6 squares", "1 mine
-  among 3 squares (2 in 3 safe)", "2 mines among the last 5 squares no
-  number touches (3 in 5 safe)"), then "a forced coinflip, won" (player
-  words since 2026-10-21; before, "entry into a sealed sea pocket (3/5
-  layouts clear)"; [UI doctrine](ui-doctrine.md), "Player words only"). Strictly the player's point of view
-  (creator directive later on 2026-08-23, reversing the same-day
-  "honest redraw detail" design): no "actual" mine reality is ever
-  revealed or referred to — whether an entry's square was mined and
-  redrawn or was already clear is not recorded, shown, or hinted at.
-  A forced flip is a forced flip, neither a life nor a death. The
-  counts and odds in the detail lines are the player's own information,
-  derived from visible clues.
+  events, a second block reports the count in the same Guardian Angel terms as
+  the post-game chip (updated 2026-11-23; previously "Due to the rule 'Guardian
+  Angel', you won a forced coinflip...") — "Your Guardian Angel intervened
+  once to keep you safe: every click into a guess that nothing else on the
+  board could ever settle is guaranteed safe." ("twice" for 2, "N times" for
+  3 or more) — with one detail line per event naming the guess in player words
+  ("#1: a 50/50", "a chain of 50/50s over 6 squares", "1 mine among 3 squares
+  (2 in 3 safe)", "2 mines among the last 5 squares no number touches (3 in 5
+  safe)"), then "— kept safe by Guardian Angel." (updated 2026-11-23; before,
+  "— a forced coinflip, won.", and before 2026-10-21 "entry into a sealed sea
+  pocket (3/5 layouts clear)"; [UI doctrine](ui-doctrine.md), "Player words
+  only"). Strictly the player's point of view (creator directive later on
+  2026-08-23, reversing the same-day "honest redraw detail" design): no
+  "actual" mine reality is ever revealed or referred to — whether an entry's
+  square was mined and redrawn or was already clear is not recorded, shown,
+  or hinted at. Every click into a covered guess counts equally. The counts
+  and odds in the detail lines are the player's own information, derived from
+  visible clues.
 - Storage (see [Per-game stats](per-game-stats.md)): `actionEvaluations` on every new record.
   `justiceSaves` (the redraw count) was written only during part of
   2026-08-23 and is no longer recorded — see the player's-point-of-view

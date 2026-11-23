@@ -20,10 +20,12 @@ Spec: [docs/product/game-end-evaluation.md](../product/game-end-evaluation.md). 
     `DuringGame.positionProofs()` store, the one the live perf charts' model
     then reads: `completeReveal` (facts, raw and active-rules risk,
     `bestActualRiskTaken`, one-move life, guess score via `Odds.scoreGuess`
-    with the store's `oddsOf`), `completeChord`, `completeFlag`, the death's
-    `fatalTiersOfProof`, the misclick count (`MISCLICK_MISTAKES`), the Guardian
-    Angel events (`guardianAngelDetailOf`), and the guess ledger. Mistakes the
-    proof finds go before those the click saw (`prependMistakes`). It stamps
+    with the store's `viewOf`, `oddsOf`, and `certificatesOf`),
+    `completeChord`, `completeFlag`, the death's `fatalTiersOfProof`, the
+    misclick count (`MISCLICK_MISTAKES`), the Guardian Angel events
+    (`guardianAngelDetailOf`, reading `proofs.certificateOf`), and the guess
+    ledger. Mistakes the proof finds go before those the click saw
+    (`prependMistakes`). It stamps
     each judged decision's `oddsVersion` and `proofVersion` with the judging
     code's. The page applies the returned parts to its trace copy
     (`applyCompletedEvaluations`) and `completeGameRecord` sets the record's

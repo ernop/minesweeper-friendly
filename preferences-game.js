@@ -172,6 +172,7 @@ function showSavedGame(record, modeRecords, stored, step, reviewList) {
   setFace(gameState === 'won' ? 'cool' : 'dead');
   setLcd(timerDisplay, Math.min(TIMER_CAP_SECONDS, Math.floor(record.timeMs / 1000)));
   setLcd(mineCounter, config.mines - flagsCount);
+  showGuardianAngelSurvivals(record.guardianAngel || 0);
   beginTraceMetricsSeries();
   const restoredTrace = trace;
   const revision = resultViewRevision;

@@ -20,11 +20,11 @@ Spec: [docs/product/guardian-angel.md](../product/guardian-angel.md). Index: [AG
   guess facts), and checks
   each component's groups, each group, and the sea once, avoiding an
   Expert-sized structure rebuild for every covered cell on the
-  click-critical path. Certification
-  runs `proveFacts` (direct counts, general overlap subtraction,
-  then an exact count of every component's layouts coupled by total mines
-  and sea),
-  `buildStructure` (residual clue components, `cluesOfCell`, plus
+  click-critical path. Certification runs `proveFacts` (direct counts, general
+  overlap subtraction with lazy residual sets, then an exact count of every
+  component's layouts coupled by total mines and sea through prefix/suffix
+  mine-sum reachability), `buildStructure` (reusing `residualNumbers` and
+  `linkedComponents` for residual clue components and `cluesOfCell`, plus
   8-connected sea components), then `componentGroups` splits the clicked
   cell's component into two kinds of group (per group since 2026-10-21;
   whole components only before, which refused two boxed-in 50/50s joined
@@ -34,33 +34,36 @@ Spec: [docs/product/guardian-angel.md](../product/guardian-angel.md). Index: [AG
     peeling (subtracting already pinned groups until a clue has one open
     group left). A pinned count strictly between none and all of the
     group, with every external covered cell proved a mine or touching all
-    or none of the group (`cardinalityBoundaryIsSealed`), certifies a
-    cardinality pocket.
+    or none of the group (`cardinalityBoundaryIsSealed`, single-pass neighbor
+    tally), certifies a cardinality pocket.
   - pair chains, the cells linked by x+y=1 clues, two-colored (an odd cycle
     throws: the clues would be inconsistent). Equal sides
     (`balancedChain`), every residual clue touching the chain seeing as
     many cells of one side as of the other (`chainCluesAreInvariant`),
     and the same rule for external covered cells
-    (`complementBoundaryIsSealed`) certify a complement pocket.
+    (`complementBoundaryIsSealed`, single-pass side-balance tally) certify a
+    complement pocket.
   The sea qualifies when it is the only sea component, sealed, and every
   frontier cell lies in a pinned twin group or an equal-sided chain
-  (`frontierBesideOpenChain` finds no open chain), which fixes the sea's
-  count. Pinning passes along every pair clue, so no chain mixes pinned
-  and unpinned twin groups and nothing is counted twice. When one uneven
-  chain is the frontier's only open part instead (2026-10-26,
-  `seaCompletedChainCertificate`), its sides differ by exactly the number
-  of sea cells (every sea component), and the mine total leaves the
-  larger side's count, the chain and the whole sea form one complement
-  pocket: `partitionA` the larger side, `partitionB` the smaller side
-  plus the sea. It needs `chainCluesAreInvariant` on the chain (no clue
+  (`frontierBesideOpenChain`, memoized once per `certifyEntries` call, finds
+  no open chain), which fixes the sea's count. Pinning passes along every
+  pair clue, so no chain mixes pinned and unpinned twin groups and nothing is
+  counted twice. When one uneven chain is the frontier's only open part
+  instead (2026-10-26, `seaCompletedChainCertificate`), its sides differ by
+  exactly the number of sea cells (every sea component), and the mine total
+  leaves the larger side's count, the chain and the whole sea form one
+  complement pocket: `partitionA` the larger side, `partitionB` the smaller
+  side plus the sea. It needs `chainCluesAreInvariant` on the chain (no clue
   touches the sea) and `complementBoundaryIsSealed` on the whole shape;
   a sea at least as large as the frontier fails first, so the early game
   skips the walk over every component. `certifyEntries` builds it at most
   once per call and hands the one certificate to each of its chain and
-  sea entries. The swap of a certified group's
-  layout keeps every clue count and the mine total, so the redraw stays
-  valid. Unsupported asymmetric/exotic ambiguity is outside the product
-  rule.
+  sea entries. `countComponent` is shared with `odds.js` so unchanged
+  components already counted during `proveLevels` are read back from
+  `groupCounts` instead of recounted by `Odds.analyzeView`. The swap of a
+  certified group's layout keeps every clue count and the mine total, so the
+  redraw stays valid. Unsupported asymmetric/exotic ambiguity is outside the
+  product rule.
   This replaced two model-enumeration implementations on 2026-08-20: the
   first hung mid-game; the second's sparse benchmark falsely supported a
   universal <3ms claim, while a deterministic 40-variable sealed
@@ -85,29 +88,40 @@ Spec: [docs/product/guardian-angel.md](../product/guardian-angel.md). Index: [AG
   unchanged; a mined cardinality/sea entry directly samples k locations
   excluding the click; a mined complement entry switches partitions.
   Game side: only `revealCell` calls `attemptGuardianAngel(index)`, before its
-  mine test and never on the first reveal; it certifies and redraws, and
-  records nothing else. `chord` never calls Guardian Angel; wrong flags remain
+  mine test and never on the first reveal; it certifies, redraws, verifies
+  with `Solver.layoutAgrees`, applies through `applyMineMap`, and records
+  nothing else. `chord` never calls Guardian Angel; wrong flags remain
   fatal. The events are counted at game end (since 2026-11-03; until then
   on the click): in the reports worker, `guardianAngelDetailOf`
-  (game/evaluation.js, inside `completeGameEvaluations`) certifies each
-  saved reveal's entry again on its saved board and returns a
+  (game/evaluation.js, inside `completeGameEvaluations`) reads each saved
+  reveal's certificate from the game's shared `positionProofs` store (reusing
+  the batch certification `completeReveal` already cached for `Odds.scoreGuess`,
+  rather than recertifying) and returns a
   {type, squareCount, mineCount, clearWays, totalWays} detail for every
   qualifying entry, whether or not a redraw occurred. `completeGameRecord`
   stores their count as `guardianAngel`; `guardianAngelDetails` (reset in newGame)
   holds them for the end-game recap, whose
   `guardianAngelGuessName` names it "a 50/50", "a chain of 50/50s over N
   squares", "M mines among N squares", or "... among the last N squares no
-  number touches"). Whether the entry's cell was mined
-  before the redraw is deliberately not tracked past the redraw itself:
-  the player's point of view is the only one that exists (creator
-  directive 2026-08-23) — recap, details, stats, and record never reveal
-  or refer to an "actual" mine reality, and the historical `justiceSaves`
-  field stopped being written the same day it was added. When the
-  worker's judgment arrives, `showGuardianAngelSurvivals` attaches one
-  `.guardian-angel-live-word` chip to #guardian-angel-live at the board's right,
-  wording the count as "you won a forced coinflip" (pluralized) —
-  nothing pops up mid-game, and no chip appears when the count is zero
-  (2026-08-23). `reportResult` stores
+  number touches"). All player-facing Guardian Angel post-game copy lives once
+  in `game/evaluation.js`: `guardianAngelTimesPhrase` ("once" / "twice" /
+  "N times"), `guardianAngelChipText`, `GUARDIAN_ANGEL_CHIP_TITLE`,
+  `guardianAngelRecapText`, `guardianAngelEventDetail`, and
+  `GUARDIAN_ANGEL_STATS_LABEL` ("Guardian Angel interventions"). Whether the
+  entry's cell was mined before the redraw is deliberately not tracked past
+  the redraw itself: the player's point of view is the only one that exists
+  (creator directive 2026-08-23) — recap, details, stats, and record never
+  reveal or refer to an "actual" mine reality, and the historical
+  `justiceSaves` field stopped being written the same day it was added. When
+  the worker's judgment arrives (and when `showSavedGame` restores a finished
+  game or opens an old game), `showGuardianAngelSurvivals(count)` replaces
+  `#guardian-angel-live`'s content with one `.guardian-angel-live-word` chip
+  (with `pointer-events: auto` so its `title` tooltip shows on hover, and
+  `max-width: 240px` so it stays compact beside the board), wording the count
+  as "your Guardian Angel intervened once to keep you safe" ("twice" /
+  "N times"); `showScoresForCurrentMode` clears it with
+  `showGuardianAngelSurvivals(0)`, nothing pops up mid-game, and no chip
+  appears when the count is zero (2026-08-23; wording updated 2026-11-23). `reportResult` stores
   `guardianAngelEnabled`, `seed`, `rngVersion`, `boardVersion`,
   and `guardianAngelVersion` (`guardian-angel-v4`); rankings intentionally remain mixed (confirmed
   as the product 2026-08-23, no longer a deferral). `rng.js`

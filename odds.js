@@ -51,24 +51,21 @@ function ratio(num, den) {
 }
 
 // opts.structure: GuardianAngel.buildStructure's for this view when the caller
-// already holds it, else built here. Throws when no layout fits the view.
+// already holds it, else built here. opts.groupCounts: GuardianAngel's
+// per-game component count cache when the caller holds it. Throws when no
+// layout fits the view.
 function analyzeView(view, opts) {
   opts = opts || {};
   const structure = opts.structure === undefined ? GuardianAngel.buildStructure(view) : opts.structure;
   const size = view.width * view.height;
   const needs = structure.clues.map((clue) => clue.count);
+  const covered = structure.clues.map((clue) => clue.covered);
   const minesLeft = view.mines - structure.provenMineCount;
   const seaSize = structure.seaCells.length;
   let frontierSize = 0;
-  const groups = structure.components.map(({ cells }) => {
+  const groups = structure.components.map(({ cells, clues: clueIds }) => {
     frontierSize += cells.length;
-    const counted = GuardianAngel.countGroup(cells, structure.cluesOfCell, needs, null);
-    const dense = (counts) => {
-      const row = counts.length > 0 ? counts[0].slice(0, cells.length + 1) : [];
-      while (row.length < cells.length + 1) row.push(0n);
-      return row;
-    };
-    return { cells, boxes: counted.boxes, layouts: dense(counted.layouts), mineLayouts: counted.mineLayouts.map(dense) };
+    return GuardianAngel.countComponent(cells, clueIds, covered, structure.cluesOfCell, needs, opts.groupCounts);
   });
   const prefix = [[1n]];
   for (const group of groups) prefix.push(multiplyRows(prefix[prefix.length - 1], group.layouts, minesLeft));
@@ -366,7 +363,8 @@ function expectedLife(view, odds, cell) {
 // guess: already revealed, or safe in every layout. opts.considerGuardianAngel:
 // Guardian Angel is on, so a certified pocket's entry is safe. opts.odds:
 // analyzeView's result for this view when the caller holds it, else
-// counted here.
+// counted here. opts.certificates: GuardianAngel.certifyEntries's result for
+// every unproven square of this view when the caller already holds it.
 function scoreGuess(view, clicked, opts) {
   opts = opts || {};
   if (view.revealed[clicked]) return null;
@@ -383,11 +381,12 @@ function scoreGuess(view, clicked, opts) {
     if (!view.revealed[i] && mineLayouts[i] === fewest) bestCells.push(i);
   }
   const idealRisk = !odds.provenSafeOpen && mined === fewest;
-  // Certification depends only on this one visible position. Batch all
-  // candidates so the board's proof structure is built once, rather than
-  // once per covered cell on the click-critical path.
+  // Certification depends only on this one visible position. Reuse the
+  // caller's cached certificates when given, or batch all candidates once.
   const certificates = opts.considerGuardianAngel === true
-    ? GuardianAngel.certifyEntries(view, odds.unproven, odds.structure) : new Map();
+    ? (opts.certificates !== undefined ? opts.certificates
+      : GuardianAngel.certifyEntries(view, odds.unproven, odds.structure))
+    : new Map();
   const guardianAngel = certificates.has(clicked);
 
   // Each covered square's one-move life as layouts over a denominator: all

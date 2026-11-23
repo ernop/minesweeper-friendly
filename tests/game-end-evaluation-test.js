@@ -661,20 +661,32 @@ assertEq('summary quantifies survived excess risk',
 assertEq('summary quantifies modeled-life gap',
   Number(summary.modeledLifeGap.toFixed(3)), 0.2);
 
-// The Guardian Angel recap: the rule is cited by name, the count is right, and
-// the wording stays strictly in the player's point of view — a forced
-// flip is a forced flip; no "actual" mine reality is ever revealed.
-assertContains('recap cites the rule',
+// The Guardian Angel post-game chip, stats row, and recap: one shared wording
+// ("intervened once/twice/N times to keep you safe"), strictly in the player's
+// point of view — no "actual" mine reality is ever revealed.
+assertEq('chip text once', guardianAngelChipText(1),
+  'your Guardian Angel intervened once to keep you safe');
+assertEq('chip text twice', guardianAngelChipText(2),
+  'your Guardian Angel intervened twice to keep you safe');
+assertEq('chip text 3+ times', guardianAngelChipText(3),
+  'your Guardian Angel intervened 3 times to keep you safe');
+assertContains('chip tooltip cites Guardian Angel',
+  GUARDIAN_ANGEL_CHIP_TITLE, 'Guardian Angel');
+assertEq('stats table label names Guardian Angel interventions',
+  GUARDIAN_ANGEL_STATS_LABEL, 'Guardian Angel interventions');
+assertContains('recap cites Guardian Angel',
   guardianAngelRecapText(2), 'Guardian Angel');
-assertContains('recap counts the flips',
-  guardianAngelRecapText(2), '2 forced coinflips');
-assertContains('recap singular', guardianAngelRecapText(1), 'a forced coinflip');
+assertContains('recap once', guardianAngelRecapText(1), 'intervened once to keep you safe');
+assertContains('recap twice', guardianAngelRecapText(2), 'intervened twice to keep you safe');
+assertContains('recap 3+ times', guardianAngelRecapText(3), 'intervened 3 times to keep you safe');
 assertEq('recap never reveals mine reality',
   /redraw|moved|already clear|mined/.test(guardianAngelRecapText(3)), false);
+assertEq('chip never reveals mine reality',
+  /redraw|moved|already clear|mined/.test(guardianAngelChipText(3) + ' ' + GUARDIAN_ANGEL_CHIP_TITLE), false);
 const seaDetail = { type: 'sea', squareCount: 5, mineCount: 2, clearWays: 3, totalWays: 5 };
 assertEq('event detail names a 50/50 plainly',
   guardianAngelEventDetail({ type: 'cardinality', squareCount: 2, mineCount: 1, clearWays: 1, totalWays: 2 }, 0),
-  '#1: a 50/50 \u2014 a forced coinflip, won.');
+  '#1: a 50/50 \u2014 kept safe by Guardian Angel.');
 assertContains('event detail names a chain of 50/50s',
   guardianAngelEventDetail({ type: 'complement', squareCount: 6, mineCount: 3, clearWays: 1, totalWays: 2 }, 1),
   'a chain of 50/50s over 6 squares');
@@ -684,12 +696,38 @@ assertContains('event detail counts mines among squares',
 assertContains('event detail names the untouched squares',
   guardianAngelEventDetail(seaDetail, 0),
   '2 mines among the last 5 squares no number touches (3 in 5 safe)');
-assertContains('event detail calls the entry a won coinflip',
+assertContains('event detail attributes safety to Guardian Angel',
   guardianAngelEventDetail({ type: 'complement', squareCount: 2, mineCount: 1, clearWays: 1, totalWays: 2 }, 1),
-  'a forced coinflip, won');
+  'kept safe by Guardian Angel');
 assertEq('event detail never reveals mine reality',
   /redraw|moved|already clear|mined/.test(guardianAngelEventDetail(seaDetail, 0)),
   false);
+// Shared positionProofs certifies a protected guess position only once across
+// Odds.scoreGuess and guardianAngelDetailOf (zero redundant certification).
+{
+  const position = { width: 2, height: 2, mines: 1, cells: '1.1.' };
+  const evaluation = {
+    version: ACTION_EVALUATION_VERSION, action: 'reveal', actionNumber: 2, atMs: 1000,
+    selected: [1], result: 'continued', mistakes: [], alternatives: [], choices: [],
+    evidence: { playMode: 'standard', boardProgress: 0.67, firstReveal: false, startedGame: false },
+    position,
+  };
+  let certifyCalls = 0;
+  const origCertify = GuardianAngel.certifyEntries;
+  GuardianAngel.certifyEntries = (...args) => { certifyCalls++; return origCertify(...args); };
+  const proofs = DuringGame.positionProofs();
+  const judged = completeGameEvaluations({
+    events: [{ kind: 'decision', evaluation }],
+    guardianAngelEnabled: true,
+    guessLedger: true,
+  }, proofs);
+  const cachedCert = proofs.certificateOf(position, 1);
+  GuardianAngel.certifyEntries = origCertify;
+  assertEq('protected guess records one Guardian Angel detail', judged.guardianAngelDetails.length, 1);
+  assertEq('protected guess certifies its position only once across odds, recap detail, and cache lookup',
+    certifyCalls, 1);
+  assertEq('cached certificate matches detail', cachedCert !== null && cachedCert.cells.length, 2);
+}
 
 // Loss types refine the fatal status with facts from the saved position.
 // The positions are real: fatalProofTiers runs the solver on them.

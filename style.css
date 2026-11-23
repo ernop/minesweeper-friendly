@@ -903,8 +903,9 @@ body.trial-offboard #game-frame {
 /*-------GUARDIAN ANGEL-------*/
 
 /* To the board's right, at game end only: a single chip counting the
-   game's Guardian Angel survivals ("you won a forced coinflip"). Nothing pops
-   up mid-game. Occupies no layout space, so the board never moves. */
+   game's Guardian Angel interventions ("your Guardian Angel intervened once
+   to keep you safe"). Nothing pops up mid-game. Occupies no layout space,
+   so the board never moves. */
 #guardian-angel-live {
   position: absolute;
   left: calc(100% + 14px);
@@ -932,10 +933,12 @@ body.trial-offboard #game-frame {
 
 .guardian-angel-live-word {
   width: max-content;
+  max-width: 240px;
+  pointer-events: auto;
   font-family: "Arial Black", "Arial Bold", Arial, sans-serif;
   font-weight: 900;
   font-size: 14px;
-  line-height: 1;
+  line-height: 1.2;
   letter-spacing: 0.5px;
   color: #b3121b;
   border: 2px double #b3121b;

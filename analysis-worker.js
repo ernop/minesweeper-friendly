@@ -1,15 +1,15 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261123-guardian-angel',
-  'game/evaluation.js?v=20261123-guardian-angel',
-  'game-data.js?v=20261107-score-lists', 'game/metric-definitions.js?v=20261123-guardian-angel',
+  'game/trace-metrics.js?v=20261123-guardian-angel-2',
+  'game/evaluation.js?v=20261123-guardian-angel-2',
+  'game-data.js?v=20261107-score-lists', 'game/metric-definitions.js?v=20261123-guardian-angel-2',
   'board-shape.js?v=20261020-no-left-panel', 'zini.js?v=20261020-no-left-panel', 'board-metrics.js?v=20261020-no-left-panel',
-  'game/rankings.js?v=20261123-guardian-angel',
-  'game/charts.js?v=20261123-guardian-angel', 'game/game-data-chart.js?v=20261123-guardian-angel',
-  'guardian-angel.js?v=20261123-guardian-angel', 'odds.js?v=20261123-guardian-angel', 'board-icons.js?v=20261105-glyph-sizes',
-  'game/replay-model.js?v=20261123-guardian-angel',
-  'during-game.js?v=20261123-guardian-angel');
+  'game/rankings.js?v=20261123-guardian-angel-2',
+  'game/charts.js?v=20261123-guardian-angel-2', 'game/game-data-chart.js?v=20261123-guardian-angel-2',
+  'guardian-angel.js?v=20261123-guardian-angel-2', 'odds.js?v=20261123-guardian-angel-2', 'board-icons.js?v=20261105-glyph-sizes',
+  'game/replay-model.js?v=20261123-guardian-angel-2',
+  'during-game.js?v=20261123-guardian-angel-2');
 
 let config;
 

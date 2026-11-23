@@ -92,12 +92,16 @@ records, and play statistics; the separate Angelic play mode keeps its name).
   records made since 2026-11-23 carry `guardianAngelVersion` `guardian-angel-v4`
   (same rule semantics).
 - At game end a single chip appears to the board's right stating the
-  game's Guardian Angel survival count: "you won a forced coinflip" (pluralized
-  with the count for more than one). Its tooltip: "Guesses that nothing else
-  on the board could ever settle are forced coinflips; Guardian Angel makes
-  you win every one". Nothing pops up beside the board
-  mid-game (creator request 2026-08-23). Earlier the same day the design
-  was per-event chips plus guess-odds risk chips; later on
+  game's Guardian Angel intervention count (creator decision 2026-11-23,
+  updating the post-game reporting to match the Guardian Angel rename;
+  previously "you won a forced coinflip"): "your Guardian Angel intervened
+  once to keep you safe" ("twice" for 2, "N times" for 3 or more). Its
+  tooltip: "Every click into a guess that nothing else on the board could
+  ever settle is guaranteed safe by Guardian Angel." Restoring a finished
+  game or opening an old game shows the same chip when the record has a
+  nonzero count; switching to High scores clears it. Nothing pops up beside
+  the board mid-game (creator request 2026-08-23). Earlier the same day the
+  design was per-event chips plus guess-odds risk chips; later on
   2026-08-23 the creator withheld the risk chips entirely — they may
   return once they can be shown with a proper explanation, and the
   underlying guess measurements are still recorded either way.

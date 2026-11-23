@@ -173,27 +173,27 @@ decisions. Otherwise:
   `lifeGap`, the magnitudes `actionCategorySummary` sums for the record;
   `categoriesMeasured` is false when any action falls under measurement
   notes, and the report rows (`categoryRate`) are then `unrecorded`.
-- Guess facts (`guessFacts(k, cell)`, spread into each guess event): one
-  `GuardianAngel.buildStructure(view, undefined, factsAt[k])` of the guess's
-  position serves all of them, built from pass 1's proof (`provenFacts`;
-  `proveLevels` and `proveFacts` prove the same facts, so no position is
-  proved twice). `connected`: the square is in the structure's
-  `frontierSet` (beside an open number). Where the evaluation's
-  `evidence.oddsMeasured` is true (the guess ledger measured it, so the
-  mode's mines move only under Guardian Angel),
-  `Odds.analyzeView(view, { structure })` gives `safestConnectedRisk`
-  (the lowest `pMine` of an unproven square in `frontierSet`) and
-  `safestUnconnectedRisk` (of the others), each absent when no such
-  square exists. Where also `game.guardianAngelEnabled === false`:
+- Guess facts (`guessFacts(k, cell)`, spread into each guess event): reads
+  the position's cached `view`, `structure`, `odds`, and Guardian Angel
+  certificates (`viewOf`, `structureOf`, `oddsOf`, `certificateOf`) from the
+  game's `positionProofs` store, so each guess position shares one view,
+  one structure, one component-count cache (`groupCounts`), and one
+  certification with `completeGameEvaluations`. `connected`: the square is
+  in the structure's `frontierSet` (beside an open number). Where the
+  evaluation's `evidence.oddsMeasured` is true (the guess ledger measured it,
+  so the mode's mines move only under Guardian Angel), `odds` gives
+  `safestConnectedRisk` (the lowest `pMine` of an unproven square in
+  `frontierSet`) and `safestUnconnectedRisk` (of the others), each absent
+  when no such square exists. Where also `game.guardianAngelEnabled === false`:
   `minesFixed: true`, and `Odds.winChances(view, odds, cell)` gives
   `winMeasured` and, when measured, `winChance` and `bestWinChance`
   (layouts won over layouts, `Odds.ratio` of the BigInt counts). Where
-  `GuardianAngel.certifyEntries(view, [cell], structure)` certifies the square:
-  `unavoidable: true`, then a walk back over earlier decisions whose proof
-  differs (`factsAt` repeats one proof object until the revealed count
-  changes), while each certifies it (each with its own structure from
-  its proof); `waitedMs` runs from the start of the first certified
-  decision (`known.startMs`) to the guess.
+  `game.proofs.certificateOf(evaluation.position, cell)` certifies the
+  square: `unavoidable: true`, then a walk back over earlier decisions whose
+  proof differs (`factsAt` repeats one proof object until the revealed count
+  changes), while each certifies it through `certificateOf`; `waitedMs` runs
+  from the start of the first certified decision (`known.startMs`) to the
+  guess.
 - `Odds.winChances(view, odds, cell)` (`odds.js`, `odds` the measured
   `analyzeView(view)`, which the caller has already; `cell` undecided, or
   it throws). It splits the board first (2026-10-27): a union-find joins

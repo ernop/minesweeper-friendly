@@ -717,4 +717,44 @@ assert.equal(DuringGame.DEFAULT_RELATIVE_SCALE, 'log', 'log by default');
     'two open squares of one zero region solve it once');
 }
 
+// A finished game with a protected 50/50 shares cached Guardian Angel
+// certificates across Odds.scoreGuess, guardianAngelDetailOf, and
+// DuringGame.model's guessFacts (no redundant recertification on the guess
+// position itself).
+{
+  const width = 6;
+  const at = cellAt(width);
+  const game = playGame(width, 2, [at(2, 0)], [
+    { act: 'reveal', cell: at(0, 0), atMs: 0 },
+    { act: 'reveal', cell: at(5, 0), atMs: 400 },
+    { act: 'reveal', cell: at(2, 1), atMs: 1000 },
+  ]);
+  const decisions = game.events.filter((event) => event.kind === 'decision');
+  decisions[0].evaluation.evidence.startedGame = true;
+  decisions[0].evaluation.evidence.firstReveal = true;
+  decisions[1].evaluation.evidence.startedGame = false;
+  decisions[2].evaluation.evidence.startedGame = false;
+  const certifyCallsByOpen = new Map();
+  const origCertify = GuardianAngel.certifyEntries;
+  GuardianAngel.certifyEntries = (view, entries, held) => {
+    const open = view.revealed.filter(Boolean).length;
+    certifyCallsByOpen.set(open, (certifyCallsByOpen.get(open) || 0) + 1);
+    return origCertify(view, entries, held);
+  };
+  const gameId = 1760000000003;
+  const finished = task('finished-game', {
+    width, height: 2, mines: game.mines, drill: false, needCadence: false,
+    needMoveHabits: true, needFastclickGap: true, gameId, timeMs: game.timeMs, outcome: game.outcome,
+    guardianAngelEnabled: true, guessLedger: true,
+    trace: { t: game.t, x: game.x, y: game.y, merged: game.merged, events: game.events, wallMs: 2000,
+      initialPageState: game.initialPageState },
+  });
+  GuardianAngel.certifyEntries = origCertify;
+  assert.equal(finished.evaluation.guardianAngelDetails.length, 1, 'records one Guardian Angel intervention');
+  // The guess position (10 open squares) is certified exactly once across
+  // Odds.scoreGuess, guardianAngelDetailOf, and DuringGame.model guessFacts.
+  assert.equal(certifyCallsByOpen.get(10), 1,
+    'guess position is certified once across odds, recap detail, and live perf model');
+}
+
 console.log('during-game tests passed');

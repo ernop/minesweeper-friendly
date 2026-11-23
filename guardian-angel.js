@@ -59,8 +59,9 @@ function rawClues(view) {
   return clues;
 }
 
-// The latest exact proof. One click proves its position several times
-// (misclick, evidence, Guardian Angel); a proof of another position replaces it.
+// The latest exact proof. Repeated proofs of the same visible position
+// (e.g. an Angelic chord over multiple cells) reuse it; a proof of another
+// position replaces it.
 let lastExactProof = null;
 
 function exactProofKey(view, clues) {
@@ -423,29 +424,61 @@ function residualNumbers(clues, status) {
   return { needs, covered, clueIdsOf };
 }
 
-// The groups of cells the residual numbers link, each listed once.
-function linkedGroups(covered, clueIdsOf) {
-  const groups = [];
-  const seen = new Set();
+// Connected components of unresolved cells linked by residual numbers,
+// each holding its cells and sorted residual clue indices, plus cell -> component.
+function linkedComponents(covered, clueIdsOf) {
+  const components = [];
+  const componentOfCell = new Map();
   for (const start of clueIdsOf.keys()) {
-    if (seen.has(start)) continue;
+    if (componentOfCell.has(start)) continue;
+    const componentIndex = components.length;
     const cells = [];
+    const clueSet = new Set();
     const stack = [start];
-    seen.add(start);
+    componentOfCell.set(start, componentIndex);
     while (stack.length > 0) {
       const cell = stack.pop();
       cells.push(cell);
       for (const clueIndex of clueIdsOf.get(cell)) {
+        if (clueSet.has(clueIndex)) continue;
+        clueSet.add(clueIndex);
         for (const other of covered[clueIndex]) {
-          if (seen.has(other)) continue;
-          seen.add(other);
+          if (componentOfCell.has(other)) continue;
+          componentOfCell.set(other, componentIndex);
           stack.push(other);
         }
       }
     }
-    groups.push(cells);
+    components.push({ cells, clues: [...clueSet].sort((a, b) => a - b) });
   }
-  return groups;
+  return { components, componentOfCell };
+}
+
+// Counts one residual component's layouts by mine count, reading from and
+// populating `groupCounts` (when given) keyed by its exact residual numbers.
+// Shared with odds.js so unchanged components counted during proof are not
+// recounted when scoring guesses.
+function countComponent(cells, clueIds, covered, clueIdsOf, needs, groupCounts) {
+  let key = null;
+  if (groupCounts !== undefined) {
+    key = cells.join() + '|' + clueIds.map((c) => needs[c] + ':' + covered[c].join()).join(';');
+    const known = groupCounts.get(key);
+    if (known !== undefined) return known;
+  }
+  const { boxes, layouts, mineLayouts } = countGroup(cells, clueIdsOf, needs, null);
+  const length = cells.length + 1;
+  const dense = (counts) => {
+    const row = counts.length > 0 ? counts[0].slice(0, length) : [];
+    while (row.length < length) row.push(0n);
+    return row;
+  };
+  const byMines = dense(layouts);
+  const mineCounts = [];
+  byMines.forEach((count, k) => { if (count > 0n) mineCounts.push(k); });
+  const group = { cells, boxes: boxes.map((box) => ({ squares: box.squares })), layouts: byMines,
+    mineLayouts: mineLayouts.map(dense), mineCounts };
+  if (key !== null) groupCounts.set(key, group);
+  return group;
 }
 
 // Every layout of the unresolved frontier the visible numbers allow,
@@ -458,43 +491,21 @@ function linkedGroups(covered, clueIdsOf) {
 // others are read back rather than counted again.
 function countNumberLayouts(clues, status, groupCounts) {
   const { needs, covered, clueIdsOf } = residualNumbers(clues, status);
-  const counted = linkedGroups(covered, clueIdsOf).map((cells) => {
-    let key = null;
-    if (groupCounts !== undefined) {
-      const clueIds = [...new Set(cells.flatMap((cell) => clueIdsOf.get(cell)))].sort((a, b) => a - b);
-      key = cells.join() + '|' + clueIds.map((c) => needs[c] + ':' + covered[c].join()).join(';');
-      const known = groupCounts.get(key);
-      if (known !== undefined) return known;
-    }
-    const { boxes, layouts, mineLayouts } = countGroup(cells, clueIdsOf, needs, null);
-    const length = cells.length + 1;
-    const dense = (counts) => {
-      const row = counts.length > 0 ? counts[0].slice(0, length) : [];
-      while (row.length < length) row.push(0n);
-      return row;
-    };
-    const byMines = dense(layouts);
-    const mineCounts = [];
-    byMines.forEach((count, k) => { if (count > 0n) mineCounts.push(k); });
-    const group = { cells, boxes: boxes.map((box) => ({ squares: box.squares })), layouts: byMines,
-      mineLayouts: mineLayouts.map(dense), mineCounts };
-    if (key !== null) groupCounts.set(key, group);
-    return group;
-  });
+  const { components } = linkedComponents(covered, clueIdsOf);
+  const counted = components.map(({ cells, clues: clueIds }) =>
+    countComponent(cells, clueIds, covered, clueIdsOf, needs, groupCounts));
   return { counted, frontier: new Set(clueIdsOf.keys()) };
 }
 
-function possibleMineSums(components, skip = -1) {
-  let sums = new Set([0]);
-  for (let i = 0; i < components.length; i++) {
-    if (i === skip) continue;
-    const next = new Set();
-    for (const sum of sums) {
-      for (const count of components[i].mineCounts) next.add(sum + count);
+function addMineCounts(reachable, counts, limit) {
+  const next = new Uint8Array(limit + 1);
+  for (let s = 0; s <= limit; s++) {
+    if (reachable[s] === 0) continue;
+    for (const count of counts) {
+      if (s + count <= limit) next[s + count] = 1;
     }
-    sums = next;
   }
-  return sums;
+  return next;
 }
 
 // A cell is a fact when every layout of its group holding one of `counts`
@@ -538,25 +549,54 @@ function mineTotalVerdict(view, status, counted, frontier) {
     throw new Error('global mine count contradicts visible clues');
   }
 
-  const allComponentSums = possibleMineSums(counted);
-  const possibleSeaCounts = new Set();
-  for (const sum of allComponentSums) {
-    const seaMines = target - sum;
-    if (seaMines >= 0 && seaMines <= sea.length) possibleSeaCounts.add(seaMines);
+  const count = counted.length;
+  const base = new Uint8Array(target + 1);
+  base[0] = 1;
+  const prefix = new Array(count + 1);
+  prefix[0] = base;
+  for (let i = 0; i < count; i++) {
+    prefix[i + 1] = addMineCounts(prefix[i], counted[i].mineCounts, target);
   }
-  if (possibleSeaCounts.size === 0) {
+  const suffix = new Array(count + 1);
+  suffix[count] = base;
+  for (let i = count - 1; i >= 0; i--) {
+    suffix[i] = addMineCounts(suffix[i + 1], counted[i].mineCounts, target);
+  }
+
+  const allSums = prefix[count];
+  let anySeaPossible = false;
+  let allSeaZero = true;
+  let allSeaFull = true;
+  for (let sum = Math.max(0, target - sea.length); sum <= target; sum++) {
+    if (allSums[sum] === 0) continue;
+    const seaMines = target - sum;
+    anySeaPossible = true;
+    if (seaMines !== 0) allSeaZero = false;
+    if (seaMines !== sea.length) allSeaFull = false;
+  }
+  if (!anySeaPossible) {
     throw new Error('visible clues and global mine count have no valid layout');
   }
 
+  const sufPref = new Int32Array(target + 2);
   const feasibleCounts = counted.map((component, i) => {
-    const otherSums = possibleMineSums(counted, i);
+    const pre = prefix[i];
+    const suf = suffix[i + 1];
+    sufPref[0] = 0;
+    for (let s = 0; s <= target; s++) sufPref[s + 1] = sufPref[s] + suf[s];
     const counts = [];
     for (const localCount of component.mineCounts) {
-      if ([...otherSums].some((otherCount) => {
-        const seaMines = target - localCount - otherCount;
-        return seaMines >= 0 && seaMines <= sea.length;
-      })) {
-        counts.push(localCount);
+      const high = target - localCount;
+      if (high < 0) continue;
+      const low = high - sea.length;
+      for (let a = 0; a <= high; a++) {
+        if (pre[a] === 0) continue;
+        const from = Math.max(0, low - a);
+        const to = Math.min(target, high - a);
+        if (from <= to && sufPref[to + 1] > sufPref[from]) {
+          counts.push(localCount);
+          break;
+        }
       }
     }
     if (counts.length === 0) {
@@ -565,8 +605,7 @@ function mineTotalVerdict(view, status, counted, frontier) {
     return counts;
   });
 
-  const seaFact = [...possibleSeaCounts].every((count) => count === 0) ? 2
-    : [...possibleSeaCounts].every((count) => count === sea.length) ? 1 : null;
+  const seaFact = allSeaZero ? 2 : allSeaFull ? 1 : null;
   return { feasibleCounts, sea, seaFact };
 }
 
@@ -613,7 +652,7 @@ function applyRules(view, clues, status, mark, useCount, useSubset, useGlobal) {
         throw new Error('visible clues are inconsistent');
       }
       if (unknown.length === 0) continue;
-      residuals.push({ unknown, need, set: new Set(unknown) });
+      residuals.push({ unknown, need });
     }
 
     if (useCount) {
@@ -631,6 +670,7 @@ function applyRules(view, clues, status, mark, useCount, useSubset, useGlobal) {
       // strictly between none and all of its cells, so a pair sharing no
       // cell can neither mark nor contradict. Only overlapping pairs are
       // compared then, in the same order as the all-pairs loop.
+      const residualSets = residuals.map((residual) => new Set(residual.unknown));
       const residualsOfCell = new Map();
       if (useCount) {
         residuals.forEach((residual, index) => {
@@ -655,8 +695,8 @@ function applyRules(view, clues, status, mark, useCount, useSubset, useGlobal) {
         for (const j of partners) {
           const left = residuals[i];
           const right = residuals[j];
-          const leftOnly = left.unknown.filter((cell) => !right.set.has(cell));
-          const rightOnly = right.unknown.filter((cell) => !left.set.has(cell));
+          const leftOnly = left.unknown.filter((cell) => !residualSets[j].has(cell));
+          const rightOnly = right.unknown.filter((cell) => !residualSets[i].has(cell));
           const difference = left.need - right.need;
           if (difference < -rightOnly.length || difference > leftOnly.length) {
             throw new Error('visible clues are inconsistent');
@@ -818,55 +858,13 @@ function buildStructure(view, proofOptions, provenFacts) {
 
   const raw = rawClues(view);
   const facts = provenFacts === undefined ? proveFacts(view, raw, proofOptions) : provenFacts;
-  const clues = [];
-  const cluesOfCell = new Map();
   const frontierSet = new Set();
-
   for (const clue of raw) {
-    const covered = [];
-    let count = clue.count;
-    for (const cell of clue.covered) {
-      frontierSet.add(cell);
-      const fact = facts.get(cell);
-      if (fact === 1) count--;
-      else if (fact !== 2) covered.push(cell);
-    }
-    if (count < 0 || count > covered.length) {
-      throw new Error('deduced facts contradict a visible clue');
-    }
-    if (covered.length === 0) continue;
-    const clueIndex = clues.length;
-    clues.push({ covered, count });
-    for (const cell of covered) {
-      if (!cluesOfCell.has(cell)) cluesOfCell.set(cell, []);
-      cluesOfCell.get(cell).push(clueIndex);
-    }
+    for (const cell of clue.covered) frontierSet.add(cell);
   }
-
-  const components = [];
-  const componentOfCell = new Map();
-  for (const start of cluesOfCell.keys()) {
-    if (componentOfCell.has(start)) continue;
-    const componentIndex = components.length;
-    const cells = [];
-    const clueSet = new Set();
-    const stack = [start];
-    componentOfCell.set(start, componentIndex);
-    while (stack.length > 0) {
-      const cell = stack.pop();
-      cells.push(cell);
-      for (const clueIndex of cluesOfCell.get(cell)) {
-        if (clueSet.has(clueIndex)) continue;
-        clueSet.add(clueIndex);
-        for (const other of clues[clueIndex].covered) {
-          if (componentOfCell.has(other)) continue;
-          componentOfCell.set(other, componentIndex);
-          stack.push(other);
-        }
-      }
-    }
-    components.push({ cells, clues: [...clueSet] });
-  }
+  const { needs, covered, clueIdsOf: cluesOfCell } = residualNumbers(raw, facts);
+  const clues = needs.map((count, i) => ({ covered: covered[i], count }));
+  const { components, componentOfCell } = linkedComponents(covered, cluesOfCell);
 
   const seaCells = [];
   for (let i = 0; i < size; i++) {
@@ -1030,49 +1028,35 @@ function chainCluesAreInvariant(structure, chain) {
   return true;
 }
 
-function externalCoveredNeighbors(structure, cells) {
-  const inPocket = new Set(cells);
-  const external = new Set();
-  for (const cell of cells) {
-    for (const neighbor of guardianAngelNeighbors(
-      cell, structure.view.width, structure.view.height)) {
-      if (!structure.view.revealed[neighbor] && !inPocket.has(neighbor)) {
-        external.add(neighbor);
-      }
-    }
-  }
-  return { inPocket, external: [...external] };
-}
-
 function cardinalityBoundaryIsSealed(structure, cells) {
-  const { inPocket, external } = externalCoveredNeighbors(structure, cells);
-  for (const observer of external) {
-    if (structure.facts.get(observer) === 1) continue;
-    let touched = 0;
-    for (const neighbor of guardianAngelNeighbors(
-      observer, structure.view.width, structure.view.height)) {
-      if (inPocket.has(neighbor)) touched++;
+  const inPocket = new Set(cells);
+  const touches = new Map();
+  const { width, height, revealed } = structure.view;
+  for (const cell of cells) {
+    for (const neighbor of guardianAngelNeighbors(cell, width, height)) {
+      if (revealed[neighbor] || inPocket.has(neighbor) || structure.facts.get(neighbor) === 1) continue;
+      touches.set(neighbor, (touches.get(neighbor) || 0) + 1);
     }
-    if (touched !== cells.length) return false;
   }
+  for (const count of touches.values()) if (count !== cells.length) return false;
   return true;
 }
 
 function complementBoundaryIsSealed(structure, shape) {
-  const { external } = externalCoveredNeighbors(structure, shape.cells);
-  const aSet = new Set(shape.partitionA);
-  const bSet = new Set(shape.partitionB);
-  for (const observer of external) {
-    if (structure.facts.get(observer) === 1) continue;
-    let touchedA = 0;
-    let touchedB = 0;
-    for (const neighbor of guardianAngelNeighbors(
-      observer, structure.view.width, structure.view.height)) {
-      if (aSet.has(neighbor)) touchedA++;
-      if (bSet.has(neighbor)) touchedB++;
+  const inPocket = new Set(shape.cells);
+  const diff = new Map();
+  const { width, height, revealed } = structure.view;
+  const markSide = (sideCells, delta) => {
+    for (const cell of sideCells) {
+      for (const neighbor of guardianAngelNeighbors(cell, width, height)) {
+        if (revealed[neighbor] || inPocket.has(neighbor) || structure.facts.get(neighbor) === 1) continue;
+        diff.set(neighbor, (diff.get(neighbor) || 0) + delta);
+      }
     }
-    if (touchedA !== touchedB) return false;
-  }
+  };
+  markSide(shape.partitionA, 1);
+  markSide(shape.partitionB, -1);
+  for (const balance of diff.values()) if (balance !== 0) return false;
   return true;
 }
 
@@ -1143,13 +1127,13 @@ function chainCertificate(structure, chain) {
   };
 }
 
-function certifySeaEntry(structure, clicked, groupsOf) {
+function certifySeaEntry(structure, clicked, frontierOf) {
   const seaIndex = structure.seaComponentOfCell.get(clicked);
   if (seaIndex === undefined || structure.seaComponents.length !== 1) return null;
   const cells = structure.seaComponents[seaIndex];
   if (cells.length < 2) return null;
 
-  const frontier = frontierBesideOpenChain(structure, groupsOf);
+  const frontier = frontierOf();
   if (frontier === null || frontier.openChain !== null) return null;
   const mineCount = structure.view.mines - structure.provenMineCount - frontier.pinnedMines;
   if (!(mineCount > 0 && mineCount < cells.length)) return null;
@@ -1173,13 +1157,13 @@ function certifySeaEntry(structure, clicked, groupsOf) {
 // sea together, two layouts remain: the larger side mined and the sea
 // clear, or the smaller side and the whole sea mined. A complement pocket,
 // then, whose smaller side the mine total extends over the sea.
-function seaCompletedChainCertificate(structure, groupsOf) {
+function seaCompletedChainCertificate(structure, frontierOf) {
   const sea = structure.seaCells;
   // The sea makes up the difference between two sides of one chain, so it
   // is smaller than the frontier; the early game, with its open field,
   // skips the walk over every component.
   if (sea.length === 0 || sea.length >= structure.cluesOfCell.size) return null;
-  const frontier = frontierBesideOpenChain(structure, groupsOf);
+  const frontier = frontierOf();
   if (frontier === null || frontier.openChain === null) return null;
   const chain = frontier.openChain;
   const [larger, smaller] = chain.partitionA.length > chain.partitionB.length
@@ -1216,8 +1200,9 @@ function validateEntryIndex(view, clicked) {
 // Returns compact proofs for qualifying entries while constructing the
 // visible constraint structure only once. Every cell in one certified
 // pocket shares its certificate, so each component's groups, each group,
-// and the sea are also checked only once. heldStructure: buildStructure's
-// for this view when the caller already holds it, else built here.
+// the frontier summary, and the sea are also checked only once.
+// heldStructure: buildStructure's for this view when the caller already
+// holds it, else built here.
 function certifyEntries(view, entries, heldStructure) {
   for (const entry of entries) validateEntryIndex(view, entry);
   const structure = heldStructure === undefined ? buildStructure(view) : heldStructure;
@@ -1234,6 +1219,15 @@ function certifyEntries(view, entries, heldStructure) {
     if (!groupCertificates.has(group)) groupCertificates.set(group, certify(structure, group));
     return groupCertificates.get(group);
   };
+  let frontierSummary;
+  let frontierChecked = false;
+  const frontierOf = () => {
+    if (!frontierChecked) {
+      frontierSummary = frontierBesideOpenChain(structure, groupsOf);
+      frontierChecked = true;
+    }
+    return frontierSummary;
+  };
   const certificates = new Map();
   let seaCertificate;
   let seaChecked = false;
@@ -1241,7 +1235,7 @@ function certifyEntries(view, entries, heldStructure) {
   let seaCompletedChainChecked = false;
   const seaCompletedChainOf = () => {
     if (!seaCompletedChainChecked) {
-      seaCompletedChain = seaCompletedChainCertificate(structure, groupsOf);
+      seaCompletedChain = seaCompletedChainCertificate(structure, frontierOf);
       seaCompletedChainChecked = true;
     }
     return seaCompletedChain;
@@ -1263,7 +1257,7 @@ function certifyEntries(view, entries, heldStructure) {
       }
     } else if (structure.seaComponentOfCell.has(entry)) {
       if (!seaChecked) {
-        seaCertificate = certifySeaEntry(structure, entry, groupsOf);
+        seaCertificate = certifySeaEntry(structure, entry, frontierOf);
         seaChecked = true;
       }
       certificate = seaCertificate === null ? seaCompletedChainOf() : seaCertificate;
@@ -1350,6 +1344,7 @@ const GuardianAngel = {
   // Exact layout counting, which odds.js shares.
   choose,
   chooseRange,
+  countComponent,
   countGroup,
   listGroupLayouts,
   addCounts,

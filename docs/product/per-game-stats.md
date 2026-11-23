@@ -379,9 +379,9 @@ input meets pre-opened cells, and on games recorded before it existed.
 
 Guardian Angel — how many clicks into a guess that nothing else on the board could
 ever settle were guaranteed safe (see [Guardian Angel](guardian-angel.md));
-the stats table's row reads "Forced coinflips won", the end-of-game chip's
-words (2026-10-21; "Justice" before) — joined the schema on 2026-08-20
-(field `guardianAngel`, named `justice` before 2026-11-23)
+the stats table's row reads "Guardian Angel interventions" (updated 2026-11-23;
+"Forced coinflips won" from 2026-10-21, "Justice" before) — joined the schema
+on 2026-08-20 (field `guardianAngel`, named `justice` before 2026-11-23)
 under the same absence rules as wasted clicks. It increments on every
 qualifying entry whether the hidden cell was originally clear or required
 a redraw. Zero is a normal value and is recorded; the stats table always

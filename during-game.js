@@ -300,33 +300,57 @@ const DuringGame = (() => {
     return { fact, rank, safe };
   }
 
-  // One game's positions proved, each once: its full proof by level and the
-  // same by square, and on request its layout structure and odds. A proof
-  // reads only the open numbers, and within one game they only grow, so the
-  // count of open squares names the position. Each proof starts from the
-  // latest earlier one's facts, and each group of numbers left open is
-  // counted once in the game (GuardianAngel.proveLevels' groupCounts): a click
-  // changes only the groups beside it. The reports worker proves a game's
-  // positions when it ends, for its evaluation (completeGameEvaluations) and
-  // then the model, which read the same proofs.
+  // One game's positions proved, each once: its view, full proof by level
+  // and by square, and on request its layout structure, odds, and Guardian
+  // Angel certificates. A proof reads only the open numbers, and within one
+  // game they only grow, so the count of open squares names the position.
+  // Each proof starts from the latest earlier one's facts, and each group of
+  // numbers left open is counted once in the game (GuardianAngel.proveLevels'
+  // groupCounts, also shared with Odds.analyzeView): a click changes only the
+  // groups beside it. The reports worker proves a game's positions when it
+  // ends, for its evaluation (completeGameEvaluations) and then the model,
+  // which read the same proofs and certificates.
   function positionProofs() {
     const rankOf = new Map(GuardianAngel.DEDUCTION_LEVELS.map((level, rank) => [level.id, rank]));
     const byOpenCount = new Map();
     const groupCounts = new Map();
     return {
+      viewOf(position) {
+        return this.of(position).view;
+      },
       structureOf(position) {
         const proven = this.of(position);
         if (proven.structure === undefined) {
-          proven.structure = GuardianAngel.buildStructure(positionView(position), undefined, proven.proof.facts);
+          proven.structure = GuardianAngel.buildStructure(proven.view, undefined, proven.proof.facts);
         }
         return proven.structure;
       },
       oddsOf(position) {
         const proven = this.of(position);
         if (proven.odds === undefined) {
-          proven.odds = Odds.analyzeView(positionView(position), { structure: this.structureOf(position) });
+          proven.odds = Odds.analyzeView(proven.view, { structure: this.structureOf(position), groupCounts });
         }
         return proven.odds;
+      },
+      certificatesOf(position) {
+        const proven = this.of(position);
+        if (proven.certificates === undefined) {
+          const structure = this.structureOf(position);
+          const unproven = [...structure.cluesOfCell.keys(), ...structure.seaCells];
+          proven.certificates = GuardianAngel.certifyEntries(proven.view, unproven, structure);
+        }
+        return proven.certificates;
+      },
+      certificateOf(position, cell) {
+        const proven = this.of(position);
+        if (proven.certificates !== undefined) return proven.certificates.get(cell) || null;
+        if (proven.cellCertificates === undefined) proven.cellCertificates = new Map();
+        if (!proven.cellCertificates.has(cell)) {
+          const structure = this.structureOf(position);
+          proven.cellCertificates.set(cell,
+            GuardianAngel.certifyEntries(proven.view, [cell], structure).get(cell) || null);
+        }
+        return proven.cellCertificates.get(cell);
       },
       of(position) {
         const openCount = positionOpenCount(position);
@@ -344,7 +368,7 @@ const DuringGame = (() => {
           }
           const view = positionView(position);
           const proof = GuardianAngel.proveLevels(view, GuardianAngel.rawClues(view), earlier, groupCounts);
-          proven = { proof, squares: proofSquares(proof, position.width * position.height, rankOf) };
+          proven = { view, proof, squares: proofSquares(proof, position.width * position.height, rankOf) };
           byOpenCount.set(openCount, proven);
         }
         return proven;
@@ -691,7 +715,7 @@ const DuringGame = (() => {
     // Angel moves them (guessLedgerAppliesTo).
     const guessFacts = (k, cell) => {
       const evaluation = decisions[k].evaluation;
-      const view = positionView(evaluation.position);
+      const view = game.proofs.viewOf(evaluation.position);
       const structure = game.proofs.structureOf(evaluation.position);
       const facts = { connected: structure.frontierSet.has(cell) };
       if (evaluation.evidence.oddsMeasured === true) {
@@ -714,14 +738,14 @@ const DuringGame = (() => {
           }
         }
       }
-      if (GuardianAngel.certifyEntries(view, [cell], structure).has(cell)) {
+      if (game.proofs.certificateOf(evaluation.position, cell) !== null) {
         facts.unavoidable = true;
         let since = k;
         while (since > 0) {
           const before = factsAt[since - 1];
           if (before !== factsAt[since]) {
             const earlier = decisions[since - 1].evaluation.position;
-            if (!GuardianAngel.certifyEntries(positionView(earlier), [cell], game.proofs.structureOf(earlier)).has(cell)) break;
+            if (game.proofs.certificateOf(earlier, cell) === null) break;
           }
           since--;
         }
