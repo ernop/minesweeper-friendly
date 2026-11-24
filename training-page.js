@@ -38,7 +38,7 @@ function storageFailure(what) {
 
 function userdataReady() {
   const database = { name: DB_NAME, version: db.version, recordStore: RECORD_STORE, traceStore: TRACE_STORE };
-  const worker = new Worker('training-worker.js?v=20261124-switch-cost-w1');
+  const worker = new Worker('training-worker.js?v=20261124-layout-l1-l3');
   worker.onmessage = ({ data }) => {
     worker.terminate();
     if (data.error !== undefined) showTrainingStatus('Training summary failed: ' + data.error, true);

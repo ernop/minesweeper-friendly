@@ -70,22 +70,35 @@
           && summary.querySelectorAll('.session-summary-row').length >= 1
           && !resultRanks.querySelector('.result-chart-section-placements')
           && !document.getElementById('history-placements'));
-      // The replay transport under the board: as wide as its frame (at least
-      // 340 px) capped to the stage width, and centered on the board.
+      // The replay transport under the board: at least max(340px, boardWidth),
+      // expanding up to 600px within symmetric free room around the board so
+      // Board overlays and Mouse path stay single-line whenever flank room allows.
       const transportRect = rect(replayControls);
       const boardFits = frameRect.width <= stageRect.width;
-      check(label + ': the replay transport sits under the board, centered on it',
-        replayControls.checkVisibility() && gameArea.contains(replayControls)
-          && transportRect.top >= frameRect.bottom && transportRect.top - frameRect.bottom < 12
-          && Math.abs(transportRect.width - Math.min(stageRect.width, Math.max(340, frameRect.width))) < 1.5
-          && (!boardFits || Math.abs((transportRect.left + transportRect.right) - (frameRect.left + frameRect.right)) < 2));
-
-      // Adaptive details dock: right flank when at least 320 px fits beside the
-      // board footprint (and viewport > 700), else directly below the board.
       const dock = topStage.dataset.detailsDock;
       const footprint = Math.max(frameRect.width, 340);
       const flankRoom = Math.floor((stageRect.width - footprint) / 2 - 18);
       const expectedDock = width <= 700 || flankRoom < 320 ? 'below' : 'right';
+      const dockWidth = dock === 'below' ? 0 : rect(gameSidebar).width;
+      const freeLeft = dock === 'left' ? dockWidth + 18 : 0;
+      const freeRight = dock === 'right' ? stageRect.width - dockWidth - 18 : stageRect.width;
+      const boardCenter = (frameRect.left + frameRect.right) / 2 - stageRect.left;
+      const replayRoom = Math.floor(2 * Math.max(0, Math.min(boardCenter - freeLeft, freeRight - boardCenter)));
+      const expectedTransportWidth = Math.min(stageRect.width, Math.max(340, frameRect.width, Math.min(620, replayRoom)));
+      check(label + ': the replay transport sits under the board, centered on it',
+        replayControls.checkVisibility() && gameArea.contains(replayControls)
+          && transportRect.top >= frameRect.bottom && transportRect.top - frameRect.bottom < 12
+          && Math.abs(transportRect.width - expectedTransportWidth) < 2
+          && (!boardFits || Math.abs((transportRect.left + transportRect.right) - (frameRect.left + frameRect.right)) < 2));
+      if (expectedTransportWidth >= 605) {
+        const overlayTops = new Set([...document.querySelectorAll('#replay-overlay-control button')].map((b) => Math.round(rect(b).top)));
+        const pathTops = new Set([...document.querySelectorAll('#path-view-control button')].map((b) => Math.round(rect(b).top)));
+        check(label + ': Board overlays and Mouse path each sit on one line',
+          overlayTops.size === 1 && pathTops.size === 1);
+      }
+
+      // Adaptive details dock: right flank when at least 320 px fits beside the
+      // board footprint (and viewport > 700), else directly below the board.
       check(label + ': details panel docks ' + expectedDock + ' without overlapping the board',
         dock === expectedDock
           && !overlaps(gameFrame, gameSidebar)
@@ -126,8 +139,9 @@
       check(label + ': full-width result sections begin cleanly below the top stage',
         rect(resultRanks).top >= stageContentBottom - 1
           && Math.abs(rect(resultRanks).width - stageRect.width) < 1.5);
-      check(label + ': see scores is in the details panel',
-        gameSidebar.contains(scoresNav) && !gameArea.contains(scoresNav));
+      check(label + ': states and see scores live in the upper-right top bar',
+        topBar.contains(topRight) && topBar.contains(scoresNav)
+          && !gameSidebar.contains(scoresNav) && !gameArea.contains(scoresNav));
       check(label + ': redundant review heading is absent',
         !document.querySelector('.review-heading') && !document.getElementById('replay-final-time'));
       check(label + ': details controls and stats fit their panel',
@@ -178,12 +192,24 @@
   const rightMovedLeft = rect(gameFrame).left;
   const leftDockSidebar = rect(gameSidebar);
   const leftDockGrip = rect(detailsResize);
-  check('2560px expert moved right: board moves freely right and details dock flips left',
+  const leftDockHead = rect(pageHead);
+  check('2560px expert moved right: board moves freely right, left dock lifts to top, header clears dock (L1)',
     rightMovedLeft >= centerBoardLeft + 450
       && topStage.dataset.detailsDock === 'left'
+      && pageLayout.dataset.leftDock === 'true'
       && !overlaps(gameFrame, gameSidebar)
+      && !overlaps(pageHead, gameSidebar)
+      && Math.abs(leftDockSidebar.top - rect(pageLayout).top) <= 2
+      && leftDockHead.left >= leftDockSidebar.right + 17
       && leftDockSidebar.right <= rightMovedLeft - 17
       && leftDockGrip.left >= leftDockSidebar.right && leftDockGrip.right <= rightMovedLeft);
+  const beforeStatesOpen = rect(gameFrame);
+  setStatesMenuOpen(true);
+  await wait();
+  check('opening edit states popover in top bar never moves the board',
+    !document.getElementById('states-menu').hidden && sameBoard(beforeStatesOpen));
+  setStatesMenuOpen(false);
+  await wait();
   setBoardPositionPreference(-500, 0, false);
   await wait();
   const leftMovedLeft = rect(gameFrame).left;

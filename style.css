@@ -45,19 +45,42 @@ body {
 }
 
 #page-head {
+  container-type: inline-size;
+  container-name: page-head;
+  width: 100%;
+  min-width: 0;
+}
+#page-head-inner {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  gap: 8px 16px;
+  gap: 6px 16px;
   width: 100%;
 }
-#page-head #difficulty-tabs { grid-column: 2; justify-self: center; }
-#page-head #top-bar { grid-column: 3; justify-self: end; }
+#page-head-inner #difficulty-tabs { grid-column: 2; justify-self: center; }
+#page-head-inner #top-bar { grid-column: 3; justify-self: end; }
 
-@media (max-width: 1120px) {
-  #page-head { grid-template-columns: minmax(0, 1fr); }
-  #page-head #top-bar { grid-column: 1; grid-row: 1; justify-self: end; }
-  #page-head #difficulty-tabs { grid-column: 1; grid-row: 2; justify-self: center; }
+/* When a left-docked details column starts at the top of the page (L1),
+   the header and mode setup rows span the board's right flank so the left
+   column reclaims the top space and mode tabs stay centered over the board. */
+#page-layout[data-left-dock="true"] #page-head,
+#page-layout[data-left-dock="true"] #mode-options,
+#page-layout[data-left-dock="true"] #board-lab-panel {
+  align-self: stretch;
+  width: auto;
+  margin-left: calc(var(--left-dock-width) + 18px);
+}
+
+@container page-head (max-width: 1639px) {
+  #page-head-inner { grid-template-columns: auto minmax(0, 1fr); }
+  #page-head-inner #difficulty-tabs { grid-column: 1; justify-self: start; }
+  #page-head-inner #top-bar { grid-column: 2; justify-self: end; }
+}
+
+@container page-head (max-width: 1039px) {
+  #page-head-inner { grid-template-columns: minmax(0, 1fr); }
+  #page-head-inner #top-bar { grid-column: 1; grid-row: 1; justify-self: end; }
+  #page-head-inner #difficulty-tabs { grid-column: 1; grid-row: 2; justify-self: center; }
 }
 
 main {
@@ -181,15 +204,15 @@ main {
 
 /*-------TOP BAR (today's play, daily limits, settings)-------*/
 
-/* The page's upper right: today's use against the daily limits, live status,
-   then the daily limits link and the settings page's button at its right end;
-   the settings row at the page foot holds the rest of the configuration. */
+/* The page's upper right: play context (states, archive status), see scores,
+   today's use against the daily limits, then the daily limits link and
+   settings button at the right end. */
 #top-bar {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
-  gap: 4px 12px;
+  gap: 4px 10px;
   min-width: 0;
   background: #ffffff;
   color: #000000;
@@ -562,7 +585,7 @@ main {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   box-sizing: border-box;
-  width: min(var(--stage-width, 100vw), max(340px, var(--board-frame-width, 340px)));
+  width: min(var(--stage-width, 100vw), max(340px, var(--board-frame-width, 340px), min(620px, var(--replay-room-width, 0px))));
   margin: 8px auto 0;
   align-items: center;
   gap: 6px;
@@ -623,19 +646,19 @@ main {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   color: #000000;
 }
 
 .path-view-heading {
-  margin-right: 2px;
-  font-size: 12px;
+  margin-right: 3px;
+  font-size: 11px;
   font-weight: bold;
 }
 
 #replay-overlay-control button,
 #path-view-control button {
-  padding-inline: 7px;
+  padding-inline: 5px;
   white-space: nowrap;
 }
 
@@ -1652,7 +1675,7 @@ body.trial-offboard #game-frame {
 }
 #top-stage[data-details-dock="left"] #game-sidebar {
   position: absolute;
-  top: 0;
+  top: calc(-1 * var(--left-dock-top-lift, 0px));
   left: 0;
   right: auto;
   width: var(--details-dock-width);
@@ -1690,42 +1713,24 @@ body.trial-offboard #game-frame {
   left: auto;
 }
 #top-stage[data-details-dock="left"] #details-resize {
+  top: calc(-1 * var(--left-dock-top-lift, 0px));
   left: calc(var(--details-dock-width) + 5.5px);
   right: auto;
 }
 #details-resize:hover, #details-resize.dragging { background-color: #dde6ee; }
 #details-resize:focus-visible { outline: 2px solid #417ca4; }
 #details-resize[hidden] { display: none; }
-/* The play context (states) and the review row (see scores) share wrapping
-   rows, aligned toward the outer edge while docked and left when below. */
-#sidebar-controls {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 4px 12px;
-}
-#top-stage[data-details-dock="left"] #sidebar-controls,
-#top-stage[data-details-dock="below"] #sidebar-controls {
-  justify-content: flex-start;
-}
 #top-right {
-  display: flex;
-  flex: 1 1 auto;
+  display: inline-flex;
+  flex: 0 1 auto;
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
-  gap: 4px 10px;
+  gap: 4px 8px;
   min-width: 0;
   text-align: right;
   font-size: 11px;
   color: #000000;
-}
-#top-stage[data-details-dock="left"] #top-right,
-#top-stage[data-details-dock="below"] #top-right {
-  justify-content: flex-start;
-  text-align: left;
-  flex: 0 1 auto;
 }
 
 /* A stat section (live perf charts, motion stats): its title is the button
@@ -1924,14 +1929,13 @@ body.trial-offboard #game-frame {
 #archive-chip[hidden] { display: none; }
 
 #states {
-  display: flex;
+  position: relative;
+  display: inline-flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
   gap: 4px 6px;
 }
-
-#states:has(> #states-menu:not([hidden])) { flex-basis: 100%; }
 
 /* The play context line: the measured music state and the player's states
    that are on, facts stamped onto each finished game. Each is a tag: a
@@ -1958,14 +1962,22 @@ body.trial-offboard #game-frame {
 }
 .context-item[hidden] { display: none; }
 
-/* Every state with a checkbox (on or off), its x to delete it from the
-   list, and the field at the bottom that creates (and puts on) a new one. */
+/* Floating menu anchored to the states button so opening it in the upper-right
+   top bar never resizes the header or moves the board. */
 #states-menu {
-  flex: 1 0 100%;
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 40;
+  min-width: 220px;
+  max-width: min(300px, calc(100vw - 24px));
   padding: 6px 8px;
   background: #f7f9fb;
-  border: 1px solid #e0e6ec;
+  border: 1px solid #8aa0b5;
+  border-radius: 4px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.14);
   text-align: left;
+  white-space: normal;
 }
 
 #states-menu[hidden] { display: none; }
@@ -2959,7 +2971,8 @@ body.settings-page .return-to-game {
   padding-top: 5px;
 }
 /* The chart's options: one small wrapping row under the data. */
-.game-data-controls { gap: 3px 10px; padding-top: 3px; border-top: 1px solid #d9e2e8; font-size: 11px; }
+.game-data-controls { gap: 3px 8px; padding-top: 3px; border-top: 1px solid #d9e2e8; font-size: 11px; }
+.game-data-pool-select select { max-width: 140px; }
 .board-time-profile .game-data-controls button:not(.chart-help),
 .during-game-controls button:not(.chart-help) { padding: 0 6px; }
 .game-data-controls label { display: inline-flex; align-items: center; gap: 3px; }

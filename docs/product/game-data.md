@@ -168,11 +168,12 @@ the '?' mark"), built the same day:
   and mouseovers entirely, not replacing orputting the removed text
   anywhere; it merely wil lbe gone." Until 2026-10-17 the title itself
   opened the help.
-- Every chart option sits in one small wrapping row under the data: the
-  "compared with" picker (replacing the separate band "points" and
-  distributions "pools" switches on 2026-11-23), "show distributions",
-  "show values", "configure", and "session history". Configuration and
-  session history keep a "back to game data" button at their top and bottom.
+- Every chart option sits in one compact row under the data (slimmed on
+  2026-11-24, Option L3): the "compared with" picker, "distributions", and
+  "configure". "show values" and "session history" live inside `configure`
+  (removing the duplicate footer button and keeping the footer single-line in
+  narrow docks). Configuration and session history keep a "back to game data"
+  button at their top and bottom.
 - Nothing in the band or the distributions view scrolls, at any panel or
   window size: both scale to fit (below). Configuration and session history
   take their natural height. The details column's own scrolling, when its

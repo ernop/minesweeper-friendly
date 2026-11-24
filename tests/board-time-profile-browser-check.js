@@ -104,7 +104,7 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await profile.locator('.game-data-bar').count(), 1, 'and one bar');
     assert.deepEqual(await profile.locator('.game-data-controls').evaluate((row) => [...row.children]
       .map((child) => child.matches('.game-data-pool-select') ? 'compared with' : child.textContent.trim())),
-    ['compared with', 'show distributions', 'show values', 'configure', 'session history'], 'every option in one row at the bottom');
+    ['compared with', 'distributions', 'configure'], 'compact single-row options at the bottom (L3)');
     assert.equal(await profile.locator('.game-data-row[data-side="board"]').count(), 9);
     assert.equal(await profile.locator('.game-data-row[data-side="performance"]').count(), 8,
       'one row per measurement for the chosen pool');
@@ -481,7 +481,7 @@ const { chromium } = require(process.argv[2]);
       assert.equal(shown.unlabeled, 0, label + ': every strip has x ticks with labels');
       assert(shown.slack >= 0 && shown.slack < shown.rows * 1.2 + 4, label + ': the strips fill the box: ' + JSON.stringify(shown));
     };
-    await profile.getByLabel('show distributions', { exact: true }).check();
+    await profile.getByLabel('distributions', { exact: true }).check();
     let shown = await distributionsShown('all');
     assert.equal(await page.evaluate(() => settings.gameDataDistributions), true);
     assert.deepEqual(shown.heads, [
@@ -568,14 +568,18 @@ const { chromium } = require(process.argv[2]);
     fillsBox(shown, 'no-mark');
     await page.evaluate(async () => { crowdGameData(); settings.gameDataPool = 'all'; await drawProfileFixture(); });
     await distributionsShown('all');
-    await profile.getByLabel('show distributions', { exact: true }).uncheck();
+    await profile.getByLabel('distributions', { exact: true }).uncheck();
     await bandReady();
+    await profile.getByRole('button', { name: 'configure', exact: true }).click();
     await profile.getByLabel('show values', { exact: true }).uncheck();
+    await profile.getByRole('button', { name: 'back to game data', exact: true }).first().click();
     await bandReady();
     assert.equal(await profile.locator('.game-data-row .game-data-value:visible').count(), 0);
     assert.equal(await timeRow.locator('.game-data-name').innerText(), 'time');
     assert.equal(await page.evaluate(() => settings.gameDataShowValues), false);
+    await profile.getByRole('button', { name: 'configure', exact: true }).click();
     await profile.getByLabel('show values', { exact: true }).check();
+    await profile.getByRole('button', { name: 'back to game data', exact: true }).first().click();
     await bandReady();
     assert.equal(await profile.locator('.game-data-row .game-data-value:visible').count(), 17);
     await profile.getByRole('button', { name: 'configure', exact: true }).click();
@@ -645,7 +649,7 @@ const { chromium } = require(process.argv[2]);
     // Distributions view places scoped rows directly under their base metric
     // and uses compact rank when the base row is shown; distributions cards
     // omit % since the row already prints it.
-    await profile.getByLabel('show distributions', { exact: true }).check();
+    await profile.getByLabel('distributions', { exact: true }).check();
     await distributionsShown('all');
     const perfDistIds = await profile.locator('.game-data-dist-section[data-side="performance"] .game-data-dist-row')
       .evaluateAll((nodes) => nodes.map((n) => n.dataset.rowId));
@@ -659,7 +663,7 @@ const { chromium } = require(process.argv[2]);
       'distributions card keeps rank alone without repeating %');
     await page.mouse.move(0, 0);
     await profile.screenshot({ path: '/tmp/game-data-scoped-rows-dist.png' });
-    await profile.getByLabel('show distributions', { exact: true }).uncheck();
+    await profile.getByLabel('distributions', { exact: true }).uncheck();
     await bandReady();
     // Unchecking base time makes scoped time rows display the measured value.
     await profile.getByRole('button', { name: 'configure', exact: true }).click();
@@ -719,6 +723,7 @@ const { chromium } = require(process.argv[2]);
       await drawProfileFixture();
     });
     await bandReady();
+    await profile.getByRole('button', { name: 'configure', exact: true }).click();
     await profile.getByRole('button', { name: 'session history', exact: true }).click();
     await profile.locator('tbody tr').first().waitFor();
     assert.equal(await profile.locator('tbody tr').count(), 20);
@@ -910,7 +915,10 @@ const { chromium } = require(process.argv[2]);
       await drawProfileFixture();
     });
     await bandReady();
+    await profile.getByRole('button', { name: 'configure', exact: true }).click();
     await profile.getByLabel('show values', { exact: true }).uncheck();
+    await profile.getByRole('button', { name: 'back to game data', exact: true }).first().click();
+    await bandReady();
     await poolPicker.selectOption('board:bv3');
     await page.evaluate(() => {
       settings.gameDataScopedRows = [{ metric: 'time', pool: 'board:zeroCount' }, { metric: 'clickRate', pool: 'board:bv3' }];

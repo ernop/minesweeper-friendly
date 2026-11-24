@@ -969,7 +969,9 @@ function buildBoardTimeRankProfile(record, records, referenceMs) {
   function show(next) {
     const previous = view;
     view = next;
-    renderAndFocus(next === 'chart' ? '.game-data-controls [data-view="' + previous + '"]' : 'figcaption > button');
+    renderAndFocus(next === 'chart'
+      ? '.game-data-controls [data-view="' + (previous === 'history' ? 'config' : previous) + '"]'
+      : 'figcaption > button');
   }
   function checkbox(text, checked, change, option) {
     const label = document.createElement('label');
@@ -1093,6 +1095,9 @@ function buildBoardTimeRankProfile(record, records, referenceMs) {
         configView.append(title, allLabel, table);
         sync();
       }
+      configView.appendChild(checkbox('show values', settings.gameDataShowValues, (checked) => {
+        settings.gameDataShowValues = checked; saveSettings();
+      }, 'values'));
       selectionList('performance measurements', 'all performance measurements', 'measurement',
         'gameDataMetrics', GameData.metrics);
       // Extra scoped rows plotted alongside the base rows in game summary perf
@@ -1336,22 +1341,19 @@ function buildBoardTimeRankProfile(record, records, referenceMs) {
         profile.appendChild(section);
         observeFit(fitted);
       }
-      // Every chart option in one small row at the bottom, out of the data's way.
+      // Compact single-row footer under Game Data (L3): pool picker,
+      // distributions toggle, and configure (which also holds show values
+      // and session history).
       const footer = document.createElement('div');
       footer.className = 'game-data-controls';
       footer.appendChild(poolSelect());
-      footer.append(checkbox('show distributions', settings.gameDataDistributions, (checked) => {
+      footer.append(checkbox('distributions', settings.gameDataDistributions, (checked) => {
         settings.gameDataDistributions = checked; saveSettings();
         renderAndFocus('.game-data-controls input[data-option="distributions"]');
-      }, 'distributions'), checkbox('show values', settings.gameDataShowValues, (checked) => {
-        settings.gameDataShowValues = checked; saveSettings();
-        renderAndFocus('.game-data-controls input[data-option="values"]');
-      }, 'values'));
-      for (const [text, next] of [['configure', 'config'], ['session history', 'history']]) {
-        const opener = button(text, () => show(next));
-        opener.dataset.view = next;
-        footer.appendChild(opener);
-      }
+      }, 'distributions'));
+      const configureOpener = button('configure', () => show('config'));
+      configureOpener.dataset.view = 'config';
+      footer.appendChild(configureOpener);
       profile.appendChild(footer);
     }
     profile.removeAttribute('aria-busy');

@@ -241,6 +241,7 @@ function placeBoardPositionPanel() {
 function measureTopStage() {
   const scrollX = window.scrollX;
   const scrollY = window.scrollY;
+  const pageLayoutTop = pageLayout.getBoundingClientRect().top + scrollY;
   const stageClientRect = topStage.getBoundingClientRect();
   const stageRect = boardPositionLayoutRect(stageClientRect, scrollX, scrollY, false);
   const trialNoBoard = gameArea.classList.contains('trial-no-board');
@@ -250,7 +251,7 @@ function measureTopStage() {
   const setupBottom = Math.max(...[pageHead, modeOptions, boardLabPanel]
     .filter((row) => !row.hidden)
     .map((row) => row.getBoundingClientRect().bottom + scrollY));
-  return { scrollX, scrollY, stageClientRect, stageRect, trialNoBoard, frameClientRect, frameRect, setupBottom };
+  return { scrollX, scrollY, pageLayoutTop, stageClientRect, stageRect, trialNoBoard, frameClientRect, frameRect, setupBottom };
 }
 
 // A trial's lobby and review show no board, so nothing is placed: the hidden
@@ -347,17 +348,21 @@ const GAME_DATA_SIDE_MIN_HEIGHT = 240;
 const GAME_DATA_SUBVIEW_MIN_HEIGHT = 480;
 const GAME_DATA_BAND_COMPACT_MAX_HEIGHT = 580;
 
+let appliedLeftDockLift = 0;
+
 // Cap the docked column's height to the board area when game data's percentile
 // band stands alone (live perf charts absent or closed), so a short band does
 // not stretch below the board and leave an empty gap above the tables.
 function syncDetailsDockMaxHeight(stageDocTop = null, boardAreaHeight = null) {
-  const docked = topStage.dataset.detailsDock === 'left' || topStage.dataset.detailsDock === 'right';
+  const dock = topStage.dataset.detailsDock;
+  const docked = dock === 'left' || dock === 'right';
   if (!docked) {
     setStyleProp(gameSidebar, '--details-dock-max-height', '');
     return;
   }
+  const lift = dock === 'left' ? appliedLeftDockLift : 0;
   const top = stageDocTop !== null ? stageDocTop : topStage.getBoundingClientRect().top + window.scrollY;
-  const viewportRoom = Math.max(480, Math.floor(window.innerHeight - top - 16));
+  const viewportRoom = Math.max(480, Math.floor(window.innerHeight - (top - lift) - 16));
   let maxHeight = viewportRoom;
   if (!resultsBox.hidden && !settings.gameDataDistributions
       && resultStats.querySelector('.board-time-profile') !== null) {
@@ -366,7 +371,7 @@ function syncDetailsDockMaxHeight(stageDocTop = null, boardAreaHeight = null) {
       && duringEl.querySelector(':scope > .stat-section-body:not([hidden])') !== null;
     if (!duringOpen) {
       const areaHeight = boardAreaHeight !== null ? boardAreaHeight : gameArea.offsetHeight;
-      maxHeight = Math.min(viewportRoom, Math.max(GAME_DATA_BAND_COMPACT_MAX_HEIGHT, areaHeight));
+      maxHeight = Math.min(viewportRoom, Math.max(GAME_DATA_BAND_COMPACT_MAX_HEIGHT, areaHeight + lift));
     }
   }
   setStyleProp(gameSidebar, '--details-dock-max-height', maxHeight + 'px');
@@ -424,27 +429,33 @@ function detailsColumnFit(snapshot = null, deltaX = 0) {
   const { sidebarMin: minimum } = readLayoutConstants();
   let boardLeft;
   let boardRight;
+  let boardCenter;
   if (gameArea.classList.contains('trial-no-board')) {
     const trialRect = document.getElementById('trial-stage').getBoundingClientRect();
     const width = Math.max(trialRect.width, REPLAY_CONTROLS_MIN_WIDTH);
-    boardLeft = (stageRect.width - width) / 2;
-    boardRight = (stageRect.width + width) / 2;
+    boardCenter = stageRect.width / 2;
+    boardLeft = boardCenter - width / 2;
+    boardRight = boardCenter + width / 2;
   } else {
     const frame = snapshot !== null && snapshot.frameClientRect !== null
       ? snapshot.frameClientRect : gameFrame.getBoundingClientRect();
     const footprint = Math.max(frame.width, REPLAY_CONTROLS_MIN_WIDTH);
-    const center = (frame.left + frame.right) / 2 + deltaX - stageRect.left;
-    boardLeft = center - footprint / 2;
-    boardRight = center + footprint / 2;
+    boardCenter = (frame.left + frame.right) / 2 + deltaX - stageRect.left;
+    boardLeft = boardCenter - footprint / 2;
+    boardRight = boardCenter + footprint / 2;
   }
-  return detailsDockPlacement(
-    stageRect.width,
-    boardLeft,
-    boardRight,
-    minimum,
-    DETAILS_DOCK_GAP,
-    Math.round(settings.detailsColumnShare * window.innerWidth),
-    window.innerWidth <= 700);
+  return {
+    ...detailsDockPlacement(
+      stageRect.width,
+      boardLeft,
+      boardRight,
+      minimum,
+      DETAILS_DOCK_GAP,
+      Math.round(settings.detailsColumnShare * window.innerWidth),
+      window.innerWidth <= 700),
+    stageWidth: stageRect.width,
+    boardCenter,
+  };
 }
 
 function detailsColumnWidth(fit, share) {
@@ -455,14 +466,36 @@ function syncGameSidebar(snapshot = null, deltaX = 0) {
   const fit = detailsColumnFit(snapshot, deltaX);
   const dock = fit.dock;
   const docked = dock !== 'below';
+  const leftDock = dock === 'left';
+  const wasLeftDock = pageLayout.dataset.leftDock === 'true';
   if (topStage.dataset.detailsDock !== dock) topStage.dataset.detailsDock = dock;
   const hideResults = resultStats.childElementCount === 0;
   if (resultsBox.hidden !== hideResults) resultsBox.hidden = hideResults;
+  if (leftDock) {
+    if (!wasLeftDock) pageLayout.dataset.leftDock = 'true';
+    setStyleProp(pageLayout, '--left-dock-width', fit.width + 'px');
+    const lift = !wasLeftDock || snapshot === null
+      ? Math.max(0, Math.round(topStage.getBoundingClientRect().top - pageLayout.getBoundingClientRect().top))
+      : Math.max(0, Math.round(snapshot.stageRect.top - snapshot.pageLayoutTop));
+    appliedLeftDockLift = lift;
+    setStyleProp(gameSidebar, '--left-dock-top-lift', lift + 'px');
+    setStyleProp(detailsResize, '--left-dock-top-lift', lift + 'px');
+  } else {
+    if (wasLeftDock) delete pageLayout.dataset.leftDock;
+    setStyleProp(pageLayout, '--left-dock-width', '');
+    appliedLeftDockLift = 0;
+    setStyleProp(gameSidebar, '--left-dock-top-lift', '');
+    setStyleProp(detailsResize, '--left-dock-top-lift', '');
+  }
+  const freeLeft = leftDock ? fit.width + DETAILS_DOCK_GAP : 0;
+  const freeRight = dock === 'right' ? fit.stageWidth - fit.width - DETAILS_DOCK_GAP : fit.stageWidth;
+  const replayRoom = Math.floor(2 * Math.max(0, Math.min(fit.boardCenter - freeLeft, freeRight - fit.boardCenter)));
+  setStyleProp(replayControls, '--replay-room-width', replayRoom + 'px');
   if (docked) {
     const widthVal = fit.width + 'px';
     setStyleProp(gameSidebar, '--details-dock-width', widthVal);
     setStyleProp(detailsResize, '--details-dock-width', widthVal);
-    syncDetailsDockMaxHeight(snapshot !== null ? snapshot.stageRect.top : null);
+    syncDetailsDockMaxHeight(snapshot !== null && wasLeftDock === leftDock ? snapshot.stageRect.top : null);
     if ('belowColumns' in topStage.dataset) delete topStage.dataset.belowColumns;
   } else {
     setStyleProp(gameSidebar, '--details-dock-width', '');
@@ -582,10 +615,12 @@ function syncGuardianAngelPlacement() {
 // and any Guardian Angel callout hanging below the board, without moving the board.
 // Also keeps the resize grip's height matched to the docked details panel.
 function syncResultClearance(measuredSidebarHeight = null) {
-  const docked = topStage.dataset.detailsDock === 'left' || topStage.dataset.detailsDock === 'right';
+  const dock = topStage.dataset.detailsDock;
+  const docked = dock === 'left' || dock === 'right';
   if (docked) {
+    const lift = dock === 'left' ? appliedLeftDockLift : 0;
     const sidebarHeight = measuredSidebarHeight !== null ? measuredSidebarHeight : gameSidebar.offsetHeight;
-    let needed = sidebarHeight;
+    let needed = Math.max(0, sidebarHeight - lift);
     if (!gameArea.classList.contains('trial-no-board') && guardianAngelLive.childElementCount > 0) {
       needed = Math.max(needed, guardianAngelLive.getBoundingClientRect().bottom - topStage.getBoundingClientRect().top);
     }

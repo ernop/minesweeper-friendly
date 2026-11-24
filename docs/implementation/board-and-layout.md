@@ -42,10 +42,25 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   `#game-frame` into view when it is off-screen; reloads with the editor
   open do not scroll.
 - Layout (revised 2026-11-19: full-width board-first top stage + adaptive
-  details dock + full-width after-board stack): `#page-layout` is a
-  single-column full-width container holding `<header id="page-head">`
-  (3-column grid `1fr auto 1fr` above 1120 px with `#difficulty-tabs` in
-  col 2 and `#top-bar` in col 3; stacked at `<= 1120px`) and `<main>`.
+  details dock + full-width after-board stack; refined 2026-11-24, Option L1):
+  `#page-layout` is a single-column full-width container holding
+  `<header id="page-head">` (`container-type: inline-size; container-name:
+  page-head`, containing `#page-head-inner` with `#difficulty-tabs` and
+  `#top-bar`: 3 columns `1fr auto 1fr` at `>= 1640px`, 2 columns `auto 1fr`
+  at `1040–1639px`, and 2 rows below `1040px`) and `<main>`. `#top-bar` holds
+  `#top-right` (archive chip + `#states` with `#play-context`,
+  `#states-edit-btn`, and floating absolute `#states-menu`), `#scores-nav`
+  (`#see-scores-btn`), `#play-limits-use`, `#play-limits-btn`, and
+  `#settings-btn`. When docked `left`, `syncGameSidebar` sets
+  `pageLayout.dataset.leftDock = 'true'` and `--left-dock-width`, shifting
+  `#page-head`, `#mode-options`, and `#board-lab-panel` into the board's right
+  flank (`margin-left: calc(var(--left-dock-width) + 18px); width: auto;`),
+  and lifts `#game-sidebar` and `#details-resize` to the top of `#page-layout`
+  via `--left-dock-top-lift` (`stageTop - pageLayoutTop`). `syncDetailsDockMaxHeight`
+  and `syncResultClearance` both account for `appliedLeftDockLift`, and
+  `syncGameSidebar` writes `--replay-room-width` directly on `#replay-controls`
+  so the replay transport expands up to 620 px when symmetric room around the
+  board permits without touching the dock.
   Inside `<main>`, `<div id="top-stage">` (`position: relative`) owns
   `#game-area`, `#details-resize`, and `<aside id="game-sidebar">`.
   `detailsDockPlacement` (pure, in the solver span of `game/layout.js`)
@@ -84,9 +99,9 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   width changes plus `#page-head`, `#mode-options`, `#board-lab-panel`,
   `#game-frame`, `#guardian-angel-live`, and `#board-position-panel` and schedules
   `syncBoardLayout`.
-  The sidebar contains `#result-summary`, `#sidebar-controls` (wrapping
-  flex row holding `#top-right` and `#scores-nav`), `#results`, and
-  `#path-view-legend`.
+  The sidebar contains `#result-summary`, `#results`, and `#path-view-legend`
+  (`#sidebar-controls` was removed on 2026-11-24 when `#top-right` and
+  `#scores-nav` moved into `#top-bar`).
   Stat sections: `buildStatSection(panelKey, title)` (`game/results.js`)
   builds `.stat-section` with `panelToggle(panelKey, title, body, help)`.
   `resultOpenerHead(level, ...)` wraps `h3`/`h4.stat-section-title` around

@@ -58,8 +58,8 @@ const shots = process.argv[4];
     assert.equal(await gamePage.locator('#play-limits-btn').innerText(), 'daily limits',
       'today\'s use is text in the top bar, never the link\'s label');
     assert.deepEqual(await gamePage.locator('#top-bar > *').evaluateAll((items) => items.map((item) => item.id)),
-      ['play-limits-use', 'play-limits-btn', 'settings-btn'],
-      'the top bar holds today\'s use, then the limits link, then settings');
+      ['top-right', 'scores-nav', 'play-limits-use', 'play-limits-btn', 'settings-btn'],
+      'the top bar holds states/archive, see scores, today\'s use, the limits link, and settings');
     const clickCell = async (index) => {
       const cell = gamePage.locator('#board .cell').nth(index);
       await cell.click();

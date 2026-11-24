@@ -453,8 +453,8 @@ check('replay stays separate from path modes and is available after game end',
       && source.includes('replaySlider.max = String(count)')
       && source.includes('replayStep = replayDecisionCount();')
       && source.includes('const enabled = replayStep < count;'));
-  check('see scores is outside the translated board area',
-    navStart > html.indexOf('id="game-sidebar"'));
+  check('see scores is in the upper-right top bar, outside the translated board area',
+    navStart > html.indexOf('id="top-bar"') && navStart < html.indexOf('</header>'));
 }
 check('no replay disclosure: the transport shows whenever a finished game is shown',
   !html.includes('id="replay-review"') && !source.includes('replayReview')

@@ -89,6 +89,14 @@ function setStatesMenuOpen(open) {
   rememberPanel('states', open);
   statesMenu.hidden = !open;
   statesEditBtn.setAttribute('aria-expanded', String(open));
+  if (open) {
+    statesMenu.style.left = '';
+    statesMenu.style.right = '';
+    if (statesMenu.getBoundingClientRect().left < 8) {
+      statesMenu.style.left = '0';
+      statesMenu.style.right = 'auto';
+    }
+  }
 }
 
 statesEditBtn.addEventListener('click', () => {

@@ -317,17 +317,24 @@ duplicative and needlessly complex."
   board**. Until 2026-10-20 the preset links sat beside a Custom tab, the
   Mode and Generator menus sat in the details column, and Board lab had a
   second size form of its own.
-- **Top bar**: today's use against the daily limits, as plain text once
-  any limit is set ("today: 12m 34s of 30m · 14 of 50 games", red once one
-  is reached; [Daily play limits](play-limits.md)), then the **daily
-  limits** button (the settings page's limits panel, always shown and
-  always so labeled), then the **settings** button (the settings page) at
-  its right end. Today's use is live status, not configuration, so it
-  stays in view: a refused flag press flashes its outline. Above 1120px it
-  shares the page head with the centered game choice row at the page's upper
-  right; at 1120px and below it stacks cleanly right-aligned above the game
-  choice row so neither collides. Without limits it holds
-  the two buttons. The daily limits button returned here on 2026-10-22
+- **Top bar**: holds play context (archive alert, active state pills, and
+  **edit states** with its floating popover menu), **see scores**, today's
+  use against the daily limits as plain text once any limit is set ("today:
+  12m 34s of 30m · 14 of 50 games", red once one is reached; [Daily play
+  limits](play-limits.md)), the **daily limits** button, and the **settings**
+  button at its right end. Today's use is live status, not configuration, so
+  it stays in view: a refused flag press flashes its outline. Moved **states**
+  and **see scores** here from the details dock on 2026-11-24 (creator choice,
+  Option L1), reclaiming vertical space in the details dock and keeping
+  **edit states** as a floating popover so opening it never moves the board.
+  `#page-head` uses container queries over its available width: 3 columns
+  (`1fr auto 1fr`) when >= 1640 px wide, 2 columns (`auto 1fr`) at 1040–1639 px,
+  and 2 rows (`#top-bar` right-aligned above centered `#difficulty-tabs`)
+  below 1040 px. When the details column docks on the **left** flank,
+  `#page-head`, `#mode-options`, and `#board-lab-panel` shift into the board's
+  right flank while the left-docked `#game-sidebar` lifts flush to the top of
+  the page, eliminating empty upper-left space and aligning mode tabs over the
+  board. The daily limits button returned here on 2026-10-22
   (creator: "move "daily limits" control button back up to UR") and the
   settings button on 2026-10-21 (creator: "move "settings" to upper
   right."); from 2026-10-20 each sat in the settings row at the page foot,
@@ -367,14 +374,17 @@ charts).
      width (8 px edge inset) and below the game setup rows without any
      details-column reservation blocking travel.
   2. **Adaptive details dock**: after the board is placed, the details
-     column (archive alert, play context with **edit states**, **see
-     scores**, live perf charts, game data, and the replay legend) docks
+     column (live perf charts, game data, and the replay legend; archive
+     alert, play context with **edit states**, and **see scores** moved to
+     the upper-right top bar on 2026-11-24, Option L1) docks
      into whichever free flank of the board has more room (right on ties)
      whenever that flank holds at least 320 px outside an 18 px gap and the
      viewport is wider than 700 px. Moving the board right automatically
-     flips the dock to the left flank; moving the board left widens the
-     right flank. The footprint reserves the replay transport's minimum
-     width (340 px) so ending a small board never shifts the dock.
+     flips the dock to the left flank and lifts it to the top of the page
+     while the header aligns over the board's right flank; moving the board
+     left widens the right flank. The footprint reserves the replay
+     transport's minimum width (340 px) so ending a small board never shifts
+     the dock.
   3. **Below-board full-width fallback (no popover)**: when neither flank
      holds 320 px or the viewport is 700 px or narrower (for example an
      Expert board centered on a 1440–1504 px laptop or a narrow window),
@@ -396,8 +406,6 @@ charts).
     'Win beginner.'"). Only the High scores view and Old game view keep a
     head line, since nothing else on screen says the view is not the current
     game.
-  - The archive alert and play context line with **edit states**, paired
-    with **see scores** on one wrapping line.
   - "live perf charts" ([During the game](during-game.md)), a stat section
     titled by a button that opens and closes it; then game data's one chart
     ([Game data](game-data.md)), whose two sides, "game summary perf" and
@@ -433,10 +441,13 @@ charts).
   Top-stage `min-height` reserves room for the docked details panel and any
   board Guardian Angel callout so sections below never overlap them.
 - **Replay transport**: sits directly under the board once a game ends
-  ([Path and choice replay](replay.md)), sized to
-  `min(stageWidth, max(340px, boardFrameWidth))` and centered under the
-  board (moving with its saved translation). Its foot holds the replay's
-  view toggles, board overlays then mouse path.
+  ([Path and choice replay](replay.md)), centered under the board (moving with
+  its saved translation) and sized to
+  `min(stageWidth, max(340px, boardFrameWidth, min(620px, replayRoomWidth)))`
+  (revised 2026-11-24 so `Board overlays` and `Mouse path` sit on one line each
+  without single-button orphan wraps whenever free flank room allows, while
+  never colliding with the dock or moving the board). Its foot holds the
+  replay's view toggles, board overlays then mouse path.
 - **After-board sections** (standardized 2026-11-19):
   - When an after-game report is shown, it uses the same full-width arrow
     opener ("after-game report", remembered in `panels.resultAnalysis`,
