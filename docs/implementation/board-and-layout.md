@@ -92,9 +92,9 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   notifications` error), keeping `#details-resize` height and `#top-stage`
   `min-height` synced so `#result-analysis` and `#result-ranks` below never
   overlap the docked sidebar or Guardian Angel callouts. `syncDetailsDockMaxHeight`
-  caps `--details-dock-max-height` in band view when `.during-game` is
-  absent or closed to `Math.min(viewportRoom, Math.max(580,
-  gameArea.offsetHeight))` (`GAME_DATA_BAND_COMPACT_MAX_HEIGHT = 580`). A
+  sets `--details-dock-max-height` to the full visible viewport height
+  (`Math.max(480, Math.floor(window.innerHeight - (top - lift) - 16))`) so
+  docked game data fills the available vertical room without a compact cap. A
   single ResizeObserver in `initBoardPositionControls` watches `#top-stage`
   width changes plus `#page-head`, `#mode-options`, `#board-lab-panel`,
   `#game-frame`, `#guardian-angel-live`, and `#board-position-panel` and schedules

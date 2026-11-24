@@ -4,10 +4,11 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 
 - When a game finishes, the replay's view toggles show at the foot of its
   transport under the board, two labeled rows of on/off buttons that apply
-  the moment they are pressed: Board overlays (available moves, forced
-  mines, mine %, pointless clicks, purposeful clicks, rough movement), then
-  Mouse path (raw path, click locations, movement speed, click speed, game
-  progress, less useful). The six board overlays are independent switches.
+  the moment they are pressed: **Overlays** (`aria-label` for board overlays:
+  available moves, forced mines, mine %, pointless clicks, purposeful clicks,
+  rough movement), then **Path** (`aria-label` for mouse path: raw path, click
+  locations, movement speed, click speed, game progress, less useful). The six
+  board overlays are independent switches.
   The mouse path views all color the same path line, so one shows at a
   time: pressing another view switches to it, and pressing the lit one
   turns the path off, so there is no "off" button. The rows wrap within

@@ -131,9 +131,9 @@ function restoreGameDataFocus(focused) {
 // by --game-data-scale when it would not otherwise fit its box.
 const GAME_DATA_BAR_WIDTH = 40;
 // The narrowest leader run between a side's rows and the bar; spare width
-// lengthens it by up to GAME_DATA_LEADER_EXTRA before centering the rest.
+// stretches drawn sides' leaders outward across the band before centering any remainder.
 const GAME_DATA_LEADER_WIDTH = 14;
-const GAME_DATA_LEADER_EXTRA = 26;
+const GAME_DATA_LEADER_EXTRA = 440;
 const GAME_DATA_COLUMN_GAP = 8;
 const GAME_DATA_BAR_GRADIENT_ANCHORS = [1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 99];
 
@@ -487,6 +487,20 @@ function buildGameDataBand(rows, valuesShown, titles, onHideRow) {
   element.className = 'game-data-band';
   let stacked = false;
   const bars = {};
+  const rowMarks = new WeakMap();
+  const setRowFocus = (wrap, active) => {
+    const marks = rowMarks.get(wrap);
+    if (!marks) return;
+    if (active) {
+      marks.block.dataset.rowFocus = 'true';
+      marks.leader.dataset.active = 'true';
+      marks.dot.dataset.active = 'true';
+    } else {
+      delete marks.block.dataset.rowFocus;
+      delete marks.leader.dataset.active;
+      delete marks.dot.dataset.active;
+    }
+  };
   const basePerfMetrics = new Set(rows.filter((row) => row.side === 'performance' && !row.scoped)
     .map((row) => row.metricId));
 
@@ -523,15 +537,28 @@ function buildGameDataBand(rows, valuesShown, titles, onHideRow) {
     button.setAttribute('aria-label', row.name + ' ' + row.valueText + ': '
       + gameDataPoolLabel(row.scope, row.poolLabel) + ' ' + gameDataPercentText(row));
     const crossLink = gameDataCrossLink(row);
-    wrap.addEventListener('mouseenter', () => linkMeasurements([row.metricId], 'gameData', crossLink));
-    wrap.addEventListener('mouseleave', () => linkMeasurements([], 'gameData', null));
-    button.addEventListener('focus', () => linkMeasurements([row.metricId], 'gameData', crossLink));
-    button.addEventListener('blur', () => linkMeasurements([], 'gameData', null));
+    wrap.addEventListener('mouseenter', () => {
+      setRowFocus(wrap, true);
+      linkMeasurements([row.metricId], 'gameData', crossLink);
+    });
+    wrap.addEventListener('mouseleave', () => {
+      setRowFocus(wrap, false);
+      linkMeasurements([], 'gameData', null);
+    });
+    button.addEventListener('focus', () => {
+      setRowFocus(wrap, true);
+      linkMeasurements([row.metricId], 'gameData', crossLink);
+    });
+    button.addEventListener('blur', () => {
+      setRowFocus(wrap, false);
+      linkMeasurements([], 'gameData', null);
+    });
     if (onHideRow) {
       wrap.addEventListener('contextmenu', (event) => {
         openContextMenu(event, [{
           label: (row.scoped ? 'remove ' : 'hide ') + row.name,
           action: () => {
+            setRowFocus(wrap, false);
             linkMeasurements([], 'gameData', null);
             onHideRow(row);
           },
@@ -664,8 +691,10 @@ function buildGameDataBand(rows, valuesShown, titles, onHideRow) {
     const { m } = g;
     stacked = plan.stacked;
     const contentWidth = Math.max(available, g.needWidth);
-    const sideCount = plan.stacked ? 1 : sides.length;
-    const lead = g.leader + Math.min(GAME_DATA_LEADER_EXTRA * m.scale, (contentWidth - g.needWidth) / (2 * sideCount));
+    const drawnCount = plan.stacked ? 1 : drawn.length;
+    const extraLead = Math.min(GAME_DATA_LEADER_EXTRA * m.scale,
+      Math.max(0, contentWidth - g.needWidth) / drawnCount);
+    const leadFor = (side) => g.leader + (plan.stacked || g.isDrawn(side) ? extraLead : 0);
     const { blockSpan } = g;
     const hasPerf = sides.some((side) => side.side === 'performance');
     const hasBoard = sides.some((side) => side.side === 'board');
@@ -692,12 +721,16 @@ function buildGameDataBand(rows, valuesShown, titles, onHideRow) {
       const plotTop = headHeight + pad, plotHeight = height - headHeight - 2 * pad;
       block.style.width = contentWidth + 'px';
       block.style.height = height + 'px';
-      // Horizontal positions: left side, bar, right side, centered as a whole.
+      // Horizontal positions: left side, bar, right side, stretching drawn
+      // sides' leaders into spare width and centering any remainder.
       const leftSpan = plan.stacked ? blockSpan : (hasPerf ? g.sideSpan('performance') : 0);
-      const composition = (leftSpan ? leftSpan + lead : 0) + barWidth
-        + (!plan.stacked && hasBoard ? g.sideSpan('board') + lead : 0);
+      const leftLead = leftSpan ? (plan.stacked ? g.leader + extraLead : leadFor('performance')) : 0;
+      const rightSpan = !plan.stacked && hasBoard ? g.sideSpan('board') : 0;
+      const rightLead = rightSpan ? leadFor('board') : 0;
+      const composition = (leftSpan ? leftSpan + leftLead : 0) + barWidth
+        + (rightSpan ? rightSpan + rightLead : 0);
       const margin = g.leftOverhang + (contentWidth - (g.leftOverhang + composition + g.rightOverhang)) / 2;
-      const barX = margin + (leftSpan ? leftSpan + lead : 0);
+      const barX = margin + (leftSpan ? leftSpan + leftLead : 0);
       const rule = document.createElement('div');
       rule.className = 'game-data-rule';
       Object.assign(rule.style, { left: margin + 'px', width: composition + 'px', top: (headHeight - 2) + 'px' });
@@ -724,7 +757,8 @@ function buildGameDataBand(rows, valuesShown, titles, onHideRow) {
       for (const side of blockSides) {
         const onLeft = plan.stacked || side.side === 'performance';
         const thisSpan = g.sideSpan(side.side);
-        const left = onLeft ? barX - lead - thisSpan : barX + barWidth + lead;
+        const sideLead = plan.stacked ? leftLead : leadFor(side.side);
+        const left = onLeft ? barX - sideLead - thisSpan : barX + barWidth + sideLead;
         const titleLeft = Math.max(0, Math.min(contentWidth - m.titleWidths[side.side], left + (thisSpan - m.titleWidths[side.side]) / 2));
         Object.assign(side.title.style, { left: titleLeft + 'px', top: '0px' });
         block.appendChild(side.title);
@@ -742,16 +776,23 @@ function buildGameDataBand(rows, valuesShown, titles, onHideRow) {
           entry.row.dataset.pointY = entry.pointY;
           entry.row.dataset.percentile = entry.percentile;
           const edge = onLeft ? barX : barX + barWidth;
-          const start = onLeft ? left + thisSpan + 2 : left - 2;
-          const step = onLeft ? 3 : -3;
+          const dir = onLeft ? 1 : -1;
+          const gap = Math.min(4 * m.scale, Math.max(2 * m.scale, sideLead * 0.04));
+          const start = onLeft ? left + thisSpan + gap : left - gap;
+          const run = Math.max(0, Math.abs(edge - start));
+          const labelStub = Math.min(12 * m.scale, Math.max(3 * m.scale, sideLead * 0.1), run * 0.35);
+          const barStub = Math.min(3 * m.scale, run * 0.25);
           const leader = document.createElementNS(SVG_NS, 'path');
           leader.setAttribute('class', 'game-data-leader');
-          leader.setAttribute('d', 'M ' + start + ' ' + entry.labelY + ' L ' + (start + step) + ' ' + entry.labelY
-            + ' L ' + (edge - step) + ' ' + entry.pointY + ' L ' + edge + ' ' + entry.pointY);
+          leader.setAttribute('d', 'M ' + start + ' ' + entry.labelY
+            + ' L ' + (start + dir * labelStub) + ' ' + entry.labelY
+            + ' L ' + (edge - dir * barStub) + ' ' + entry.pointY
+            + ' L ' + edge + ' ' + entry.pointY);
           leader.dataset.displaced = String(Math.abs(entry.labelY - entry.pointY) > 8);
           svg.appendChild(leader);
           const dot = gameDataCell('game-data-dot', '');
           Object.assign(dot.style, { left: edge + 'px', top: entry.pointY + 'px' });
+          rowMarks.set(entry.row, { block, leader, dot });
           block.append(entry.row, dot);
         }
       }

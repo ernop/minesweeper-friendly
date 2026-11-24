@@ -132,13 +132,18 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   its columns adds its overhang on both sides), takes the plan with the largest
   fit (min of 1, width ratio, height ratio; side-by-side on a tie), and sets
   `--game-data-scale` on the band, re-measuring until it fits. Band text sizes
-  are ems of the band's font, and the bar (`GAME_DATA_BAR_WIDTH = 40`), leader,
-  and gap constants are multiplied by the scale, so the band (overflow hidden)
-  never scrolls. Titles center over their side's columns; a closed side's title
-  sits beside the bar on its side. Laying out moves the band's nodes, so
-  `restoreGameDataFocus` gives the focus back to the toggle or row that held
-  it. `boardTraitLabelLayout` fits rows to exact logit positions
-  (`GameData.barFraction`); leaders and `.game-data-dot` mark each point,
+  are ems of the band's font, and the bar (`GAME_DATA_BAR_WIDTH = 40`), leader
+  (`GAME_DATA_LEADER_WIDTH = 14`, stretched by up to `GAME_DATA_LEADER_EXTRA =
+  440` across drawn sides to fill available horizontal width before centering
+  any remainder), and gap constants are multiplied by the scale, so the band
+  (overflow hidden) never scrolls. Titles center over their side's columns; a
+  closed side's title sits beside the bar on its side (keeping the tight
+  `g.leader` gap). Laying out moves the band's nodes, so `restoreGameDataFocus`
+  gives the focus back to the toggle or row that held it.
+  `boardTraitLabelLayout` fits rows to exact logit positions
+  (`GameData.barFraction`); leaders (with a scaled label-side horizontal stub)
+  and `.game-data-dot` mark each point, `rowMarks` spotlights the hovered or
+  focused row's leader and dot via `data-row-focus` / `data-active`,
   `GameData.barTicks` draws non-overlapping `.game-data-decile` labels inside
   the bar, and `standingColor` interpolates `STANDING_BAR_STOPS` at
   `GAME_DATA_BAR_GRADIENT_ANCHORS` mapped by `GameData.barFraction` so green,

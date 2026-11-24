@@ -287,20 +287,28 @@ function openContextMenu(event, items) {
       buttons[buttons.length - 1].focus();
     }
   };
+  const openedScrollX = window.scrollX;
+  const openedScrollY = window.scrollY;
   const onDismiss = () => closeContextMenu();
+  const onScroll = (e) => {
+    if (e.target === document || e.target === window) {
+      if (Math.abs(window.scrollX - openedScrollX) <= 1 && Math.abs(window.scrollY - openedScrollY) <= 1) return;
+    }
+    closeContextMenu();
+  };
   window.addEventListener('pointerdown', onPointerDown, true);
   window.addEventListener('keydown', onKeyDown, true);
-  window.addEventListener('scroll', onDismiss, true);
+  window.addEventListener('scroll', onScroll, true);
   window.addEventListener('resize', onDismiss);
   window.addEventListener('blur', onDismiss);
   uiContextMenuCleanup = () => {
     window.removeEventListener('pointerdown', onPointerDown, true);
     window.removeEventListener('keydown', onKeyDown, true);
-    window.removeEventListener('scroll', onDismiss, true);
+    window.removeEventListener('scroll', onScroll, true);
     window.removeEventListener('resize', onDismiss);
     window.removeEventListener('blur', onDismiss);
   };
-  buttons[0].focus();
+  buttons[0].focus({ preventScroll: true });
 }
 
 // Small inline-SVG scatter plot: every win is a dot colored by its age unit

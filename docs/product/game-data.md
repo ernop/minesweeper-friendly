@@ -93,7 +93,11 @@ distinction ACTUALLY. that way we reduce the complexity."):
   ticks (`1st`, `0.1%`, `1%`, `5%`, `10%`, `25%`, `50%`, `75%`, `90%`, `95%`,
   `99%`, `99.9%`, `last`, plus finer tail/middle ticks when zoomed) are printed
   inside the bar in black. Leaders run from each row directly to its exact
-  point on the bar's edge, where a dot marks it.
+  point on the bar's edge, where a dot marks it; spare horizontal column width
+  stretches drawn sides' leaders outward from the bar so labels use the full
+  visible width and leader lines stay shallow and traceable, and hovering or
+  focusing a row spotlights its leader and dot while fading the other leaders
+  and dots (never the text labels; revised 2026-11-24).
 - One "compared with" picker (`gameDataPool`, default `all`, labeled "all
   games") in the options row chooses the pool for both the band and the
   distributions view, and every hover card. It offers:

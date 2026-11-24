@@ -71,8 +71,8 @@
           && !resultRanks.querySelector('.result-chart-section-placements')
           && !document.getElementById('history-placements'));
       // The replay transport under the board: at least max(340px, boardWidth),
-      // expanding up to 600px within symmetric free room around the board so
-      // Board overlays and Mouse path stay single-line whenever flank room allows.
+      // expanding up to 620px within symmetric free room around the board so
+      // Overlays and Path stay single-line whenever flank room allows.
       const transportRect = rect(replayControls);
       const boardFits = frameRect.width <= stageRect.width;
       const dock = topStage.dataset.detailsDock;
@@ -90,10 +90,10 @@
           && transportRect.top >= frameRect.bottom && transportRect.top - frameRect.bottom < 12
           && Math.abs(transportRect.width - expectedTransportWidth) < 2
           && (!boardFits || Math.abs((transportRect.left + transportRect.right) - (frameRect.left + frameRect.right)) < 2));
-      if (expectedTransportWidth >= 605) {
+      if (expectedTransportWidth >= 555) {
         const overlayTops = new Set([...document.querySelectorAll('#replay-overlay-control button')].map((b) => Math.round(rect(b).top)));
         const pathTops = new Set([...document.querySelectorAll('#path-view-control button')].map((b) => Math.round(rect(b).top)));
-        check(label + ': Board overlays and Mouse path each sit on one line',
+        check(label + ': Overlays and Path each sit on one line',
           overlayTops.size === 1 && pathTops.size === 1);
       }
 

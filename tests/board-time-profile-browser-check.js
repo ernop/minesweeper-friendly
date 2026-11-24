@@ -215,6 +215,22 @@ const { chromium } = require(process.argv[2]);
       assert(layout.width <= width && layout.chartHeight >= 479.5
         && (Math.abs(layout.columnSlack) <= 1 || Math.abs(layout.chartHeight - 480) < 1),
       width + 'px chart fills its column below any other content: ' + JSON.stringify([layout.chartHeight, layout.columnSlack]));
+      if (width === 1920) {
+        assert(layout.chartHeight > 700, 'docked band uses full viewport height instead of 580px cap: ' + layout.chartHeight);
+        const span = await profile.evaluate((el) => {
+          const band = el.querySelector('.game-data-band').getBoundingClientRect();
+          const perfTitle = el.querySelector('.game-data-side-title[data-side="performance"]').getBoundingClientRect();
+          const boardTitle = el.querySelector('.game-data-side-title[data-side="board"]').getBoundingClientRect();
+          const left = el.querySelector('.game-data-row[data-side="performance"]').getBoundingClientRect();
+          const right = el.querySelector('.game-data-row[data-side="board"]').getBoundingClientRect();
+          return {
+            leftGap: Math.min(perfTitle.left, left.left) - band.left,
+            rightGap: band.right - Math.max(boardTitle.right, right.right),
+          };
+        });
+        assert(span.leftGap < 4 && span.rightGap < 4,
+          'drawn sides stretch leaders across full dock width: ' + JSON.stringify(span));
+      }
       await profile.screenshot({ path: '/tmp/game-data-scoped-' + width + '.png' });
     }
     const zeros = profile.locator('.game-data-row[data-measurement="zeroCount"] button');
@@ -222,6 +238,19 @@ const { chromium } = require(process.argv[2]);
     await page.mouse.move(0, 0);
     const bandBefore = await profile.boundingBox();
     await zeros.focus();
+    const rowFocus = await profile.evaluate((el) => {
+      const zeroRow = el.querySelector('.game-data-row[data-measurement="zeroCount"]');
+      const block = zeroRow.closest('.game-data-block');
+      const otherLabel = block.querySelector('.game-data-row:not([data-measurement="zeroCount"]) button');
+      return {
+        focused: block.dataset.rowFocus,
+        activeLeaders: block.querySelectorAll('.game-data-leader[data-active="true"]').length,
+        activeDots: block.querySelectorAll('.game-data-dot[data-active="true"]').length,
+        otherLabelOpacity: otherLabel ? getComputedStyle(otherLabel).opacity : '1',
+      };
+    });
+    assert.deepEqual(rowFocus, { focused: 'true', activeLeaders: 1, activeDots: 1, otherLabelOpacity: '1' },
+      'focusing a row spotlights its leader and dot without dimming labels');
     const card = page.locator('.chart-help-tip .game-data-card');
     assert.equal(await card.getAttribute('data-pool'), 'all', 'the card follows the compared-with picker');
     // The band card opens with the rank and exact tail-aware percentile

@@ -415,15 +415,14 @@ charts).
     the loss's statistics are the "this game" table in the overview row
     below the board (creator 2026-10-26,
     [This game's stats](results.md#this-games-stats-creator-request-2026-10-26)).
-  - When docked beside the board, game data's chart takes the column height
-    left below everything above it (keeping at least 240 px per open side,
-    scrolling below that rather than crushing it). In band view, when live
-    perf charts is absent (High scores) or closed, the docked details
-    column caps its height to `max(580px, boardAreaHeight)` within the
-    available viewport height so the lone band stays compact alongside the
-    board instead of stretching to the viewport foot. When docked below the
-    board, it flows at full readable height (matching live perf charts when
-    side by side).
+  - When docked beside the board, the details column uses the full visible
+    viewport height (revised 2026-11-24 — removed the `max(580px,
+    boardAreaHeight)` compact cap so Game Data expands to fill the visible
+    space vertically at full scale without crushing crowded rows or leaving
+    empty space), and game data's chart takes the column height left below
+    everything above it (keeping at least 240 px per open side, scrolling below
+    that rather than crushing it). When docked below the board, it flows at
+    full readable height (matching live perf charts when side by side).
   - The replay legend follows stats inside the same details dock, so
     changing replay frames never moves stats, and neither moves the board.
 - **Resizable docked details**: when the details dock sits in the left or
@@ -444,10 +443,10 @@ charts).
   ([Path and choice replay](replay.md)), centered under the board (moving with
   its saved translation) and sized to
   `min(stageWidth, max(340px, boardFrameWidth, min(620px, replayRoomWidth)))`
-  (revised 2026-11-24 so `Board overlays` and `Mouse path` sit on one line each
-  without single-button orphan wraps whenever free flank room allows, while
-  never colliding with the dock or moving the board). Its foot holds the
-  replay's view toggles, board overlays then mouse path.
+  (revised 2026-11-24 so `Overlays` and `Path` sit on one line each without
+  single-button orphan wraps whenever free flank room allows, while never
+  colliding with the dock or moving the board). Its foot holds the replay's
+  view toggles, overlays then path.
 - **After-board sections** (standardized 2026-11-19):
   - When an after-game report is shown, it uses the same full-width arrow
     opener ("after-game report", remembered in `panels.resultAnalysis`,

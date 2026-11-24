@@ -112,9 +112,11 @@ Spec: [docs/product/replay.md](../product/replay.md). Index: [AGENTS.md](../../A
   leaders (`--replay-area`) to side labels with non-misleading mine risk and
   cell count, choosing left or right to avoid the result summary/viewport
   edge. Sidebar `#scores-nav` holds see scores alone. The view toggles end
-  the transport: `#replay-overlay-control` (grid row 4) and
-  `#path-view-control` (row 5), each a full-width wrapping flex row headed
-  by a `.path-view-heading`, the pressed state in `aria-pressed`;
+  the transport: `#replay-overlay-control` (grid row 4, headed `Overlays`) and
+  `#path-view-control` (row 5, headed `Path`), each a full-width wrapping flex
+  row headed by a `.path-view-heading` (with full descriptive `aria-label` on
+  each group and `padding-inline: 4px` on toggle buttons so both rows stay
+  single-line in ~550 px flanks), the pressed state in `aria-pressed`;
   `renderPathViewControls` hides the transport, and the toggles with it,
   while no finished board is shown. Until 2026-10-21 they sat in `#review-options`,
   an auto popover headed Overlays opened by `#review-options-button` in

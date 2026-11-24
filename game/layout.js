@@ -346,14 +346,12 @@ function scheduleBoardLayout() {
 // readable height (matching live perf charts when side by side).
 const GAME_DATA_SIDE_MIN_HEIGHT = 240;
 const GAME_DATA_SUBVIEW_MIN_HEIGHT = 480;
-const GAME_DATA_BAND_COMPACT_MAX_HEIGHT = 580;
 
 let appliedLeftDockLift = 0;
 
-// Cap the docked column's height to the board area when game data's percentile
-// band stands alone (live perf charts absent or closed), so a short band does
-// not stretch below the board and leave an empty gap above the tables.
-function syncDetailsDockMaxHeight(stageDocTop = null, boardAreaHeight = null) {
+// Let the docked details column use the full visible viewport height so game
+// data fills the screen vertically without crushing rows or leaving empty space.
+function syncDetailsDockMaxHeight(stageDocTop = null) {
   const dock = topStage.dataset.detailsDock;
   const docked = dock === 'left' || dock === 'right';
   if (!docked) {
@@ -363,18 +361,7 @@ function syncDetailsDockMaxHeight(stageDocTop = null, boardAreaHeight = null) {
   const lift = dock === 'left' ? appliedLeftDockLift : 0;
   const top = stageDocTop !== null ? stageDocTop : topStage.getBoundingClientRect().top + window.scrollY;
   const viewportRoom = Math.max(480, Math.floor(window.innerHeight - (top - lift) - 16));
-  let maxHeight = viewportRoom;
-  if (!resultsBox.hidden && !settings.gameDataDistributions
-      && resultStats.querySelector('.board-time-profile') !== null) {
-    const duringEl = resultStats.querySelector('.during-game');
-    const duringOpen = duringEl !== null
-      && duringEl.querySelector(':scope > .stat-section-body:not([hidden])') !== null;
-    if (!duringOpen) {
-      const areaHeight = boardAreaHeight !== null ? boardAreaHeight : gameArea.offsetHeight;
-      maxHeight = Math.min(viewportRoom, Math.max(GAME_DATA_BAND_COMPACT_MAX_HEIGHT, areaHeight + lift));
-    }
-  }
-  setStyleProp(gameSidebar, '--details-dock-max-height', maxHeight + 'px');
+  setStyleProp(gameSidebar, '--details-dock-max-height', viewportRoom + 'px');
 }
 
 function fitGameDataToSidebar(syncDockHeight = true) {
