@@ -91,6 +91,28 @@ distinction ACTUALLY. that way we reduce the complexity."):
   board-match pools don't apply there (ranking 3BV among same-3BV boards is
   always a tie), so the board-traits side compares against all games whenever
   a board-match pool is picked.
+- **Scoped performance rows (creator 2026-11-24):** in addition to the
+  "compared with" picker, the player can add any number of extra scoped rows
+  to `game summary perf` (`gameDataScopedRows`, default empty) so multiple
+  scopes plot simultaneously as their own dots on the 0–100% bar alongside
+  the base rows (creator: *"on the left 'game summary perf' in addition to
+  time, we'd have things also like: time/3bv which would should the percentil
+  of games which had this 3bv ... meaning that we are in the top 38% of times
+  of solve boards of 3bv==12, although globally we're in the top 25%. etc.
+  and i'd be able to pick and choose and perhaps add many l;ike also add my
+  time given the zeros count, time given this islands count etc."*).
+  - Each scoped row is named `<measurement> · <pool>` (for example `time ·
+    3BV 12`, `time · zeros 33`, `time · islands 4`, `time · past week`,
+    `click rate · 3BV 12`), keeps this game's value, plots its own dot on the
+    band, opens a hover card for its own pool (`3BV 12: 35th of 94 wins` plus
+    its distribution strip), and gets its own strip directly beneath its base
+    measurement in distributions view.
+  - A scoped row whose pool matches the active "compared with" pool while the
+    base measurement is also shown is suppressed rather than plotted twice.
+  - In `configure`, `time in specific pools` offers one-click checkboxes for
+    `time` across all 17 non-all pools (session, the 6 time windows, and the
+    10 board-match traits), and `other scoped measurements` adds or removes
+    any other performance measurement in any of those pools.
 - Names are the standard names (one name per measurement, creator direction
   2026-10-07): "max number", "zero-opening coverage", "islands", never MN or
   ZOC.

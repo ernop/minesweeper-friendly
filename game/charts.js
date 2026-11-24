@@ -673,7 +673,7 @@ function buildAverageScatter(spec, model, gameDataRows) {
     { ...opts, ...(opts.trendLines ? { trendLines: Promise.resolve(opts.trendLines) } : {}) });
   if (spec.measurementId === undefined) return chart;
   chart.dataset.measurement = spec.measurementId;
-  const row = gameDataRows.find((r) => r.metricId === spec.measurementId);
+  const row = gameDataRows.find((r) => r.metricId === spec.measurementId && !r.scoped);
   if (row) chart.querySelector('h4').firstChild.after(gameDataChartChip(row));
   return chart;
 }

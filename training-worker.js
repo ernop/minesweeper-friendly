@@ -6,7 +6,7 @@
 // upgrading the database and sends the names and version it opened.
 
 importScripts('guardian-angel.js?v=20261123-guardian-angel-2', 'solver.js?v=20261123-guardian-angel', 'rng.js',
-  'game/evaluation.js?v=20261123-game-data-pools', 'game-data.js?v=20261123-game-data-pools',
+  'game/evaluation.js?v=20261124-scoped-rows', 'game-data.js?v=20261124-scoped-rows',
   'training-core.js?v=20261123-guardian-angel');
 
 function requestResult(request) {

@@ -2981,6 +2981,8 @@ body.settings-page .return-to-game {
 .game-data-config th label { white-space: nowrap; }
 .game-data-config th input { margin-inline: 0 2px; }
 .game-data-config > button { align-self: flex-start; }
+.game-data-scoped-adder { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.game-data-scoped-adder select { min-width: 0; max-width: 100%; }
 .game-data-history { flex: 1 0 auto; }
 .game-data-history table { border-collapse: collapse; width: 100%; font-size: inherit; }
 .game-data-history caption { text-align: left; padding: 8px 0; }

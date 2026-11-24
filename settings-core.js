@@ -215,6 +215,24 @@ function gameDataPoolFromStored(stored) {
   return active === 'session' ? 'session' : GameData.DEFAULT_POOL;
 }
 
+// Extra performance rows in game data scoped to a specific pool (time window
+// or matching board trait), plotted alongside the base rows (2026-11-24).
+function validGameDataScopedRows(value) {
+  if (!Array.isArray(value)) return false;
+  const seen = new Set();
+  for (const entry of value) {
+    if (!preferenceObject(entry)) return false;
+    const keys = Object.keys(entry);
+    if (keys.length !== 2 || !Object.hasOwn(entry, 'metric') || !Object.hasOwn(entry, 'pool')) return false;
+    if (!Object.hasOwn(GameData.defaults, entry.metric)) return false;
+    if (!GameData.isValidPool(entry.pool) || entry.pool === GameData.DEFAULT_POOL) return false;
+    const key = entry.metric + '.' + entry.pool;
+    if (seen.has(key)) return false;
+    seen.add(key);
+  }
+  return true;
+}
+
 // Game data's board traits in its row order, and whether each shows by
 // default: as the This board table switches showed them by default.
 const GAME_DATA_BOARD_TRAIT_DEFAULTS = Object.freeze({
@@ -604,6 +622,13 @@ const SETTINGS_SCHEMA = [
     valid: GameData.isValidPool, migrate: gameDataPoolFromStored, group: 'after-game',
     label: 'game data comparison pool',
     describe: 'which pool game data compares this game with — all games, the session, a time window, or games matching one of this board’s traits; chosen with the compared-with picker on the chart',
+    control: 'none',
+  },
+  {
+    field: 'gameDataScopedRows', default: [],
+    valid: validGameDataScopedRows, group: 'after-game',
+    label: 'game data scoped performance rows',
+    describe: 'extra rows in game summary perf that compare a measurement against a specific pool (such as time within this board’s 3BV, zeros, islands, or past week) alongside the base rows; chosen with configure on the chart',
     control: 'none',
   },
   {

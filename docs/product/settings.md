@@ -203,9 +203,11 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   `gameDataShowValues`,
   `gameDataPool` (default `all`, replacing `gameDataBandPool` and
   `gameDataDistributionPools` on 2026-11-23; saved profiles keep `session`
-  when that was active and map everything else to `all`), and
-  `gameDataDistributions` (default off; all three chosen on the chart
-  itself) — the game data
+  when that was active and map everything else to `all`),
+  `gameDataScopedRows` (default empty, added 2026-11-24: extra `{metric,
+  pool}` rows plotted alongside the base rows in `game summary perf`, chosen
+  in configure), and `gameDataDistributions` (default off; chosen on the
+  chart itself) — the game data
   column (see [Game data](game-data.md)); `shownThings.duringGame` (default
   on; "live perf charts", titled "during this game, second by second"
   until 2026-10-20, in the This game group before game data, which it leads

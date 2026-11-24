@@ -590,11 +590,61 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await profile.locator('.game-data-row[data-measurement="fastclickGap"]').count(), 0);
     assert.equal(await profile.locator('.game-data-row[data-measurement="clickRate"]').count(), 1);
     // Board traits have their own list in configure, apart from the This
-    // board table switches (creator 2026-10-14).
+    // board table switches (creator 2026-10-14), and scoped rows sit between
+    // performance measurements and board traits (creator 2026-11-24).
     await profile.getByRole('button', { name: 'configure', exact: true }).click();
     assert.deepEqual(await profile.locator('.game-data-config h4').allTextContents(),
-      ['performance measurements', 'board traits']);
-    const traitList = profile.locator('.game-data-config table').nth(1);
+      ['performance measurements', 'time in specific pools', 'other scoped measurements', 'board traits']);
+    // Pick several scoped time rows (3BV, zeros, islands, past week) plus a
+    // scoped click-rate row and verify they plot alongside base rows.
+    await profile.getByLabel('time · same 3BV', { exact: true }).check();
+    await profile.getByLabel('time · same zeros', { exact: true }).check();
+    await profile.getByLabel('time · same islands', { exact: true }).check();
+    await profile.getByLabel('time · past week', { exact: true }).check();
+    await profile.getByLabel('scoped measurement', { exact: true }).selectOption('clickRate');
+    await profile.getByLabel('scoped pool', { exact: true }).selectOption('board:bv3');
+    await profile.getByRole('button', { name: 'add', exact: true }).click();
+    assert.equal(await profile.getByRole('button', { name: 'add', exact: true }).isDisabled(), true,
+      'already-added scoped measurement cannot be added twice');
+    assert.deepEqual(await profile.locator('.game-data-scoped-list td:first-child').allTextContents(),
+      ['click rate · same 3BV']);
+    await profile.getByRole('button', { name: 'back to game data', exact: true }).first().click();
+    await profile.locator(':scope[aria-busy="true"]').waitFor({ state: 'hidden' });
+    await bandReady();
+    assert.equal(await profile.locator('.game-data-row[data-row-id="time.all"] .game-data-name').textContent(), 'time');
+    assert.equal(await profile.locator('.game-data-row[data-row-id="time.board:bv3"] .game-data-name').textContent(), 'time · 3BV 75');
+    assert.equal(await profile.locator('.game-data-row[data-row-id="time.board:bv3"] .game-data-pct').textContent(), '14%');
+    assert.equal(await profile.locator('.game-data-row[data-row-id="time.board:zeroCount"] .game-data-name').textContent(), 'time · zeros 59');
+    assert.equal(await profile.locator('.game-data-row[data-row-id="time.board:islandCount"] .game-data-name').textContent(), 'time · islands 21');
+    assert.equal(await profile.locator('.game-data-row[data-row-id="time.past-week"] .game-data-name').textContent(), 'time · past week');
+    assert.equal(await profile.locator('.game-data-row[data-row-id="clickRate.board:bv3"] .game-data-name').textContent(), 'click rate · 3BV 75');
+    await profile.screenshot({ path: '/tmp/game-data-scoped-rows.png' });
+    await profile.locator('.game-data-row[data-row-id="time.board:bv3"] button').hover();
+    const scopedBv3Card = page.locator('.chart-help-tip .game-data-card');
+    assert.equal(await scopedBv3Card.locator('p').first().innerText(), '3BV 75: 4th of 22 wins');
+    await page.mouse.move(0, 0);
+    // Distributions view places scoped rows directly under their base metric.
+    await profile.getByLabel('show distributions', { exact: true }).check();
+    await distributionsShown('all');
+    const perfDistIds = await profile.locator('.game-data-dist-section[data-side="performance"] .game-data-dist-row')
+      .evaluateAll((nodes) => nodes.map((n) => n.dataset.rowId));
+    assert.deepEqual(perfDistIds.slice(0, 5),
+      ['time.all', 'time.past-week', 'time.board:bv3', 'time.board:islandCount', 'time.board:zeroCount'],
+      'scoped time strips sit right below time in canonical pool order');
+    assert.equal(perfDistIds.includes('clickRate.board:bv3'), true);
+    await profile.screenshot({ path: '/tmp/game-data-scoped-rows-dist.png' });
+    await profile.getByLabel('show distributions', { exact: true }).uncheck();
+    await bandReady();
+    // Clean up scoped rows via configure (testing remove and all-time-pools toggle).
+    await profile.getByRole('button', { name: 'configure', exact: true }).click();
+    await profile.getByRole('button', { name: 'remove click rate · same 3BV', exact: true }).click();
+    assert.equal(await profile.locator('.game-data-scoped-list').isHidden(), true);
+    const allTimePools = profile.getByLabel('all time pools', { exact: true });
+    assert.equal(await allTimePools.evaluate((input) => input.indeterminate), true);
+    await allTimePools.check();
+    await allTimePools.uncheck();
+    assert.deepEqual(await page.evaluate(() => settings.gameDataScopedRows), []);
+    const traitList = profile.locator('.game-data-config table[data-config-section="gameDataBoardTraits"]');
     assert.deepEqual(await traitList.locator('tbody input').evaluateAll((inputs) => inputs.map((input) => input.getAttribute('aria-label'))),
       ['3BV', 'ZiNi', 'max number', 'HZiNi', '3BV spread', '0–1 share', 'zero-opening coverage', 'islands', 'largest island', 'zeros'],
       'one box per board trait, in game data’s row order');
@@ -768,11 +818,18 @@ const { chromium } = require(process.argv[2]);
       'the next result opens with them closed');
     await profile.getByLabel('show values', { exact: true }).uncheck();
     await poolPicker.selectOption('board:bv3');
+    await page.evaluate(() => {
+      settings.gameDataScopedRows = [{ metric: 'time', pool: 'board:zeroCount' }, { metric: 'clickRate', pool: 'board:bv3' }];
+      saveSettings();
+    });
     await page.getByLabel('session', { exact: true }).selectOption('past30min');
     await page.reload();
     await page.waitForFunction(() => preferenceUIReady);
     assert.equal(await page.evaluate(() => settings.gameDataShowValues), false);
     assert.equal(await page.evaluate(() => settings.gameDataPool), 'board:bv3', 'the chosen comparison pool persists');
+    assert.deepEqual(await page.evaluate(() => settings.gameDataScopedRows),
+      [{ metric: 'time', pool: 'board:zeroCount' }, { metric: 'clickRate', pool: 'board:bv3' }],
+      'scoped performance rows persist');
     assert.equal(await page.evaluate(() => settings.sessionDefinition), 'past30min');
     assert.equal(await page.getByLabel('session', { exact: true }).inputValue(), 'past30min');
     assert.equal(await page.evaluate(() => settings.gameDataMetrics.fastclickGap), true);

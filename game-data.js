@@ -338,19 +338,19 @@ const GameData = (() => {
   // boundaries, and ten board-match pools sharing the This board tables'
   // matching rules.
   const TIME_WINDOW_POOLS = [
-    { id: 'past-hour', kind: 'time', group: 'time window',
+    { id: 'past-hour', kind: 'time', group: 'time window', configLabel: 'past hour',
       start: (nowMs) => nowMs - 3600e3, label: () => 'past hour' },
-    { id: 'today', kind: 'time', group: 'time window',
+    { id: 'today', kind: 'time', group: 'time window', configLabel: 'today',
       start: (nowMs) => startOfDay(nowMs), label: () => 'today' },
-    { id: 'past-week', kind: 'time', group: 'time window',
+    { id: 'past-week', kind: 'time', group: 'time window', configLabel: 'past week',
       start: (nowMs) => startOfDay(nowMs, 6), label: () => 'past week' },
-    { id: 'calendar-month', kind: 'time', group: 'time window',
+    { id: 'calendar-month', kind: 'time', group: 'time window', configLabel: 'this month',
       start: (nowMs) => { const d = new Date(nowMs); return new Date(d.getFullYear(), d.getMonth(), 1).getTime(); },
       label: () => 'this month' },
-    { id: 'calendar-year', kind: 'time', group: 'time window',
+    { id: 'calendar-year', kind: 'time', group: 'time window', configLabel: 'this year',
       start: (nowMs) => new Date(new Date(nowMs).getFullYear(), 0, 1).getTime(),
       label: (nowMs) => 'in ' + new Date(nowMs).getFullYear() },
-    { id: 'rolling-year', kind: 'time', group: 'time window',
+    { id: 'rolling-year', kind: 'time', group: 'time window', configLabel: 'last 365 days',
       start: (nowMs) => startOfDay(nowMs, 364), label: () => 'last 365 days' },
   ];
   const finiteField = (field) => (record) => (typeof record[field] === 'number' && Number.isFinite(record[field]) ? record[field] : undefined);
@@ -376,7 +376,7 @@ const GameData = (() => {
     { id: 'board:zeroCount', traitId: 'zeroCount', key: finiteField('zeroCount'),
       labelOf: (value) => BOARD_TRAIT_NAMES.zeroCount + ' ' + value },
   ].map((entry) => ({
-    ...entry, kind: 'board', group: 'this board',
+    ...entry, kind: 'board', group: 'this board', configLabel: 'same ' + BOARD_TRAIT_NAMES[entry.traitId],
     label: (record) => {
       const value = record ? entry.key(record) : undefined;
       return value === undefined ? 'same ' + BOARD_TRAIT_NAMES[entry.traitId] : entry.labelOf(value);
@@ -384,11 +384,12 @@ const GameData = (() => {
   }));
   const DEFAULT_POOL = 'all';
   const pools = [
-    { id: 'all', kind: 'all', group: null, label: () => 'all games' },
-    { id: 'session', kind: 'time', group: null, label: () => 'session' },
+    { id: 'all', kind: 'all', group: null, configLabel: 'all games', label: () => 'all games' },
+    { id: 'session', kind: 'time', group: null, configLabel: 'session', label: () => 'session' },
     ...TIME_WINDOW_POOLS,
     ...BOARD_MATCH_POOLS,
   ];
+  const scopedPools = pools.filter((pool) => pool.id !== DEFAULT_POOL);
   const POOL_BY_ID = new Map(pools.map((pool) => [pool.id, pool]));
   const BOARD_MATCH_BY_TRAIT = new Map(BOARD_MATCH_POOLS.map((pool) => [pool.traitId, pool]));
   function poolSpec(id) {
@@ -416,7 +417,8 @@ const GameData = (() => {
   }
   // The creator's own selection (2026-09-23).
   const defaults = Object.fromEntries(metrics.map((m) => [m.id, m.default]));
-  const defaultsForView = { gameDataMetrics: defaults, gameDataPool: DEFAULT_POOL, sessionDefinition: SessionScope.defaultId };
+  const defaultsForView = { gameDataMetrics: defaults, gameDataPool: DEFAULT_POOL,
+    gameDataScopedRows: [], sessionDefinition: SessionScope.defaultId };
   const chronological = (records) => records.slice().sort((a, b) => a.endedAt - b.endedAt);
   const poolValues = (pool, spec, params) => pool.filter((r) => spec.allOutcomes || r.outcome === 'win')
     .map((r) => spec.value(r, params)).filter(Number.isFinite);
@@ -590,17 +592,45 @@ const GameData = (() => {
   }
   function rows(record, records, preferences = defaultsForView, params, referenceMs = record.endedAt) {
     if (record.outcome !== 'win' || !records.includes(record)) return [];
-    const { past, pool, scope, label, ownAxis } = poolAt(
-      record, records, preferences.gameDataPool, preferences.sessionDefinition, referenceMs);
+    const basePoolId = preferences.gameDataPool;
+    const scopedRows = preferences.gameDataScopedRows || [];
+    const poolCache = new Map();
+    const resolved = (poolId) => {
+      if (!poolCache.has(poolId)) {
+        poolCache.set(poolId, poolAt(record, records, poolId, preferences.sessionDefinition, referenceMs));
+      }
+      return poolCache.get(poolId);
+    };
+    const base = resolved(basePoolId);
+    const scopedByMetric = new Map();
+    for (const entry of scopedRows) {
+      if (!scopedByMetric.has(entry.metric)) scopedByMetric.set(entry.metric, []);
+      scopedByMetric.get(entry.metric).push(entry.pool);
+    }
+    const poolOrder = (id) => pools.findIndex((pool) => pool.id === id);
     const result = [];
     for (const spec of metrics) {
-      if (!preferences.gameDataMetrics[spec.id]) continue;
+      const showBase = Boolean(preferences.gameDataMetrics[spec.id]);
+      const extraPools = (scopedByMetric.get(spec.id) || [])
+        .filter((poolId) => !(showBase && poolId === basePoolId))
+        .sort((a, b) => poolOrder(a) - poolOrder(b));
+      if (!showBase && extraPools.length === 0) continue;
       const counted = spec.allOutcomes ? 'games' : 'wins';
-      const row = rankedRow(record, pool, spec, scope, params, counted);
-      if (row === null) continue;
-      const values = poolValues(pool, spec, params);
-      const axisValues = ownAxis || pool === past ? values : poolValues(past, spec, params);
-      result.push(addDistribution({ ...row, poolLabel: label }, values, axisValues, spec.format, spec.step?.(params)));
+      let allValues = null;
+      const getAllValues = () => {
+        if (allValues === null) allValues = poolValues(base.past, spec, params);
+        return allValues;
+      };
+      const emit = (resolvedPool, scoped) => {
+        const row = rankedRow(record, resolvedPool.pool, spec, resolvedPool.scope, params, counted);
+        if (row === null) return;
+        const values = resolvedPool.pool === base.past ? getAllValues() : poolValues(resolvedPool.pool, spec, params);
+        const axisValues = resolvedPool.ownAxis || resolvedPool.pool === base.past ? values : getAllValues();
+        const named = scoped ? { ...row, name: spec.name + ' · ' + resolvedPool.label, scoped: true } : row;
+        result.push(addDistribution({ ...named, poolLabel: resolvedPool.label }, values, axisValues, spec.format, spec.step?.(params)));
+      };
+      if (showBase) emit(base, false);
+      for (const poolId of extraPools) emit(resolved(poolId), true);
     }
     return result;
   }
@@ -688,6 +718,6 @@ const GameData = (() => {
         of: mines.filter(Boolean).length },
     };
   }
-  return { FASTCLICK_GAP_VERSION, DEFAULT_POOL, pools, poolSpec, isValidPool, timeWindowStart, boardMatchSpec,
+  return { FASTCLICK_GAP_VERSION, DEFAULT_POOL, pools, scopedPools, poolSpec, isValidPool, timeWindowStart, boardMatchSpec,
     boardTraitPoolId, metrics, defaults, defaultsForView, poolAt, rows, rankedRow, addDistribution, summary, history, domain, examples };
 })();

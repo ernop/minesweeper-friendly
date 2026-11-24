@@ -468,6 +468,8 @@ function buildGameDataBand(rows, valuesShown, titles) {
     wrap.classList.add('game-data-row');
     wrap.dataset.side = row.side;
     wrap.dataset.measurement = row.metricId;
+    wrap.dataset.rowId = row.id;
+    if (row.scoped) wrap.dataset.scoped = 'true';
     const button = wrap.querySelector('button');
     button.replaceChildren(...(row.side === 'performance'
       ? [gameDataCell('game-data-name', row.name), gameDataCell('game-data-value', row.valueText), poolCell(row)]
@@ -487,8 +489,9 @@ function buildGameDataBand(rows, valuesShown, titles) {
   }
   const sides = GAME_DATA_SIDES.filter(({ side }) => titles[side]).map(({ side }) => {
     const sideRows = rows.filter((row) => row.side === side);
-    const scope = sideRows[0].scope;
-    const poolLabel = gameDataPoolLabel(scope, sideRows[0].poolLabel);
+    const baseRow = sideRows.find((row) => !row.scoped);
+    const scope = baseRow ? baseRow.scope : 'scoped';
+    const poolLabel = baseRow ? gameDataPoolLabel(baseRow.scope, baseRow.poolLabel) : (gameDataNoMark ? 'no-mark' : '');
     const columns = document.createElement('div');
     columns.className = 'game-data-column-heads';
     columns.dataset.side = side;
@@ -706,8 +709,9 @@ function buildGameDataDistributions(rows, titles) {
   const strips = [];
   const sides = GAME_DATA_SIDES.filter(({ side }) => titles[side]).map(({ side }) => {
     const shown = rows.filter((row) => row.side === side);
-    const scope = shown[0].scope;
-    const poolLabel = gameDataPoolLabel(scope, shown[0].poolLabel);
+    const baseRow = shown.find((row) => !row.scoped);
+    const scope = baseRow ? baseRow.scope : 'scoped';
+    const poolLabel = baseRow ? gameDataPoolLabel(baseRow.scope, baseRow.poolLabel) : (gameDataNoMark ? 'no-mark' : '');
     const section = document.createElement('section');
     section.className = 'game-data-dist-section';
     section.dataset.side = side;
@@ -721,13 +725,16 @@ function buildGameDataDistributions(rows, titles) {
       const wrap = chartHelpButton((tip) => fillGameDataCard(tip, row, false), row.name);
       wrap.classList.add('game-data-dist-row');
       wrap.dataset.measurement = row.metricId;
+      wrap.dataset.rowId = row.id;
+      if (row.scoped) wrap.dataset.scoped = 'true';
       const button = wrap.querySelector('button');
       const strip = document.createElement('span');
       strip.className = 'game-data-strip';
       strips.push({ strip, row, side, drawn: null });
       button.replaceChildren(gameDataCell('game-data-name', row.name), gameDataCell('game-data-value', row.valueText),
         strip, gameDataCell('game-data-pct', gameDataPercentText(row)));
-      button.setAttribute('aria-label', row.name + ' ' + row.valueText + ': ' + poolLabel + ' ' + gameDataPercentText(row));
+      button.setAttribute('aria-label', row.name + ' ' + row.valueText + ': '
+        + gameDataPoolLabel(row.scope, row.poolLabel) + ' ' + gameDataPercentText(row));
       wrap.addEventListener('mouseenter', () => linkMeasurements([row.metricId], 'gameData'));
       wrap.addEventListener('mouseleave', () => linkMeasurements([], 'gameData'));
       section.appendChild(wrap);
@@ -973,6 +980,7 @@ function buildBoardTimeRankProfile(record, records, referenceMs) {
         });
         all = allLabel.querySelector('input');
         const table = document.createElement('table');
+        table.dataset.configSection = field;
         const head = document.createElement('thead');
         const headRow = document.createElement('tr');
         for (const text of [nameHead, 'shown']) {
@@ -1000,6 +1008,129 @@ function buildBoardTimeRankProfile(record, records, referenceMs) {
       }
       selectionList('performance measurements', 'all performance measurements', 'measurement',
         'gameDataMetrics', GameData.metrics);
+      // Extra scoped rows plotted alongside the base rows in game summary perf
+      // (creator 2026-11-24): one-click checkboxes for time across every pool,
+      // plus an adder for any other performance measurement in any pool.
+      {
+        const hasScoped = (metric, pool) => settings.gameDataScopedRows.some((e) => e.metric === metric && e.pool === pool);
+        const setScoped = (metric, pool, enabled) => {
+          const filtered = settings.gameDataScopedRows.filter((e) => !(e.metric === metric && e.pool === pool));
+          settings.gameDataScopedRows = enabled ? [...filtered, { metric, pool }] : filtered;
+          rows = null;
+          saveSettings();
+        };
+        const timeTitle = document.createElement('h4');
+        timeTitle.textContent = 'time in specific pools';
+        const timeInputs = [];
+        let allTime;
+        function syncTimePools() {
+          for (const { input, id } of timeInputs) input.checked = hasScoped('time', id);
+          const count = timeInputs.filter(({ input }) => input.checked).length;
+          allTime.checked = count === timeInputs.length;
+          allTime.indeterminate = count > 0 && count < timeInputs.length;
+        }
+        const allTimeLabel = checkbox('all time pools', false, (checked) => {
+          const others = settings.gameDataScopedRows.filter((e) => e.metric !== 'time');
+          settings.gameDataScopedRows = checked
+            ? [...others, ...GameData.scopedPools.map((pool) => ({ metric: 'time', pool: pool.id }))]
+            : others;
+          rows = null; saveSettings(); syncTimePools();
+        });
+        allTime = allTimeLabel.querySelector('input');
+        const timeTable = document.createElement('table');
+        timeTable.dataset.configSection = 'time-pools';
+        const timeHead = document.createElement('thead');
+        const timeHeadRow = document.createElement('tr');
+        for (const text of ['pool', 'shown']) {
+          const cell = document.createElement('th'); cell.textContent = text; timeHeadRow.appendChild(cell);
+        }
+        timeHead.appendChild(timeHeadRow);
+        const timeBody = document.createElement('tbody');
+        for (const pool of GameData.scopedPools) {
+          const row = document.createElement('tr');
+          const name = document.createElement('td');
+          const help = pool.traitId ? BOARD_TRAIT_DEFINITIONS[pool.traitId] : undefined;
+          name.append(help ? chartHelpButton(help, pool.configLabel) : pool.configLabel);
+          row.appendChild(name);
+          const cell = document.createElement('td');
+          const input = document.createElement('input');
+          input.type = 'checkbox';
+          input.setAttribute('aria-label', 'time · ' + pool.configLabel);
+          input.addEventListener('change', () => {
+            setScoped('time', pool.id, input.checked);
+            syncTimePools();
+          });
+          timeInputs.push({ input, id: pool.id });
+          cell.appendChild(input);
+          row.appendChild(cell);
+          timeBody.appendChild(row);
+        }
+        timeTable.append(timeHead, timeBody);
+        configView.append(timeTitle, allTimeLabel, timeTable);
+        syncTimePools();
+
+        const otherTitle = document.createElement('h4');
+        otherTitle.textContent = 'other scoped measurements';
+        const adder = document.createElement('div');
+        adder.className = 'game-data-scoped-adder';
+        const metricSelect = document.createElement('select');
+        metricSelect.className = 'ui-select';
+        metricSelect.setAttribute('aria-label', 'scoped measurement');
+        for (const metric of GameData.metrics.filter((m) => m.id !== 'time')) {
+          metricSelect.add(new Option(metric.name, metric.id));
+        }
+        const scopedPoolSelect = document.createElement('select');
+        scopedPoolSelect.className = 'ui-select';
+        scopedPoolSelect.setAttribute('aria-label', 'scoped pool');
+        let groupName = null, optgroup = null;
+        for (const pool of GameData.scopedPools) {
+          if (pool.group !== groupName) {
+            groupName = pool.group;
+            optgroup = groupName === null ? null : document.createElement('optgroup');
+            if (optgroup !== null) {
+              optgroup.label = groupName;
+              scopedPoolSelect.appendChild(optgroup);
+            }
+          }
+          (optgroup ?? scopedPoolSelect).appendChild(new Option(pool.configLabel, pool.id));
+        }
+        const addButton = button('add', () => {
+          setScoped(metricSelect.value, scopedPoolSelect.value, true);
+          syncOtherScoped();
+        });
+        adder.append(metricSelect, ' in ', scopedPoolSelect, addButton);
+        const otherList = document.createElement('table');
+        otherList.className = 'game-data-scoped-list';
+        const otherBody = document.createElement('tbody');
+        otherList.appendChild(otherBody);
+        function syncOtherScoped() {
+          addButton.disabled = hasScoped(metricSelect.value, scopedPoolSelect.value);
+          otherBody.replaceChildren();
+          const extras = settings.gameDataScopedRows.filter((e) => e.metric !== 'time');
+          otherList.hidden = extras.length === 0;
+          for (const entry of extras) {
+            const metric = GameData.metrics.find((m) => m.id === entry.metric);
+            const pool = GameData.poolSpec(entry.pool);
+            const label = metric.name + ' · ' + pool.configLabel;
+            const tr = document.createElement('tr');
+            const nameTd = document.createElement('td');
+            nameTd.textContent = label;
+            const actionTd = document.createElement('td');
+            const remove = button('remove', () => {
+              setScoped(entry.metric, entry.pool, false);
+              syncOtherScoped();
+            });
+            remove.setAttribute('aria-label', 'remove ' + label);
+            actionTd.appendChild(remove);
+            tr.append(nameTd, actionTd);
+            otherBody.appendChild(tr);
+          }
+        }
+        metricSelect.addEventListener('change', syncOtherScoped);
+        scopedPoolSelect.addEventListener('change', syncOtherScoped);
+        configView.append(otherTitle, adder, otherList);
+        syncOtherScoped();
+      }
       const switchCostLabel = 'switch cost, this game and over the session, the latest ' + SwitchCost.WINDOW_GAMES
         + ', and the earlier ' + SwitchCost.WINDOW_GAMES + ' standard games';
       configView.appendChild(checkbox(switchCostLabel, settings.gameDataSwitchCost, (checked) => {
@@ -1063,7 +1194,10 @@ function buildBoardTimeRankProfile(record, records, referenceMs) {
       profile.appendChild(pager);
     } else {
       if (rows === null) {
-        const shownIds = Object.keys(settings.gameDataMetrics).filter((id) => settings.gameDataMetrics[id]);
+        const shownIds = [...new Set([
+          ...Object.keys(settings.gameDataMetrics).filter((id) => settings.gameDataMetrics[id]),
+          ...settings.gameDataScopedRows.map((entry) => entry.metric),
+        ])];
         const facts = gameDataAnalysisRecords(records, shownIds);
         const at = records.indexOf(record);
         const computed = await analysisTask('rankings', 'game-data', {
@@ -1075,7 +1209,8 @@ function buildBoardTimeRankProfile(record, records, referenceMs) {
       host.rows = rows;
       if (rows.length === 0) {
         const chosen = [settings.gameDataMetrics, settings.gameDataBoardTraits]
-          .some((selection) => Object.values(selection).some(Boolean));
+          .some((selection) => Object.values(selection).some(Boolean))
+          || settings.gameDataScopedRows.length > 0;
         profile.appendChild(gameDataCell('game-data-unplotted', chosen
           ? 'Nothing to rank yet: every comparison needs at least two measured games.'
           : 'Nothing chosen to rank: choose measurements or board traits with configure.'));
@@ -1134,8 +1269,10 @@ function buildBoardTimeRankProfile(record, records, referenceMs) {
   profile.dataset.sessionScopeView = '';
   profile.addEventListener('session-scope-change', () => {
     historyPage = 0;
-    if (settings.gameDataPool === 'session') rows = null;
-    if (view === 'history' || (view === 'chart' && settings.gameDataPool === 'session')) render();
+    const usesSession = settings.gameDataPool === 'session'
+      || settings.gameDataScopedRows.some((entry) => entry.pool === 'session');
+    if (usesSession) rows = null;
+    if (view === 'history' || (view === 'chart' && usesSession)) render();
   });
   render();
   return host;

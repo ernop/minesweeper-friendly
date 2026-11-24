@@ -33,15 +33,24 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   evaluation, which is one). The game data task passes the shown
   measurements; the session history task passes its one measurement.
 - Rows: `GameData.rows(record, records, preferences, params, referenceMs)`
-  resolves the chosen pool (`preferences.gameDataPool`: `'all'`, `'session'`,
-  a time window `'past-hour'` / `'today'` / `'past-week'` / `'calendar-month'`
-  / `'calendar-year'` / `'rolling-year'`, or a board-match pool
-  `'board:<traitId>'`) via `GameData.poolAt` and ranks every enabled
-  measurement (`preferences.gameDataMetrics`) against it. `params` is the
-  game's board `config` (STNB and unflagged mine share read it; callers
-  always pass it). A catalog measurement whose values are a share of a fixed
-  count declares `step(params)`, passed to `addDistribution` (unflagged mine
-  share: one mine, `1 / params.mines`).
+  resolves the chosen base pool (`preferences.gameDataPool`: `'all'`,
+  `'session'`, a time window `'past-hour'` / `'today'` / `'past-week'` /
+  `'calendar-month'` / `'calendar-year'` / `'rolling-year'`, or a
+  board-match pool `'board:<traitId>'`) and any extra scoped rows
+  (`preferences.gameDataScopedRows`, array of `{metric, pool}` pairs, added
+  2026-11-24) via a cached `GameData.poolAt` lookup. For each catalog
+  measurement in order, it emits the base row (when enabled in
+  `preferences.gameDataMetrics`) followed by any scoped rows for that
+  measurement in canonical `GameData.pools` order, suppressing a scoped row
+  whose `pool` equals `preferences.gameDataPool` while the base row is also
+  shown. Scoped rows set `scoped: true` and `name: spec.name + ' · ' +
+  poolLabel`, and carry their own `scope`, `poolLabel`, and `distribution`
+  (board-match scoped rows draw on their own axis; time-window scoped rows
+  share the cached all-games values for their axis). `params` is the game's
+  board `config` (STNB and unflagged mine share read it; callers always pass
+  it). A catalog measurement whose values are a share of a fixed count
+  declares `step(params)`, passed to `addDistribution` (unflagged mine share:
+  one mine, `1 / params.mines`).
   `GameData.rankedRow` omits a measurement with fewer than two eligible
   measured games in the pool (2026-09-26). A row carries `id`
   (`metricId.scope`), `metricId`, `scope`, `poolLabel`, `name`, `value`,
@@ -209,10 +218,10 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   `figcaption` back button and end with another.
 - Chart linkage: `buildAverageScatter(spec, model, gameDataRows)` sets
   `data-measurement` from the spec's `measurementId` and adds
-  `gameDataChartChip(row)` for the matching row in `gameDataRows`;
-  `renderRanks` awaits the game-data job before building charts so the chips
-  exist. Hover and focus on a band or distribution row call
-  `linkMeasurements([metricId], 'gameData')`, which toggles
+  `gameDataChartChip(row)` for the matching base (`!r.scoped`) row in
+  `gameDataRows`; `renderRanks` awaits the game-data job before building
+  charts so the chips exist. Hover and focus on a band or distribution row
+  call `linkMeasurements([metricId], 'gameData')`, which toggles
   `.game-data-linked` on those charts: a `--this-game` ring with black edges
   (two box-shadows plus a 1px outline, so it never reflows), and spotlights
   the measurement in the live perf charts; their lines and legend entries
@@ -220,26 +229,33 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   ([measurement catalog](measurement-catalog.md), "Hover link"). Rows take
   no hover background (2026-10-20); `:focus-visible` keeps a 1px outline.
 - Configuration: `selectionList(title, allLabel, nameHead, field, entries)`
-  builds one list per side, each an "all …" checkbox over a table with one
-  checkbox per entry (`aria-label` its name) and the name as a
-  `chartHelpButton` where the entry has a definition: performance
-  measurements (`gameDataMetrics`, entries `GameData.metrics`), then board
-  traits (`gameDataBoardTraits`, ids in `GAME_DATA_BOARD_TRAIT_DEFAULTS`
-  order, names `BOARD_TRAIT_NAMES`, definitions `BOARD_TRAIT_DEFINITIONS`).
-  Any change sets `rows = null`, so the chart asks the worker again. With
-  no rows and nothing on in either map, the chart's note names that
-  instead of the two-game minimum. Preferences: `gameDataMetrics`
-  (one map; `gameDataMetricsFromStored` carries over the former
-  `gameDataLifetimeMetrics`/`gameDataSessionMetrics`, a measurement shown in
-  either staying shown, and renames the 2026-10-26 ids through
-  `withCurrentMeasurementIds`), `gameDataBoardTraits` (settings-core.js; defaults
-  `GAME_DATA_BOARD_TRAIT_DEFAULTS`; a stored profile without it starts
-  from its stored `shownThings` through `gameDataBoardTraitsFromStored`:
-  `exact3BV`, `exactZiNi`, `exactMaxNumber`, `exactHZiNi`,
-  `workSpreadTable`, `zeroOneShareTable`, `zeroOpeningTable`;
-  `boardShapeTables` for islands and zeros, and with `largestIsland` for
-  largest island), `gameDataPool` (default `'all'`; `gameDataPoolFromStored`
-  migrates retired `gameDataBandPool`/`gameDataDistributionPools`),
+  builds the `performance measurements` (`gameDataMetrics`, entries
+  `GameData.metrics`) and `board traits` (`gameDataBoardTraits`, ids in
+  `GAME_DATA_BOARD_TRAIT_DEFAULTS` order, names `BOARD_TRAIT_NAMES`,
+  definitions `BOARD_TRAIT_DEFINITIONS`) lists, each with `data-config-section`.
+  Between them sit `time in specific pools` (one-click checkboxes over
+  `GameData.scopedPools` toggling `{metric: 'time', pool}` entries in
+  `settings.gameDataScopedRows`, plus an `all time pools` toggle) and `other
+  scoped measurements` (an inline measurement + pool `.ui-select` adder and
+  removable list for any non-`time` metric × pool). Any change sets
+  `rows = null`, so the chart asks the worker again. `gameDataAnalysisRecords`
+  inspects both `gameDataMetrics` and `gameDataScopedRows` when attaching
+  `actionSummary`, and `session-scope-change` invalidates `rows` whenever
+  either `gameDataPool === 'session'` or a scoped row uses `'session'`. With
+  no rows and nothing on in `gameDataMetrics`, `gameDataBoardTraits`, or
+  `gameDataScopedRows`, the chart's note names that instead of the two-game
+  minimum. Preferences: `gameDataMetrics` (one map; `gameDataMetricsFromStored`
+  carries over the former `gameDataLifetimeMetrics`/`gameDataSessionMetrics`,
+  a measurement shown in either staying shown, and renames the 2026-10-26 ids
+  through `withCurrentMeasurementIds`), `gameDataBoardTraits` (settings-core.js;
+  defaults `GAME_DATA_BOARD_TRAIT_DEFAULTS`; a stored profile without it
+  starts from its stored `shownThings` through `gameDataBoardTraitsFromStored`:
+  `exact3BV`, `exactZiNi`, `exactMaxNumber`, `exactHZiNi`, `workSpreadTable`,
+  `zeroOneShareTable`, `zeroOpeningTable`; `boardShapeTables` for islands and
+  zeros, and with `largestIsland` for largest island), `gameDataPool`
+  (default `'all'`; `gameDataPoolFromStored` migrates retired
+  `gameDataBandPool`/`gameDataDistributionPools`), `gameDataScopedRows`
+  (default `[]`, validated by `validGameDataScopedRows`),
   `gameDataDistributions`, and `gameDataShowValues`, all in the shared
   persistent schema.
 - Session: `SessionScope.defaultId` ('today') is the one default: the

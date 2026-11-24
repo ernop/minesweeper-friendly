@@ -1,14 +1,14 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261123-game-data-pools',
-  'game/evaluation.js?v=20261123-game-data-pools',
-  'game-data.js?v=20261123-game-data-pools', 'game/metric-definitions.js?v=20261123-game-data-pools',
+  'game/trace-metrics.js?v=20261124-scoped-rows',
+  'game/evaluation.js?v=20261124-scoped-rows',
+  'game-data.js?v=20261124-scoped-rows', 'game/metric-definitions.js?v=20261124-scoped-rows',
   'board-shape.js?v=20261020-no-left-panel', 'zini.js?v=20261020-no-left-panel', 'board-metrics.js?v=20261020-no-left-panel',
-  'game/rankings.js?v=20261123-game-data-pools',
-  'game/charts.js?v=20261123-game-data-pools', 'game/game-data-chart.js?v=20261123-game-data-pools',
+  'game/rankings.js?v=20261124-scoped-rows',
+  'game/charts.js?v=20261124-scoped-rows', 'game/game-data-chart.js?v=20261124-scoped-rows',
   'guardian-angel.js?v=20261123-guardian-angel-2', 'odds.js?v=20261123-guardian-angel-2', 'board-icons.js?v=20261105-glyph-sizes',
-  'game/replay-model.js?v=20261123-game-data-pools',
+  'game/replay-model.js?v=20261124-scoped-rows',
   'during-game.js?v=20261123-guardian-angel-2');
 
 let config;

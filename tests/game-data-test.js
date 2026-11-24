@@ -191,6 +191,50 @@ assert.deepEqual(GameData.rows(missingTrait, [bmRecords[0], missingTrait],
 assert.equal(GameData.boardTraitPoolId('board:bv3'), 'all', 'board traits fall back to all games for board-match pools');
 assert.equal(GameData.boardTraitPoolId('past-week'), 'past-week', 'board traits follow time-window pools');
 assert.equal(GameData.boardTraitPoolId('session'), 'session');
+
+// Scoped performance rows: multiple pools plotted alongside base rows in
+// catalog/pool order, suppressing duplicates when the base pool matches.
+const multiScoped = GameData.rows(bmCurrent, bmRecords, {
+  ...allMetrics,
+  gameDataMetrics: { ...none, time: true, clickRate: true },
+  gameDataPool: 'all',
+  gameDataScopedRows: [
+    { metric: 'time', pool: 'board:zeroCount' },
+    { metric: 'time', pool: 'board:bv3' },
+    { metric: 'time', pool: 'past-week' },
+    { metric: 'clickRate', pool: 'board:bv3' },
+  ],
+}, board);
+assert.deepEqual(multiScoped.map((r) => [r.id, r.name, Boolean(r.scoped)]), [
+  ['time.all', 'time', false],
+  ['time.past-week', 'time · past week', true],
+  ['time.board:bv3', 'time · 3BV 60', true],
+  ['time.board:zeroCount', 'time · zeros 20', true],
+  ['clickRate.all', 'click rate', false],
+  ['clickRate.board:bv3', 'click rate · 3BV 60', true],
+], 'scoped rows follow their base metric in canonical pool order');
+const dedupedScoped = GameData.rows(bmCurrent, bmRecords, {
+  ...allMetrics,
+  gameDataMetrics: { ...none, time: true },
+  gameDataPool: 'board:bv3',
+  gameDataScopedRows: [
+    { metric: 'time', pool: 'board:bv3' },
+    { metric: 'time', pool: 'board:zeroCount' },
+  ],
+}, board);
+assert.deepEqual(dedupedScoped.map((r) => [r.id, r.name, Boolean(r.scoped)]), [
+  ['time.board:bv3', 'time', false],
+  ['time.board:zeroCount', 'time · zeros 20', true],
+], 'scoped row matching active base pool is not duplicated');
+const scopedOnly = GameData.rows(bmCurrent, bmRecords, {
+  ...allMetrics,
+  gameDataMetrics: none,
+  gameDataPool: 'all',
+  gameDataScopedRows: [{ metric: 'time', pool: 'board:bv3' }],
+}, board);
+assert.deepEqual(scopedOnly.map((r) => [r.id, r.name, Boolean(r.scoped)]), [
+  ['time.board:bv3', 'time · 3BV 60', true],
+], 'scoped rows still render when their base measurement is unchecked');
 assert.equal(SessionScope.records(records, 'pastHour', now).length, 3);
 const boundary = { ...current, endedAt: now - 3600000 };
 assert(SessionScope.records([boundary], 'pastHour', now).includes(boundary), 'lower bound is inclusive everywhere');

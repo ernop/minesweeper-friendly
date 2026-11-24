@@ -177,6 +177,21 @@ assert.equal(run('settingsFrom({ gameDataPool: "board:bv3", gameDataBandPool: "s
   'explicit gameDataPool wins over retired pool fields');
 assert.equal(run('!("gameDataBandPool" in settingsFrom({ gameDataBandPool: "session" }))'), true);
 assert.equal(run('!("gameDataDistributionPools" in settingsFrom({ gameDataDistributionPools: "both" }))'), true);
+assert.deepEqual(defaults.gameDataScopedRows, [], 'scoped performance rows are empty by default');
+assert.deepEqual(plain(run('settingsFrom({ gameDataScopedRows: [{ metric: "time", pool: "board:bv3" }, { metric: "clickRate", pool: "past-week" }] }).gameDataScopedRows')),
+  [{ metric: 'time', pool: 'board:bv3' }, { metric: 'clickRate', pool: 'past-week' }]);
+for (const bad of [
+  'bad',
+  [{ metric: 'time', pool: 'all' }],
+  [{ metric: 'unknown', pool: 'board:bv3' }],
+  [{ metric: 'time', pool: 'board:unknown' }],
+  [{ metric: 'time', pool: 'board:bv3', extra: 1 }],
+  [{ metric: 'time', pool: 'board:bv3' }, { metric: 'time', pool: 'board:bv3' }],
+]) {
+  context.bad = bad;
+  assert.deepEqual(plain(run('settingsFrom({ gameDataScopedRows: bad }).gameDataScopedRows')), [],
+    'invalid scoped rows rejected: ' + JSON.stringify(bad));
+}
 
 // Mine styles: the setting offers exactly the drawn styles, classic first
 // and by default, and every style draws a mine and a crossed-out wrong flag.
@@ -237,7 +252,9 @@ const choices = {
   sessionDefinition: 'past30min', gameDataShowValues: false,
   gameDataMetrics: { ...defaults.gameDataMetrics, fastclickGap: false, ioe: true },
   gameDataBoardTraits: { ...defaults.gameDataBoardTraits, hzini: false, largestIsland: true },
-  gameDataPool: 'board:bv3', gameDataDistributions: true,
+  gameDataPool: 'board:bv3',
+  gameDataScopedRows: [{ metric: 'time', pool: 'board:bv3' }, { metric: 'time', pool: 'past-week' }, { metric: 'clickRate', pool: 'board:zeroCount' }],
+  gameDataDistributions: true,
   difficulty: 'custom', customBoard: { width: 24, height: 12, mines: 45 },
   customBoardDraft: { width: '25', height: '12', mines: '45' },
   playerStates: [{ name: 'new mouse', active: true }, { name: 'sleepy', active: false }],
