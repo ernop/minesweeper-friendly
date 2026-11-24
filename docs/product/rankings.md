@@ -132,13 +132,26 @@ default". Built the same day.
   pool (a no-mark win's no-mark games), board, mode, and generator, and the
   window or day category as the table drew it, so a "today" list opened
   before midnight stays that day. The list scrolls inside the window, under
-  a header row that stays in view; the window is as wide as its columns
-  and the page allow.
+  a sticky header row; the window itself never scrolls, and its table scroll
+  box reserves scrollbar gutter width so a vertical scrollbar does not force
+  a horizontal one. The window is as wide as its columns and the page allow.
 - Each row is one line: the win's rank in the table (#), its time, then
   the chosen columns. The game shown on the page wears the this-game light
   blue, as in the tables, and the list opens scrolled to it with its row
   focused. A list without it (High scores, which shows no game of its own,
   and after a loss) marks none and opens at its first row.
+- Numeric alignment and units (updated 2026-11-24 after creator audit of
+  variable decimal precision and misaligned bold rows): every numeric column
+  writes its unit once in the header in parentheses (`time (s)`,
+  `misclick rate (/min)`, `efficiency (%)`, `3BV spread (cells)`, etc.,
+  derived from the column's catalog formatter) and leaves its cells as bare
+  numbers in monospace so bold rows stay flush with regular rows. Any
+  numeric column with mixed decimal lengths reserves the widest decimal
+  width in every cell so ones digits and decimal points share one vertical
+  line (`4.68`, `2`, `0`), while all-integer columns add no trailing blank
+  space. Sort arrows sit on the left side of each header so every column
+  header stays flush with the right edge of its numbers without shifting
+  when sorted.
 - Columns: "date", the local date and time the win ended (2026-10-07
   14:22); "age", how long ago that was, written and colored as in the
   tables; every performance measurement but time, which is always shown,
@@ -146,10 +159,12 @@ default". Built the same day.
   ([Measurement catalog](measurement-catalog.md)); and every board trait,
   under its one name and format. Shown by default: date, age, 3BV, 3BV/s,
   and efficiency. The "columns" button in the window's head opens the
-  choices beside the list, all at once: one box per column under "when",
-  "performance measurements", and "board traits", each measurement and
-  trait with its definition on hover. The list changes with each box, and
-  the choice is remembered for every list.
+  choices beside the list in a compact multi-column layout ("when" and
+  "board traits" stacked beside a two-column "performance measurements"
+  list, collapsing to one column on narrow viewports so every choice fits
+  without scrolling on desktop): one box per column, with definitions on
+  hover where present and clickable labels for plain column names. The list
+  changes with each box, and the choice is remembered for every list.
 - Sorting: a column's header sorts by it. The first click puts the best
   first: the fastest time, the newest date, the youngest age, and for a
   measurement or board trait the value game data counts better; the next

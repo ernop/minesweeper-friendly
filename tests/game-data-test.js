@@ -427,4 +427,20 @@ assert.deepEqual(['timeBeforeMove', 'easyWorkLeftShare', 'nearestAreaShare'].map
 assert.deepEqual(['timeBeforeMove', 'easyWorkLeftShare', 'nearestAreaShare'].map((id) => metric(id).value({
   movesMovedOn: 0, movesLeftHardWork: 0, movesLeftEasyWork: 0, forkMoves: 0, forkMovesToNearestArea: 0 })),
 [undefined, undefined, undefined], 'a game without a move or a fork has no share of them');
-console.log('game-data: scope boundaries, historical windows, eligible populations, missing values, ties, metric catalog, autozoom, and example boards passed');
+
+// Option F1 (2026-11-24): flag-activity metrics require at least one placed
+// flag and no daily-limit flag block; unflaggedMineShare stays measured on
+// every win (including no-mark wins at 100%).
+const flagMetricIds = ['flagRate', 'flagRemovalRate', 'unusedFlagRate', 'unusedFlagShare'];
+const boardParams = { mines: 10 };
+const noMarkWin = { outcome: 'win', timeMs: 30000, flagsPlaced: 0, flagsRemoved: 0, unusedCorrectFlags: 0 };
+const blockedWin = { outcome: 'win', timeMs: 30000, flagsPlaced: 3, flagsRemoved: 1, unusedCorrectFlags: 1, flagsBlocked: true };
+const flaggedWin = { outcome: 'win', timeMs: 30000, flagsPlaced: 6, flagsRemoved: 1, unusedCorrectFlags: 2 };
+assert.deepEqual(flagMetricIds.map((id) => metric(id).value(noMarkWin, boardParams)),
+  [undefined, undefined, undefined, undefined], 'no-mark game is unmeasured for all four flag-activity metrics');
+assert.deepEqual(flagMetricIds.map((id) => metric(id).value(blockedWin, boardParams)),
+  [undefined, undefined, undefined, undefined], 'flag-blocked game is unmeasured for all four flag-activity metrics');
+assert.deepEqual(flagMetricIds.map((id) => metric(id).value(flaggedWin, boardParams)),
+  [0.2, 2, 4, 2 / 6], 'flagged unblocked game measures all four flag-activity metrics');
+assert.equal(metric('unflaggedMineShare').value(noMarkWin, boardParams), 1, 'no-mark win stays 100% unflagged mine share');
+console.log('game-data: scope boundaries, historical windows, eligible populations, missing values, ties, metric catalog, autozoom, flag gating, and example boards passed');

@@ -741,9 +741,9 @@ as better:
 
 | Measurement | What it counts | Games |
 | --- | --- | --- |
-| flag rate | flags placed per second of play; removals do not subtract, and the automatic flags at a win do not count | wins and losses |
-| flag-removal rate | flags taken back, per minute | wins and losses |
-| unused flag rate | correct flags no chord used, per minute | wins |
+| flag rate | flags placed per second of play in games that placed at least one flag (unblocked); removals do not subtract, and the automatic flags at a win do not count | flagged wins and losses |
+| flag-removal rate | flags taken back per minute in games that placed at least one flag (unblocked) | flagged wins and losses |
+| unused flag rate | correct flags no chord used, per minute, in wins that placed at least one flag (unblocked) | flagged wins |
 | game risk rate | the report's game risk actions, per minute | wins and losses |
 | early guess rate | the report's early guesses, per minute | wins and losses |
 | time loss rate | the report's time loss actions, per minute | wins and losses |
@@ -788,7 +788,13 @@ older evaluator version, a legacy verdict, a game saved before the ledger)
 is unmeasured for the last six rows, never counted as zero. The directions
 are declared preferences: a lower flag rate follows unflagged mine share's
 preference for flagging fewer mines, a removed flag was wrong or not needed,
-and each category is a kind of mistake. Not carried over, by decision: game
+and each category is a kind of mistake. Since 2026-11-24 (creator choice,
+Option F1), all four flag-activity metrics (`flag rate`, `flag-removal rate`,
+`unused flag rate`, and `unused flag share`) require `flagsPlaced > 0` and
+`!flagsBlocked`: no-mark training games, daily-limit flag-blocked games, and
+quick 0-flag losses are unmeasured rather than counted as `0`, so zeros from
+non-flagging play do not pollute flagging rates. `unflagged mine share` stays
+measured on every win, including no-mark wins (100%). Not carried over, by decision: game
 loss and deaths with mistakes per minute and "died: likely misclick" (a game
 has at most one death, so per game these are yes-or-no facts, which the
 session results and the after-game report show), and measurement notes per

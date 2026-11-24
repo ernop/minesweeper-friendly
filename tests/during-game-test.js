@@ -757,4 +757,32 @@ assert.equal(DuringGame.DEFAULT_RELATIVE_SCALE, 'log', 'log by default');
     'guess position is certified once across odds, recap detail, and live perf model');
 }
 
+// Option F1 (2026-11-24): during-game flagRate and flagRemovalRate match
+// GameData.metrics — unrecorded when no flags were placed, exact rate when
+// at least one flag was placed.
+{
+  const width = 5;
+  const at = cellAt(width);
+  const mines = [at(4, 0)];
+  const noMark = playGame(width, 2, mines, [
+    { act: 'reveal', cell: at(0, 0), atMs: 0 },
+    { act: 'reveal', cell: at(3, 0), atMs: 1000 },
+  ]);
+  const noMarkView = viewOf(noMark, ['flagRate', 'flagRemovalRate'], 'rolling-2');
+  for (const id of ['flagRate', 'flagRemovalRate']) {
+    const row = noMarkView.rows.find((item) => item.id === id);
+    assert.deepEqual(row, { id, kind: 'unrecorded', summary: undefined }, id + ' is unrecorded in a no-flag game');
+  }
+  const flagged = playGame(width, 2, mines, [
+    { act: 'reveal', cell: at(0, 0), atMs: 0 },
+    { act: 'flag', cell: at(4, 0), atMs: 400 },
+    { act: 'flag', cell: at(4, 0), atMs: 700 },
+    { act: 'flag', cell: at(4, 0), atMs: 900 },
+    { act: 'reveal', cell: at(3, 0), atMs: 2000 },
+  ]);
+  const flaggedView = viewOf(flagged, ['flagRate', 'flagRemovalRate'], 'rolling-2');
+  assert.equal(flaggedView.rows.find((item) => item.id === 'flagRate').summary, 2 * 1000 / 2000);
+  assert.equal(flaggedView.rows.find((item) => item.id === 'flagRemovalRate').summary, 1 * 60000 / 2000);
+}
+
 console.log('during-game tests passed');

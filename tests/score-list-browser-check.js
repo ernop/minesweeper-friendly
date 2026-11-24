@@ -19,7 +19,8 @@ if (!['chromium', 'firefox'].includes(engine) || !executablePath) {
 const ORIGIN = 'http://127.0.0.1:8099/';
 
 // Runs in the page: Beginner games every 25 minutes up to now, 7 in 10 won,
-// every one flagged, as in the latency check.
+// mostly flagged with a few no-mark wins and mixed misclick/unused-flag counts
+// so score-list decimal alignment and Option F1 gating are exercised.
 function seedHistory() {
   let state = 0x9e3779b9;
   const int = (low, high) => {
@@ -32,9 +33,16 @@ function seedHistory() {
   for (let i = 0; i < count; i++) {
     const endedAt = now - (count - i) * 1500000;
     const win = int(0, 9) < 7;
-    tx.objectStore(RECORD_STORE).put({ endedAt, outcome: win ? 'win' : 'loss', timeMs: int(20000, 200000),
-      bv3: int(20, 180), boardChangingClicks: int(20, 250), noOpClicks: int(0, 8), misclicks: 0, flagsPlaced: int(1, 10),
-      flagsRemoved: 0, mousePathPx: int(2000, 40000), states: [], guardianAngel: 0, guardianAngelEnabled: true,
+    const noMark = i % 20 === 0;
+    const flagsPlaced = noMark ? 0 : int(1, 10);
+    // Keep several exact 30s / 60s times so misclickRate mixes integer ("2", "0")
+    // and fractional ("4.68", "1.5") strings in the same table.
+    const timeMs = i % 5 === 0 ? 30000 : int(20000, 200000);
+    const misclicks = i % 7 === 0 ? 0 : int(1, 3);
+    tx.objectStore(RECORD_STORE).put({ endedAt, outcome: win ? 'win' : 'loss', timeMs,
+      bv3: int(20, 180), boardChangingClicks: int(20, 250), noOpClicks: int(0, 8), misclicks, flagsPlaced,
+      flagsRemoved: noMark ? 0 : int(0, 2), unusedCorrectFlags: noMark ? 0 : int(0, Math.min(3, flagsPlaced)),
+      mousePathPx: int(2000, 40000), states: [], guardianAngel: 0, guardianAngelEnabled: true,
       playMode: 'standard', maxAdjacent: int(3, 6), zeroCount: int(10, 90), islandCount: int(3, 30), largestIsland: int(2, 12),
       actionEvaluations: [] }, ['9x9/10@standard', endedAt]);
   }
@@ -43,7 +51,7 @@ function seedHistory() {
 
 (async () => {
   const browser = await require(playwrightPath)[engine].launch({ executablePath, headless: true,
-    args: engine === 'chromium' ? ['--no-sandbox'] : [] });
+    args: engine === 'chromium' ? ['--no-sandbox', '--disable-features=OverlayScrollbar'] : [] });
   try {
     const page = await browser.newPage({ viewport: { width: 1680, height: 1000 } });
     const errors = [];
@@ -117,12 +125,36 @@ function seedHistory() {
     assert(list.wins > 1000, 'the synthetic history is this board\u2019s');
     assert.equal(list.rows, list.wins, 'the list holds every win');
     assert.equal(list.count, list.wins.toLocaleString('en-US') + ' wins');
-    assert.deepEqual(list.heads, ['#', 'time', 'date', 'age', '3BV/s', 'efficiency', '3BV'], 'the default columns');
+    assert.deepEqual(list.heads, ['#', 'time (s)', 'date', 'age', '3BV/s', 'efficiency (%)', '3BV'],
+      'the default columns put units in headers');
     assert.deepEqual(list.me, [latestWin], 'the page\u2019s game is marked');
     assert.equal(list.focused, true, 'the page\u2019s game has focus');
     assert.equal(list.scrollY, scrollBefore, 'opening the list leaves the page where it was');
 
-    // Sorting: best first, then reversed, remembered.
+    // No outer dialog scrollbars and no spurious horizontal table scrollbar
+    // with the default columns.
+    const layout = await page.evaluate(() => {
+      const dlg = document.getElementById('score-list');
+      const scroll = document.getElementById('score-list-scroll');
+      const heads = [...document.querySelectorAll('#score-list-scroll thead th')];
+      const timeHead = heads.find((th) => th.querySelector('[data-column="time"]'));
+      const arrow = timeHead.querySelector('.score-list-arrow');
+      const unit = timeHead.querySelector('.score-list-unit');
+      return {
+        dialogOverflowX: dlg.scrollWidth - dlg.clientWidth,
+        dialogOverflowY: dlg.scrollHeight - dlg.clientHeight,
+        scrollOverflowX: scroll.scrollWidth - scroll.clientWidth,
+        arrowLeftOfUnit: arrow.getBoundingClientRect().right <= unit.getBoundingClientRect().left,
+        widthsBefore: heads.map((th) => th.getBoundingClientRect().width),
+      };
+    });
+    assert(layout.dialogOverflowX <= 0 && layout.dialogOverflowY <= 0,
+      'dialog has no outer scrollbars: ' + JSON.stringify(layout));
+    assert(layout.scrollOverflowX <= 0,
+      'table scroll box has no spurious horizontal scrollbar: ' + JSON.stringify(layout));
+    assert.equal(layout.arrowLeftOfUnit, true, 'sort arrow sits on the left of the column header');
+
+    // Sorting: best first, then reversed, remembered, without moving column widths.
     // The first rows' cells under a header (age's header spans two cells).
     const column = (id) => page.evaluate((columnId) => {
       const heads = [...document.querySelectorAll('#score-list-scroll thead th')];
@@ -132,6 +164,10 @@ function seedHistory() {
         .map((tr) => tr.cells[at].textContent);
     }, id);
     await page.locator('#score-list .score-list-sort[data-column="bvPerSecond"]').click();
+    const widthsAfterSort = await page.evaluate(() => [...document.querySelectorAll('#score-list-scroll thead th')]
+      .map((th) => th.getBoundingClientRect().width));
+    layout.widthsBefore.forEach((w, idx) => assert(Math.abs(w - widthsAfterSort[idx]) <= 0.5,
+      'sorting moves no column width at ' + idx + ': ' + w + ' vs ' + widthsAfterSort[idx]));
     const descending = (await column('bvPerSecond')).map(Number);
     assert.deepEqual(descending, descending.slice().sort((a, b) => b - a), 'the first sort puts the highest 3BV/s first');
     assert.equal(await page.locator('#score-list th[aria-sort="descending"] [data-column="bvPerSecond"]').count(), 1);
@@ -140,14 +176,74 @@ function seedHistory() {
     assert.deepEqual(ascending, ascending.slice().sort((a, b) => a - b), 'the next sort reverses it');
     assert.deepEqual(await page.evaluate(() => settings.scoreListSort), { column: 'bvPerSecond', ascending: true });
 
-    // Column choices: each box changes the list; hiding the sorted column sorts by time.
+    // Column choices: multi-column layout fits on desktop with no scrollbar,
+    // plain labels toggle their checkboxes, mixed decimal columns align
+    // integer parts vertically (including bold tr.me), and Option F1 leaves
+    // no-mark wins blank in flag-rate columns.
     await page.locator('#score-list-columns-button').click();
     assert.equal(await page.locator('#score-list-choices').isVisible(), true);
-    await page.locator('#score-list-choices input[data-column="zeroCount"]').check();
+    const choicesBox = await page.evaluate(() => {
+      const box = document.getElementById('score-list-choices');
+      return { overflowX: box.scrollWidth - box.clientWidth, overflowY: box.scrollHeight - box.clientHeight };
+    });
+    assert(choicesBox.overflowX <= 0 && choicesBox.overflowY <= 0,
+      'multi-column chooser fits without scrollbars on desktop: ' + JSON.stringify(choicesBox));
+    // Clicking the plain label text toggles the checkbox.
+    await page.locator('#score-list-choices label.score-list-choice-label', { hasText: /^zeros$/ }).click();
+    assert.equal(await page.locator('#score-list-choices input[data-column="zeroCount"]').isChecked(), true,
+      'clicking a non-help column label toggles its checkbox');
+    await page.locator('#score-list-choices input[data-column="misclickRate"]').check();
+    await page.locator('#score-list-choices input[data-column="flagRate"]').check();
+    const alignCheck = await page.evaluate(() => {
+      const heads = [...document.querySelectorAll('#score-list-scroll thead th')];
+      const cellIndexOf = (id) => {
+        const h = heads.findIndex((th) => th.querySelector('[data-column="' + id + '"]'));
+        return heads.slice(0, h).reduce((cells, th) => cells + th.colSpan, 0);
+      };
+      const intRightOf = (cell) => {
+        const range = document.createRange();
+        const node = cell.firstChild;
+        const text = node.textContent;
+        const dot = text.indexOf('.');
+        range.setStart(node, 0);
+        range.setEnd(node, dot === -1 ? text.length : dot);
+        return range.getBoundingClientRect().right;
+      };
+      const rows = [...document.querySelectorAll('#score-list-scroll tbody tr')];
+      const misAt = cellIndexOf('misclickRate');
+      const effAt = cellIndexOf('efficiency');
+      const flagAt = cellIndexOf('flagRate');
+      const misSample = rows.slice(0, 40).map((tr) => tr.cells[misAt]);
+      const misTexts = misSample.map((td) => td.textContent);
+      const misRights = misSample.map(intRightOf);
+      const meRow = rows.find((tr) => tr.classList.contains('me'));
+      const effSample = [meRow, ...rows.slice(0, 20)].map((tr) => tr.cells[effAt]);
+      const effRights = effSample.map(intRightOf);
+      const noMarkFlagTexts = rows
+        .filter((_, idx) => scoreListShown.rows[idx].record.flagsPlaced === 0)
+        .map((tr) => tr.cells[flagAt].textContent);
+      return {
+        misTexts,
+        misHasUnit: misTexts.some((t) => t.includes('/min')),
+        misHasIntAndDec: misTexts.some((t) => !t.includes('.')) && misTexts.some((t) => t.includes('.')),
+        misSpread: Math.max(...misRights) - Math.min(...misRights),
+        effSpread: Math.max(...effRights) - Math.min(...effRights),
+        noMarkCount: noMarkFlagTexts.length,
+        noMarkAllBlank: noMarkFlagTexts.every((t) => t === ''),
+      };
+    });
+    assert.equal(alignCheck.misHasUnit, false, 'cells omit the unit already written in the header');
+    assert.equal(alignCheck.misHasIntAndDec, true, 'sample includes both integer and decimal misclick rates');
+    assert(alignCheck.misSpread <= 0.5, 'mixed integer/decimal ones digits align vertically: ' + alignCheck.misSpread);
+    assert(alignCheck.effSpread <= 0.5, 'bold me-row aligns vertically with regular rows: ' + alignCheck.effSpread);
+    assert(alignCheck.noMarkCount > 0 && alignCheck.noMarkAllBlank,
+      'no-mark wins leave flagRate blank: ' + JSON.stringify(alignCheck));
+    await page.locator('#score-list-choices input[data-column="misclickRate"]').uncheck();
+    await page.locator('#score-list-choices input[data-column="flagRate"]').uncheck();
     await page.locator('#score-list-choices input[data-column="efficiency"]').uncheck();
     await page.locator('#score-list-choices input[data-column="bvPerSecond"]').uncheck();
     assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#score-list-scroll thead th')]
-      .map((th) => th.textContent.replace(/[\u25b2\u25bc]/, ''))), ['#', 'time', 'date', 'age', '3BV', 'zeros']);
+      .map((th) => th.textContent.replace(/[\u25b2\u25bc]/, ''))), ['#', 'time (s)', 'date', 'age', '3BV', 'zeros']);
     assert.deepEqual(await page.evaluate(() => settings.scoreListSort), { column: 'time', ascending: true });
     assert.deepEqual(await page.evaluate(() => [settings.scoreListColumns.zeroCount, settings.scoreListColumns.efficiency]),
       [true, false]);

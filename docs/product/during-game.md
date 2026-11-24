@@ -530,8 +530,8 @@ actually"; [Session stats](session-stats.md)), each as game data defines it
 
 | Row | Group | Definition |
 | --- | --- | --- |
-| flag rate | pace | flags placed per second; removals do not subtract |
-| flag-removal rate | pace | flags taken back per minute |
+| flag rate | pace | flags placed per second in games that placed at least one flag; removals do not subtract (unmeasured when no flags were placed) |
+| flag-removal rate | pace | flags taken back per minute in games that placed at least one flag (unmeasured when no flags were placed) |
 | cadence spread | pace | the width of the middle half of the gaps between all button presses divided by their median; raw shows each press as a tick |
 | game risk rate | report categories | the report's game risk actions per minute |
 | early guess rate | report categories | the report's early guesses per minute |

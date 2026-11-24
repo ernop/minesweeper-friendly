@@ -1148,11 +1148,16 @@ const DuringGame = (() => {
     measurementRow('pathPer3bv', { group: 'pace', default: false, chart: 'relative', color: '#00acc1',
       data: (m) => ({ kind: 'ratio', incidents: changingActions(m).map((a) => ({ atMs: a.atMs, num: a.pathPx, den: a.solved })) }) }),
     measurementRow('flagRate', { group: 'pace', default: false, chart: 'relative', color: '#1b5e20',
-      data: (m) => ({ kind: 'rate', perMs: 1000,
-        incidents: m.actions.filter((a) => a.kind === 'flag-place').map((a) => ({ atMs: a.atMs, weight: 1 })) }) }),
+      data: (m) => {
+        const flags = m.actions.filter((a) => a.kind === 'flag-place');
+        return flags.length > 0 ? { kind: 'rate', perMs: 1000,
+          incidents: flags.map((a) => ({ atMs: a.atMs, weight: 1 })) } : { kind: 'unrecorded' };
+      } }),
     measurementRow('flagRemovalRate', { group: 'pace', default: false, chart: 'relative', color: '#006064',
-      data: (m) => ({ kind: 'rate', perMs: 60000,
-        incidents: m.actions.filter((a) => a.kind === 'flag-remove').map((a) => ({ atMs: a.atMs, weight: 1 })) }) }),
+      data: (m) => (m.actions.some((a) => a.kind === 'flag-place')
+        ? { kind: 'rate', perMs: 60000,
+          incidents: m.actions.filter((a) => a.kind === 'flag-remove').map((a) => ({ atMs: a.atMs, weight: 1 })) }
+        : { kind: 'unrecorded' }) }),
     measurementRow('cadenceSpread', { group: 'pace', default: false, chart: 'relative', color: '#880e4f',
       data: (m) => ({ kind: 'spread', incidents: m.presses }) }),
     { id: 'workAreas', group: 'board', name: 'work areas', default: false, format: count,

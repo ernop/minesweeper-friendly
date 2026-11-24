@@ -87,9 +87,11 @@ Spec: [docs/product/per-game-stats.md](../product/per-game-stats.md). Index: [AG
   that field because later intended chord use is unknowable. This measures
   observable chord use, never mental use. The primary calibration (decided
   2026-08-30) is per mark placed, game data's unused flag share; its
-  per-minute form is the optional unused flag rate (`perMinute` in
-  game-data.js). A markless win is unmeasured (0 of 0). Until 2026-10-20 the
-  session series also carried both to the left panel's charts.
+  per-minute form is the optional unused flag rate (`flaggedRate` in
+  game-data.js, which along with `flagRate`, `flagRemovalRate`, and
+  `unusedFlagShare` requires `flagsPlaced > 0 && !flagsBlocked` since
+  2026-11-24). A markless or flag-blocked game is unmeasured. Until
+  2026-10-20 the session series also carried both to the left panel's charts.
 - `boardChangingClicks` (the page counter and the record field; `clickCount`
   and `clicks` until 2026-10-27) counts only effective clicks; `noOpClicks`
   (`wastedClicks` until then) counts board

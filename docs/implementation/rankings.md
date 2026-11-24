@@ -295,7 +295,22 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   in `GAME_DATA_BOARD_TRAIT_DEFAULTS` key order through
   `BOARD_TRAIT_MEASURES` (rankings.js: one value, format, and better
   direction per trait, which `boardTraitFields` also gives the tables'
-  families). `sortScoreListRows` sorts finite values only, missing last,
+  families). `parseScoreNumber` splits each numeric column's formatted value
+  into integer part, optional decimal part, and trimmed unit suffix: the
+  unit is shown once in the column header (`<span class="score-list-unit">`),
+  sort arrows occupy a fixed-width slot on the left of each header button so
+  headers stay flush with their numbers, and numeric cells render in
+  monospace; whenever a column has mixed decimal precision across the shown
+  rows, each cell appends `<span class="score-num-frac">` sized to the
+  column's widest `.frac` in `ch` units so ones digits and decimal points
+  align vertically while preserving single-cell `textContent`. Missing
+  values emit `column.colSpan` empty cells (2 for `age`, 1 otherwise).
+  `.score-list-table` uses `border-collapse: separate` so sticky header
+  borders stay intact while scrolling; `#score-list` hides outer overflow,
+  `#score-list-scroll` reserves `scrollbar-gutter: stable`, and
+  `#score-list-choices` lays out `when` + `board traits` beside a two-column
+  `performance measurements` grid (wrapping non-help items in `<label>`).
+  `sortScoreListRows` sorts finite values only, missing last,
   ties in rank order. The rows use one tab stop that moves with the arrow
   keys. `openOldGame` reads the trace, then `newGame(false)` and
   `showSavedGame(record, history, stored, Infinity, list)`, and saves

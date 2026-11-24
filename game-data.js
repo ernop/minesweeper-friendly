@@ -213,6 +213,12 @@ const GameData = (() => {
   const decimal = (v) => Number(v.toFixed(2)).toString();
   const perSecond = (field) => (r) => r.timeMs > 0 ? r[field] * 1000 / r.timeMs : undefined;
   const perMinute = (field) => (r) => r.timeMs > 0 ? r[field] * 60000 / r.timeMs : undefined;
+  // Flag-activity rates apply only to games that placed at least one flag
+  // without a daily-limit flag block (creator 2026-11-24, Option F1), so
+  // no-mark training games, blocked games, and short 0-flag losses do not
+  // pollute them with zeros.
+  const flaggedRate = (perMs, field) => (r) => (r.timeMs > 0 && r.flagsPlaced > 0 && !r.flagsBlocked
+    ? r[field] * perMs / r.timeMs : undefined);
   // The report-category measurements read `actionSummary`, the game's action
   // summary (game/evaluation.js, actionCategorySummary), which the game page
   // adds to the records it sends only while one of them is asked for; a game
@@ -300,19 +306,20 @@ const GameData = (() => {
       value: (r) => (r.forkMoves > 0 ? r.forkMovesToNearestArea / r.forkMoves : undefined), format: percent,
       help: 'Of the moves made while proven-safe squares lay in 2 or more separate areas (squares at most 2 apart are one area), the share that went to the area nearest the click before.' },
     { id: 'unusedFlagShare', name: 'unused flag share', higher: false, default: true,
-      value: (r) => r.flagsPlaced > 0 ? r.unusedCorrectFlags / r.flagsPlaced : undefined,
+      value: (r) => (r.flagsPlaced > 0 && !r.flagsBlocked ? r.unusedCorrectFlags / r.flagsPlaced : undefined),
       format: percent, help: 'Correct flags that no chord ever used, as a share of all flags placed.' },
     { id: 'unflaggedMineShare', name: 'unflagged mine share', higher: true, default: true,
       value: (r, params) => unflaggedMineShareOf(r, params.mines), step: (params) => 1 / params.mines,
       format: percent, help: 'Mines without a flag when you won, as a share of all the board’s mines.' },
     { id: 'flagRate', allOutcomes: true, name: 'flag rate', higher: false, default: false,
-      value: perSecond('flagsPlaced'), format: (v) => v.toFixed(2) + '/s',
-      help: 'Flags placed per second. Removals do not subtract, and the automatic flags at a win do not count.' },
+      value: flaggedRate(1000, 'flagsPlaced'), format: (v) => v.toFixed(2) + '/s',
+      help: 'Flags placed per second in games that placed at least one flag. Removals do not subtract, and the automatic flags at a win do not count.' },
     { id: 'flagRemovalRate', allOutcomes: true, name: 'flag-removal rate', higher: false, default: false,
-      value: perMinute('flagsRemoved'), format: (v) => decimal(v) + '/min', help: 'Flags you took back.' },
+      value: flaggedRate(60000, 'flagsRemoved'), format: (v) => decimal(v) + '/min',
+      help: 'Flags you took back, in games that placed at least one flag.' },
     { id: 'unusedFlagRate', name: 'unused flag rate', higher: false, default: false,
-      value: perMinute('unusedCorrectFlags'), format: (v) => decimal(v) + '/min',
-      help: 'Correct flags that no chord ever used.' },
+      value: flaggedRate(60000, 'unusedCorrectFlags'), format: (v) => decimal(v) + '/min',
+      help: 'Correct flags that no chord ever used, in games that placed at least one flag.' },
     { id: 'gameRiskRate', allOutcomes: true, name: 'game risk rate', higher: false, default: false, actionSummary: true,
       value: actionRate((s) => s.counts.gameRisk), format: (v) => decimal(v) + '/min',
       help: 'Survived actions riskier than the safest available move, once a tenth of the safe squares were open: a guess while a safe move was available, or a riskier guess than necessary.' },

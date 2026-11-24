@@ -20,30 +20,46 @@ function formatLocalDateTime(ms) {
     + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
 }
 
+// Splits a measurement or board-trait value's formatted text into its signed
+// integer part, optional decimal part (including '.'), and trimmed unit suffix.
+function parseScoreNumber(formatted) {
+  const match = /^(-?\d+)(\.\d+)?(.*)$/.exec(formatted);
+  if (match === null) throw new Error('Score list expected a numeric value, got ' + JSON.stringify(formatted));
+  return { intPart: match[1], fracPart: match[2] || '', unit: match[3].trim() };
+}
+
 // Time, then the columns a list may show, in settings.scoreListColumns'
 // order. Each has its header, its definition (none where the name says it),
 // its group among the column choices, its value on a win (not finite when
-// the win was not measured), that value's cells, and whether a first sort
-// puts the lower value first. Ages count from `nowMs`.
+// the win was not measured), its numeric unit/formatter or multi-cell
+// formatter, and whether a first sort puts the lower value first. Ages count
+// from `nowMs`.
 function scoreListColumns(nowMs) {
-  const measurement = (metric) => ({
+  const numericColumn = (base, format) => ({
+    ...base,
+    unit: parseScoreNumber(format(1.2345)).unit,
+    format,
+    numeric: true,
+    colSpan: 1,
+  });
+  const measurement = (metric) => numericColumn({
     id: metric.id, name: metric.name, help: metric.help, group: 'performance measurements',
     actionSummary: metric.actionSummary === true,
     value: (fact) => metric.value(fact, config),
-    cells: (value) => [['', metric.format(value)]],
     lowerFirst: !metric.higher,
-  });
+  }, metric.format);
   const trait = (id) => {
     const measure = BOARD_TRAIT_MEASURES[id];
-    return { id, name: BOARD_TRAIT_NAMES[id], help: BOARD_TRAIT_DEFINITIONS[id], group: 'board traits',
-      value: measure.value, cells: (value) => [['', measure.format(value)]],
-      lowerFirst: !measure.higher };
+    return numericColumn({
+      id, name: BOARD_TRAIT_NAMES[id], help: BOARD_TRAIT_DEFINITIONS[id], group: 'board traits',
+      value: measure.value, lowerFirst: !measure.higher,
+    }, measure.format);
   };
   return [
     measurement(GameData.metrics.find((metric) => metric.id === 'time')),
-    { id: 'date', name: 'date', group: 'when', value: (fact) => fact.endedAt,
+    { id: 'date', name: 'date', group: 'when', value: (fact) => fact.endedAt, colSpan: 1,
       cells: (value) => [['', formatLocalDateTime(value)]], lowerFirst: false },
-    { id: 'age', name: 'age', group: 'when', value: (fact) => nowMs - fact.endedAt,
+    { id: 'age', name: 'age', group: 'when', value: (fact) => nowMs - fact.endedAt, colSpan: 2,
       cells: (value) => {
         const age = relativeAge(nowMs, nowMs - value);
         return [['age-num-cell age-u-' + age.unit, formatAgeCount(age)],
@@ -147,7 +163,7 @@ function renderScoreListTable(tabStop) {
   columns.forEach((column, i) => {
     const head = document.createElement('th');
     head.scope = 'col';
-    if (column.id === 'age') head.colSpan = 2;
+    if (column.colSpan > 1) head.colSpan = column.colSpan;
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'score-list-sort';
@@ -158,7 +174,13 @@ function renderScoreListTable(tabStop) {
       head.setAttribute('aria-sort', ascending ? 'ascending' : 'descending');
       arrow.textContent = ascending ? '\u25b2' : '\u25bc';
     }
-    button.append(column.name, arrow);
+    button.append(arrow, column.name);
+    if (column.unit) {
+      const unit = document.createElement('span');
+      unit.className = 'score-list-unit';
+      unit.textContent = ' (' + column.unit + ')';
+      button.appendChild(unit);
+    }
     if (column.help) {
       button.classList.add('has-help');
       attachHelpTip(button, column.help);
@@ -170,9 +192,27 @@ function renderScoreListTable(tabStop) {
   const head = document.createElement('thead');
   head.appendChild(headRow);
 
+  // Numeric columns with mixed decimal precision reserve the widest decimal
+  // width in every row so ones digits and decimal points share one vertical
+  // line without adding trailing blank space to all-integer columns.
+  const numericParts = columns.map((column, i) => {
+    if (!column.numeric) return null;
+    let minFrac = Infinity, maxFrac = 0;
+    const rows = scoreListShown.rows.map((row) => {
+      const value = row.values[i];
+      if (!Number.isFinite(value)) return null;
+      const parts = parseScoreNumber(column.format(value));
+      const fracLen = parts.fracPart.length;
+      if (fracLen < minFrac) minFrac = fracLen;
+      if (fracLen > maxFrac) maxFrac = fracLen;
+      return parts;
+    });
+    return { rows, padFrac: maxFrac > 0 && minFrac < maxFrac ? maxFrac : 0 };
+  });
+
   const body = document.createElement('tbody');
   const stop = tabStop === null ? scoreListShown.rows[0].record : tabStop;
-  for (const row of scoreListShown.rows) {
+  scoreListShown.rows.forEach((row, rowIndex) => {
     const line = document.createElement('tr');
     line.tabIndex = row.record === stop ? 0 : -1;
     if (row.record === scoreListShown.pageGame) line.className = 'me';
@@ -180,17 +220,38 @@ function renderScoreListTable(tabStop) {
     rank.textContent = String(row.rank);
     line.appendChild(rank);
     columns.forEach((column, i) => {
+      if (column.numeric) {
+        const cell = document.createElement('td');
+        const parts = numericParts[i].rows[rowIndex];
+        if (parts !== null) {
+          if (column.id === 'time' && isMarkless(row.record)) cell.classList.add('markless-time');
+          const padFrac = numericParts[i].padFrac;
+          if (padFrac > 0) {
+            const frac = document.createElement('span');
+            frac.className = 'score-num-frac';
+            frac.style.width = padFrac + 'ch';
+            frac.textContent = parts.fracPart;
+            cell.append(parts.intPart, frac);
+          } else {
+            cell.textContent = parts.intPart + parts.fracPart;
+          }
+        }
+        line.appendChild(cell);
+        return;
+      }
       const value = row.values[i];
-      for (const [className, text] of Number.isFinite(value) ? column.cells(value) : [['', '']]) {
+      const cells = Number.isFinite(value)
+        ? column.cells(value)
+        : Array.from({ length: column.colSpan }, () => ['', '']);
+      for (const [className, text] of cells) {
         const cell = document.createElement('td');
         if (className) cell.className = className;
-        if (column.id === 'time' && isMarkless(row.record)) cell.classList.add('markless-time');
         cell.textContent = text;
         line.appendChild(cell);
       }
     });
     body.appendChild(line);
-  }
+  });
   table.append(head, body);
   scoreListScroll.replaceChildren(table);
 }
@@ -250,18 +311,24 @@ function setScoreListChoicesOpen(open) {
 }
 
 // One box per column a list may show, under its group; each box changes
-// the list at once.
+// the list at once. Non-performance groups stack beside a two-column
+// performance-measurements list so all columns fit without scrolling on desktop.
 function renderScoreListChoices() {
   const groups = new Map();
   for (const column of scoreListShown.columns.filter((c) => c.id !== 'time')) {
     if (!groups.has(column.group)) groups.set(column.group, []);
     groups.get(column.group).push(column);
   }
-  const parts = [];
-  for (const [group, columns] of groups) {
+  const makeGroup = (group, columns, listClass = '') => {
+    const section = document.createElement('section');
+    section.className = 'score-list-choice-group';
     const title = document.createElement('h3');
     title.textContent = group;
     const choices = document.createElement('ul');
+    if (listClass) {
+      choices.className = listClass;
+      choices.style.setProperty('--choice-rows', String(Math.ceil(columns.length / 2)));
+    }
     for (const column of columns) {
       const item = document.createElement('li');
       const input = document.createElement('input');
@@ -270,11 +337,28 @@ function renderScoreListChoices() {
       input.dataset.column = column.id;
       input.setAttribute('aria-label', column.name);
       input.addEventListener('change', () => showScoreListColumn(column, input.checked));
-      item.append(input, column.help ? chartHelpButton(column.help, column.name) : column.name);
+      if (column.help) {
+        item.append(input, chartHelpButton(column.help, column.name));
+      } else {
+        const label = document.createElement('label');
+        label.className = 'score-list-choice-label';
+        label.append(input, column.name);
+        item.appendChild(label);
+      }
       choices.appendChild(item);
     }
-    parts.push(title, choices);
+    section.append(title, choices);
+    return section;
+  };
+  const side = document.createElement('div');
+  side.className = 'score-list-choice-side';
+  for (const [group, columns] of groups) {
+    if (group === 'performance measurements') continue;
+    side.appendChild(makeGroup(group, columns));
   }
+  const parts = [side];
+  const perf = groups.get('performance measurements');
+  if (perf) parts.push(makeGroup('performance measurements', perf, 'score-list-choices-two-col'));
   scoreListChoices.replaceChildren(...parts);
 }
 
