@@ -19,48 +19,50 @@ assert.deepEqual(on(GameData.defaults), ['time', 'misclickRate', 'fastclickGap',
   'clickRate', 'noopRate', 'boardChangingClickShare', 'mouseSpeed', 'timeBeforeMove', 'easyWorkLeftShare', 'unusedFlagShare', 'unflaggedMineShare'],
   'the creator’s defaults, plus the requested unflagged mine share and move habits');
 const board = { width: 9, height: 9, mines: 10 };
-assert.deepEqual(GameData.rows(current, records, GameData.defaultsForView, board).map((r) => r.id), ['time.lifetime', 'time.session',
-  'misclickRate.lifetime', 'misclickRate.session', 'fastclickGap.lifetime', 'fastclickGap.session',
-  'bvPerSecond.lifetime', 'bvPerSecond.session', 'clickRate.lifetime', 'clickRate.session',
-  'noopRate.lifetime', 'noopRate.session', 'boardChangingClickShare.lifetime', 'boardChangingClickShare.session',
-  'mouseSpeed.lifetime', 'mouseSpeed.session'],
-  'one selection ranks each shown measurement against lifetime and the session; unmeasured flag measurements are absent');
+assert.deepEqual(GameData.rows(current, records, GameData.defaultsForView, board).map((r) => r.id), ['time.all',
+  'misclickRate.all', 'fastclickGap.all', 'bvPerSecond.all', 'clickRate.all',
+  'noopRate.all', 'boardChangingClickShare.all', 'mouseSpeed.all'],
+  'default pool ranks each shown measurement against all games; unmeasured flag measurements are absent');
 const all = Object.fromEntries(GameData.metrics.map((m) => [m.id, true]));
 const none = Object.fromEntries(GameData.metrics.map((m) => [m.id, false]));
-const both = { ...GameData.defaultsForView, gameDataMetrics: all };
-const rows = GameData.rows(current, records, both, board);
-const row = (id) => rows.find((r) => r.id === id);
-assert.equal(row('time.lifetime').name, 'time');
-assert.equal(row('time.lifetime').metricId, 'time');
-assert.deepEqual(['time.lifetime', 'time.session'].map((id) => row(id).scope), ['lifetime', 'session']);
-assert.equal(row('time.lifetime').rank, 3);
-assert.equal(row('time.lifetime').percentile, 100 * 2 / 3, '100 × (rank − 1) ÷ (count − 1)');
+const allMetrics = { ...GameData.defaultsForView, gameDataMetrics: all };
+const allRows = GameData.rows(current, records, allMetrics, board);
+const sessionRows = GameData.rows(current, records, { ...allMetrics, gameDataPool: 'session' }, board);
+const row = (id) => allRows.find((r) => r.id === id) || sessionRows.find((r) => r.id === id);
+assert.equal(row('time.all').name, 'time');
+assert.equal(row('time.all').metricId, 'time');
+assert.equal(row('time.all').scope, 'all');
+assert.equal(row('time.all').poolLabel, 'all games');
+assert.equal(row('time.session').scope, 'session');
+assert.equal(row('time.session').poolLabel, 'session');
+assert.equal(row('time.all').rank, 3);
+assert.equal(row('time.all').percentile, 100 * 2 / 3, '100 × (rank − 1) ÷ (count − 1)');
 assert.equal(row('time.session').percentile, 0, 'the best in the pool is 0%');
-assert.equal(row('time.lifetime').total, 4, 'future games and losses cannot enter solve-time background');
+assert.equal(row('time.all').total, 4, 'future games and losses cannot enter solve-time background');
 assert.equal(row('time.session').total, 2);
-assert.equal(row('time.lifetime').valueText, '30.000s');
+assert.equal(row('time.all').valueText, '30.000s');
 assert.equal(row('clickRate.session').total, 3, 'measured action rates include wins and losses');
 assert.equal(row('efficiency.session').total, 2, 'completion ratios exclude incomplete boards');
 assert.equal(row('fastclickGap.session').total, 2, 'missing is not zero');
 assert.equal(row('misclickRate.session').rank, 1.5, 'equal rates share mean ordinal rank');
 assert.deepEqual([row('misclickRate.session').firstRank, row('misclickRate.session').lastRank], [1, 2], 'a tie names its rank range');
-assert.deepEqual([row('time.lifetime').firstRank, row('time.lifetime').lastRank], [3, 3]);
+assert.deepEqual([row('time.all').firstRank, row('time.all').lastRank], [3, 3]);
 assert.equal(row('misclickRate.session').percentile, 25);
 assert.equal(row('misclickRate.session').valueText, '0/min');
 assert.equal(row('fastclickGap.session').percentile, 50, 'all-equal timing has neutral rank');
 // A card states the rank alone (creator 2026-10-08): its label names the
 // pool and the row shows the percentage, so no pool description ("so far
 // with these board settings") and no arithmetic.
-assert.equal(row('time.lifetime').standingText, '3rd of 4 wins');
+assert.equal(row('time.all').standingText, '3rd of 4 wins');
 assert.equal(row('misclickRate.session').standingText, 'tied 1st–2nd of 3 games');
 assert.deepEqual([row('misclickRate.session').better, row('misclickRate.session').tiedOthers], [0, 1]);
 assert.equal(row('fastclickGap.session').standingText, 'both games have this value');
 const equalTimes = [{ ...current, endedAt: now - 60000 }, current];
 assert.equal(GameData.rows(current, equalTimes, GameData.defaultsForView, board)[0].standingText, '2nd of 2 wins', 'an equal time set earlier ranks ahead');
 const constant = GameData.rows(current, [1, 2, 3].map((i) => ({ ...current, endedAt: now - i * 60000 })).concat(current),
-  { ...both, gameDataMetrics: { ...none, boardChangingClickShare: true } }, board);
-assert.equal(constant.find((r) => r.id === 'boardChangingClickShare.lifetime').standingText, 'all 4 games have this value');
-assert(rows.every((r) => !/÷|=|settings|so far/.test(r.standingText)), 'no rank carries arithmetic or an obvious qualifier');
+  { ...allMetrics, gameDataMetrics: { ...none, boardChangingClickShare: true } }, board);
+assert.equal(constant.find((r) => r.id === 'boardChangingClickShare.all').standingText, 'all 4 games have this value');
+assert([...allRows, ...sessionRows].every((r) => !/÷|=|settings|so far/.test(r.standingText)), 'no rank carries arithmetic or an obvious qualifier');
 // A definition says only what the name and unit leave open; a measurement
 // they already explain has none.
 assert.deepEqual(GameData.metrics.filter((m) => m.help === undefined).map((m) => m.id),
@@ -99,15 +101,96 @@ assert.equal(formula('ios')({ outcome: 'win', bv3: 10, timeMs: 5000 }), Math.log
 assert.equal(formula('fastclickGap')({ fastclickGapMs: 140, fastclickGapVersion: 'planned-pairs-v1' }), 140);
 assert.equal(formula('fastclickGap')({ fastclickGapMs: 300 }), undefined,
   'a value under the definition before planned pairs is another measurement');
-assert.equal(row('time.lifetime').definition, undefined);
+assert.equal(row('time.all').definition, undefined);
 assert.equal(row('misclickRate.session').definition, GameData.metrics.find((m) => m.id === 'misclickRate').help,
   'every pool’s row carries its measurement’s definition');
 assert.equal(GameData.rows({ ...current, outcome: 'loss' }, records).length, 0);
-assert.deepEqual(GameData.rows(current, [current], both, board), [], 'one measured game produces no comparison rows in any scope');
-const short = GameData.rows(current, records, { ...both, sessionDefinition: 'past10min' }, board);
+assert.deepEqual(GameData.rows(current, [current], allMetrics, board), [], 'one measured game produces no comparison rows in any scope');
+const short = GameData.rows(current, records, { ...allMetrics, gameDataPool: 'session', sessionDefinition: 'past10min' }, board);
 assert.equal(short.find((r) => r.id === 'time.session'), undefined, 'a session with only one win has no solve-time comparison');
 assert.equal(short.find((r) => r.id === 'clickRate.session').total, 2, 'activity can compare a measured win and loss');
-assert.equal(short.find((r) => r.id === 'time.lifetime').total, 4);
+assert.equal(GameData.rows(current, records, { ...allMetrics, gameDataPool: 'all' }, board).find((r) => r.id === 'time.all').total, 4);
+assert.throws(() => GameData.poolSpec('bogus'), /unknown game data pool/);
+
+// Time-window pools share the rank tables' boundaries and draw on the all-games axis.
+const olderGames = [
+  { ...current, endedAt: new Date(2025, 11, 20, 12).getTime(), timeMs: 8000 },
+  { ...current, endedAt: new Date(2026, 7, 15, 12).getTime(), timeMs: 12000 },
+  { ...current, endedAt: new Date(2026, 8, 10, 12).getTime(), timeMs: 15000 },
+  { ...current, endedAt: new Date(2026, 8, 20, 12).getTime(), timeMs: 18000 },
+  ...records,
+];
+const windowRow = (poolId) => GameData.rows(current, olderGames,
+  { ...allMetrics, gameDataMetrics: { ...none, time: true }, gameDataPool: poolId }, board)[0];
+assert.equal(windowRow('past-hour').total, 2);
+assert.equal(windowRow('past-hour').poolLabel, 'past hour');
+assert.equal(windowRow('today').total, 2);
+assert.equal(windowRow('today').poolLabel, 'today');
+assert.equal(windowRow('past-week').total, 5, 'past week covers 7 calendar days including Sept 20 and Sept 21');
+assert.equal(windowRow('past-week').poolLabel, 'past week');
+assert.equal(windowRow('calendar-month').total, 6, 'this month adds Sept 10');
+assert.equal(windowRow('calendar-month').poolLabel, 'this month');
+assert.equal(windowRow('calendar-year').total, 7, 'in 2026 adds Aug 15');
+assert.equal(windowRow('calendar-year').poolLabel, 'in 2026');
+assert.equal(windowRow('rolling-year').total, 8, 'last 365 days adds Dec 2025');
+assert.equal(windowRow('rolling-year').poolLabel, 'last 365 days');
+assert.equal(windowRow('all').total, 8);
+assert.deepEqual([windowRow('past-week').distribution.lo, windowRow('past-week').distribution.hi],
+  [windowRow('all').distribution.lo, windowRow('all').distribution.hi],
+  'time-window pools share the all-games distribution axis');
+
+// Board-match pools scope perf metrics to boards matching one trait, using the
+// same buckets as This board tables, and draw distributions on their own axis.
+const bmCurrent = { ...current, timeMs: 30000, bv3: 60, zini: 40, hzini: 42, maxAdjacent: 5,
+  islandCount: 10, largestIsland: 4, zeroCount: 20,
+  boardMetrics: { version: 1, workSpread: 6.38, safeCells: 100, zeroOpenedZeroOneCells: 60, zeroOpenedCells: 69 } };
+const bmRecords = [
+  { ...bmCurrent, endedAt: now - 5 * 60000, timeMs: 10000, bv3: 30, zini: 20, hzini: 22, maxAdjacent: 3,
+    islandCount: 5, largestIsland: 2, zeroCount: 40,
+    boardMetrics: { version: 1, workSpread: 3.1, safeCells: 100, zeroOpenedZeroOneCells: 80, zeroOpenedCells: 90 } },
+  { ...bmCurrent, endedAt: now - 4 * 60000, timeMs: 60000, bv3: 90, zini: 70, hzini: 72, maxAdjacent: 7,
+    islandCount: 20, largestIsland: 8, zeroCount: 5,
+    boardMetrics: { version: 1, workSpread: 9.8, safeCells: 100, zeroOpenedZeroOneCells: 30, zeroOpenedCells: 40 } },
+  { ...bmCurrent, endedAt: now - 3 * 60000, timeMs: 28000, boardChangingClicks: 70,
+    boardMetrics: { version: 1, workSpread: 6.62, safeCells: 100, zeroOpenedZeroOneCells: 60, zeroOpenedCells: 69 } },
+  { ...bmCurrent, endedAt: now - 2 * 60000, outcome: 'loss', timeMs: 12000, boardChangingClicks: 60,
+    boardMetrics: { version: 1, workSpread: 6.4, safeCells: 100, zeroOpenedZeroOneCells: 60, zeroOpenedCells: 69 } },
+  bmCurrent,
+];
+const bv3Scoped = GameData.rows(bmCurrent, bmRecords,
+  { ...allMetrics, gameDataMetrics: { ...none, time: true, clickRate: true }, gameDataPool: 'board:bv3' }, board);
+const bv3Time = bv3Scoped.find((r) => r.metricId === 'time');
+const bv3Clicks = bv3Scoped.find((r) => r.metricId === 'clickRate');
+assert.equal(bv3Time.scope, 'board:bv3');
+assert.equal(bv3Time.poolLabel, '3BV 60');
+assert.equal(bv3Time.standingText, '2nd of 2 wins', 'wins-only metric compares matching wins');
+assert.equal(bv3Clicks.standingText, '2nd of 3 games', 'all-outcome metric compares matching wins and losses');
+const allBmTime = GameData.rows(bmCurrent, bmRecords,
+  { ...allMetrics, gameDataMetrics: { ...none, time: true }, gameDataPool: 'all' }, board)[0];
+assert(bv3Time.distribution.lo > allBmTime.distribution.lo && bv3Time.distribution.hi < allBmTime.distribution.hi,
+  'board-match pool draws its distribution on its own axis rather than the wider all-games axis');
+const spreadRow = GameData.rows(bmCurrent, bmRecords,
+  { ...allMetrics, gameDataMetrics: { ...none, time: true }, gameDataPool: 'board:workSpread' }, board)[0];
+assert.equal(spreadRow.poolLabel, '3BV spread 6.25–6.75 cells');
+assert.equal(spreadRow.total, 2, '6.38 and 6.62 share the 6.25–6.75 band');
+const shareBoardRow = GameData.rows(bmCurrent, bmRecords,
+  { ...allMetrics, gameDataMetrics: { ...none, time: true }, gameDataPool: 'board:zeroOneShare' }, board)[0];
+assert.equal(shareBoardRow.poolLabel, '0–1 share 60%');
+assert.equal(shareBoardRow.total, 2);
+for (const [poolId, wantLabel] of [['board:zini', 'ZiNi 40'], ['board:hzini', 'HZiNi 42'],
+  ['board:maxAdjacent', 'max number 5'], ['board:zeroOpeningCoverage', 'zero-opening coverage 69%'],
+  ['board:islandCount', 'islands 10'], ['board:largestIsland', 'largest island 4'], ['board:zeroCount', 'zeros 20']]) {
+  const matched = GameData.rows(bmCurrent, bmRecords,
+    { ...allMetrics, gameDataMetrics: { ...none, time: true }, gameDataPool: poolId }, board)[0];
+  assert.equal(matched.poolLabel, wantLabel, poolId + ' label');
+  assert.equal(matched.total, 2, poolId + ' matches the two wins with that trait');
+}
+const missingTrait = { ...current, zini: undefined };
+assert.deepEqual(GameData.rows(missingTrait, [bmRecords[0], missingTrait],
+  { ...allMetrics, gameDataPool: 'board:zini' }, board), [], 'unmeasured trait on this board produces no rows');
+assert.equal(GameData.boardTraitPoolId('board:bv3'), 'all', 'board traits fall back to all games for board-match pools');
+assert.equal(GameData.boardTraitPoolId('past-week'), 'past-week', 'board traits follow time-window pools');
+assert.equal(GameData.boardTraitPoolId('session'), 'session');
 assert.equal(SessionScope.records(records, 'pastHour', now).length, 3);
 const boundary = { ...current, endedAt: now - 3600000 };
 assert(SessionScope.records([boundary], 'pastHour', now).includes(boundary), 'lower bound is inclusive everywhere');
@@ -135,20 +218,20 @@ assert.deepEqual(GameData.domain([]), [0, 100]);
 assert.deepEqual(GameData.domain([{ percentile: 98 }, { percentile: 100 }]), [90, 100]);
 assert.equal(GameData.rows(current, records, { ...GameData.defaultsForView, gameDataMetrics: none }).length, 0);
 
-// Distributions: every pool on the lifetime axis.
+// Distributions: time windows on the all-games axis.
 // Whole milliseconds are whole values: 30,001 possible times in about 36
 // bins of 834 values each, every bin holding the same number.
-const timeLife = row('time.lifetime').distribution;
+const timeLife = row('time.all').distribution;
 assert.deepEqual([timeLife.lo, timeLife.hi, timeLife.bins, timeLife.step, timeLife.perBin], [9988.5, 40012.5, 36, 1, 834],
   'whole values beyond 60 get equal groups of whole values, the spare values split around the range');
-assert.equal(timeLife.counts.reduce((a, b) => a + b, 0), row('time.lifetime').total, 'every game inside the range is drawn');
+assert.equal(timeLife.counts.reduce((a, b) => a + b, 0), row('time.all').total, 'every game inside the range is drawn');
 assert.deepEqual([0, 12, 35].map((bin) => Math.round(timeLife.standing[bin])), [0, 33, 100],
   'a bin stands at its games’ percentile');
 assert.equal(timeLife.standing[1], null, 'a bin without games has no standing');
 assert.deepEqual(timeLife.labels.map((label) => label.text), ['10s', '20s', '30s', '40s'], 'labels sit at round values');
-assert.deepEqual([row('time.session').distribution.lo, row('time.session').distribution.hi], [9988.5, 40012.5], 'pools share the lifetime axis');
+assert.deepEqual([row('time.session').distribution.lo, row('time.session').distribution.hi], [9988.5, 40012.5], 'time windows share the all-games axis');
 assert.equal(row('time.session').distribution.counts.reduce((a, b) => a + b, 0), 2);
-const bvRow = row('bvPerSecond.lifetime').distribution;
+const bvRow = row('bvPerSecond.all').distribution;
 assert.deepEqual([bvRow.step, bvRow.bins], [null, 36], 'a continuous measurement gets 36 equal bins');
 
 // The comb a 3BV histogram showed: whole counts spanning more than 60
@@ -157,42 +240,40 @@ assert.deepEqual([bvRow.step, bvRow.bins], [null, 36], 'a continuous measurement
 // has no outliers, so the fence keeps every value.
 const spread = Array.from({ length: 121 }, (_, i) => 110 + i);
 const bv3Records = spread.map((bv3, i) => ({ ...current, endedAt: now - (200 - i) * 60000, bv3 }));
-const bv3Axis = GameData.addDistributions([{ scope: 'lifetime', value: 150, higher: false }], { lifetime: spread }, String)[0].distribution;
+const bv3Axis = GameData.addDistribution({ scope: 'all', value: 150, higher: false }, spread, spread, String).distribution;
 assert.deepEqual([bv3Axis.step, bv3Axis.perBin, bv3Axis.bins, bv3Axis.lo, bv3Axis.hi], [1, 4, 31, 108.5, 232.5],
   '121 whole values, 110 to 230, in 31 bins of 4, the spare slots split around the range');
 assert.equal(bv3Axis.counts.reduce((a, b) => a + b, 0), 121, 'every value of a uniform spread is drawn');
 assert(bv3Axis.counts.every((count) => count >= 2 && count <= 4), 'only the padding at the ends is short a value');
 assert(bv3Records.length === 121);
-const narrow = GameData.addDistributions([{ scope: 'lifetime', value: 75, higher: false }],
-  { lifetime: Array.from({ length: 55 }, (_, i) => 41 + i) }, String)[0].distribution;
+const narrowValues = Array.from({ length: 55 }, (_, i) => 41 + i);
+const narrow = GameData.addDistribution({ scope: 'all', value: 75, higher: false }, narrowValues, narrowValues, String).distribution;
 assert.deepEqual([narrow.perBin, narrow.bins], [1, 55], 'at most 60 values get one bar each');
 const percentOf = (v) => Number((100 * v).toFixed(1)) + '%';
-const share = GameData.addDistributions([{ scope: 'lifetime', value: 130 / 216, higher: true }],
-  { lifetime: Array.from({ length: 55 }, (_, i) => (100 + i) / 216) }, percentOf, 1 / 216)[0].distribution;
+const shareValues = Array.from({ length: 55 }, (_, i) => (100 + i) / 216);
+const share = GameData.addDistribution({ scope: 'all', value: 130 / 216, higher: true }, shareValues, shareValues, percentOf, 1 / 216).distribution;
 assert.deepEqual([share.perBin, share.bins], [1, 55], 'a share of 216 safe cells bins one cell each');
 assert(share.counts.every((count) => count === 1), 'one board per cell value draws an even histogram');
-const wideShare = GameData.addDistributions([{ scope: 'lifetime', value: 130 / 216, higher: true }],
-  { lifetime: Array.from({ length: 108 }, (_, i) => (100 + i) / 216) }, percentOf, 1 / 216)[0].distribution;
+const wideShareValues = Array.from({ length: 108 }, (_, i) => (100 + i) / 216);
+const wideShare = GameData.addDistribution({ scope: 'all', value: 130 / 216, higher: true }, wideShareValues, wideShareValues, percentOf, 1 / 216).distribution;
 assert.deepEqual([wideShare.perBin, [...new Set(wideShare.counts)]], [3, [3]], 'wider shares group whole cells evenly');
 // A far tail must not stretch the axis out to itself. The bulk is 0 and
 // then 0.1–4; 8, 12, and 20 are past the fence (Q3 is 2, so the whisker
 // ends at 5).
 const skewed = [...Array(50).fill(0), ...Array.from({ length: 40 }, (_, i) => (i + 1) / 10), 8, 12, 20];
-const skewedAxis = GameData.addDistributions([{ scope: 'lifetime', value: 0.5, higher: false }],
-  { lifetime: skewed }, (v) => v.toFixed(1))[0].distribution;
+const skewedAxis = GameData.addDistribution({ scope: 'all', value: 0.5, higher: false }, skewed, skewed, (v) => v.toFixed(1)).distribution;
 assert.deepEqual([skewedAxis.lo, skewedAxis.hi, skewedAxis.bins], [0, 4, 36],
   'the axis ends at the last value inside the fence, not at the tail');
 assert.equal(skewedAxis.counts.reduce((a, b) => a + b, 0), 90, 'the three tail values are not drawn');
 // At least half the values tied, so there is no whisker: the narrowest
 // window holding 90% is drawn instead of collapsing onto the tied value.
 const mass = [...Array(80).fill(0), 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-const massAxis = GameData.addDistributions([{ scope: 'lifetime', value: 0, higher: false }],
-  { lifetime: mass }, String)[0].distribution;
+const massAxis = GameData.addDistribution({ scope: 'all', value: 0, higher: false }, mass, mass, String).distribution;
 assert.deepEqual([massAxis.lo, massAxis.hi], [-0.5, 1.5],
   'a point mass keeps the nearest tail value the 90% window needs');
 assert.equal(massAxis.counts.reduce((a, b) => a + b, 0), 81);
-const wholeAxis = GameData.addDistributions([{ scope: 'lifetime', value: 3, higher: false }],
-  { lifetime: [0, 3, 1, 3] }, String)[0].distribution;
+const wholeValues = [0, 3, 1, 3];
+const wholeAxis = GameData.addDistribution({ scope: 'all', value: 3, higher: false }, wholeValues, wholeValues, String).distribution;
 assert.deepEqual([wholeAxis.lo, wholeAxis.hi, wholeAxis.bins, wholeAxis.step], [-0.5, 3.5, 4, 1],
   'whole values spanning at most 60 get one bin each');
 assert.deepEqual(wholeAxis.counts, [1, 1, 0, 2]);
@@ -217,7 +298,7 @@ const shareGames = [[8, 0], [6, 1], [10, 0], [7, 0], [9, 1]].map(([flagsPlaced, 
   ({ ...current, endedAt: now - (5 - i) * 60000, flagsPlaced, flagsRemoved }));
 const shareRow = GameData.rows(shareGames[4], shareGames,
   { ...GameData.defaultsForView, gameDataMetrics: { ...none, unflaggedMineShare: true } }, board)
-  .find((r) => r.id === 'unflaggedMineShare.lifetime');
+  .find((r) => r.id === 'unflaggedMineShare.all');
 assert.equal(shareRow.valueText, '20%');
 assert.equal(shareRow.higher, true, 'more mines left unflagged is better');
 assert.deepEqual([shareRow.standingText, shareRow.percentile], ['tied 3rd–4th of 5 wins', 62.5],

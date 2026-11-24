@@ -41,7 +41,7 @@ function assertEq(name, actual, want) {
     { outcome: 'loss', endedAt: 2, bv3: 60, zeroCount: 50 }, current];
   const comparisons = [...boardMetricCandidates([current], past),
     ...boardShapeCandidates([current], past)];
-  const rows = boardTraitRankProfile(current, comparisons, past, 'today');
+  const rows = boardTraitRankProfile(current, comparisons, past, 'all', 'today');
   const workload = rows.find((r) => r.metricId === 'bv3');
   const zeros = rows.find((r) => r.metricId === 'zeroCount');
   assertEq('lower 3BV preferred', workload.rank, 3);
@@ -60,14 +60,14 @@ function assertEq(name, actual, want) {
   const high = { outcome: 'win', endedAt: 3, maxAdjacent: 8, largestIsland: 20, islandCount: 1,
     boardMetrics: { version: 1, safeCells: 100, zeroOpenedCells: 90, zeroOpenedZeroOneCells: 80 } };
   const pool = [low, mid, high];
-  const preferred = (record) => boardTraitRankProfile(record,
-    [...boardMetricCandidates([record], pool), ...boardShapeCandidates([record], pool)], pool, 'today');
+  const preferred = (record, poolId = 'all') => boardTraitRankProfile(record,
+    [...boardMetricCandidates([record], pool), ...boardShapeCandidates([record], pool)], pool, poolId, 'today');
   const highRows = preferred(high);
   const lateLow = { ...low, endedAt: 4 };
   const worstRows = boardTraitRankProfile(lateLow,
     [...boardMetricCandidates([lateLow], [mid, high, lateLow]),
       ...boardShapeCandidates([lateLow], [mid, high, lateLow])],
-    [mid, high, lateLow], 'today');
+    [mid, high, lateLow], 'all', 'today');
   const of = (list, id) => list.find((r) => r.metricId === id);
   assertEq('higher max number is the preferred end', of(highRows, 'maxAdjacent').percentile, 0);
   assertEq('lower max number is the worst end', of(worstRows, 'maxAdjacent').percentile, 100);
@@ -81,14 +81,17 @@ function assertEq(name, actual, want) {
   const shareAxis = of(highRows, 'zeroOneShare').distribution;
   assertEq('a share axis labels round shares', shareAxis.labels.map((label) => label.text).join(' '), '20% 40% 60% 80%');
   assertEq('a share of safe cells bins whole cells', shareAxis.step + ' ' + shareAxis.perBin, 0.01 + ' 2');
-  assertEq('a board trait also ranks against the session’s boards',
-    highRows.filter((r) => r.metricId === 'zeroOneShare').map((r) => r.scope).join(' '), 'lifetime session');
+  assertEq('all games produces one row per trait', highRows.filter((r) => r.metricId === 'zeroOneShare').map((r) => r.scope).join(' '), 'all');
+  assertEq('session pool ranks board traits within the session',
+    preferred(high, 'session').filter((r) => r.metricId === 'zeroOneShare').map((r) => r.scope).join(' '), 'session');
+  assertEq('board-match pool falls back to all games on board traits',
+    preferred(high, 'board:bv3').find((r) => r.metricId === 'zeroOneShare').scope, 'all');
   assertEq('a self-evident trait’s card has no definition', of(highRows, 'maxAdjacent').definition, undefined);
   assertEq('a trait the name leaves open keeps its definition', of(highRows, 'islandCount').definition,
     'Groups of touching mines on this board, diagonals included.');
   assertEq('a board trait’s card gives the rank alone', of(highRows, 'maxAdjacent').standingText, '1st of 3 boards');
-  assertEq('single board has no comparison rows', boardTraitRankProfile(current, comparisons, [current], 'today').length, 0);
-  assertEq('no board profile for a loss', boardTraitRankProfile({ ...current, outcome: 'loss' }, comparisons, past, 'today').length, 0);
+  assertEq('single board has no comparison rows', boardTraitRankProfile(current, comparisons, [current], 'all', 'today').length, 0);
+  assertEq('no board profile for a loss', boardTraitRankProfile({ ...current, outcome: 'loss' }, comparisons, past, 'all', 'today').length, 0);
 }
 
 // Visible board measurements are independent of rounded comparison buckets.

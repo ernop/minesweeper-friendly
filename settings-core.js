@@ -205,6 +205,16 @@ function gameDataMetricsFromStored(stored) {
     [id, old.some((selection) => selection[id] ?? GameData.defaults[id])]));
 }
 
+// One pool choice replaced the separate band and distributions switches
+// (2026-11-23); saved profiles keep session when that was their active pool,
+// and map everything else to all games.
+function gameDataPoolFromStored(stored) {
+  if (Object.hasOwn(stored, 'gameDataPool')) return stored.gameDataPool;
+  const active = stored.gameDataDistributions === true
+    ? stored.gameDataDistributionPools : stored.gameDataBandPool;
+  return active === 'session' ? 'session' : GameData.DEFAULT_POOL;
+}
+
 // Game data's board traits in its row order, and whether each shows by
 // default: as the This board table switches showed them by default.
 const GAME_DATA_BOARD_TRAIT_DEFAULTS = Object.freeze({
@@ -548,7 +558,7 @@ const SETTINGS_SCHEMA = [
     field: 'sessionDefinition', default: SessionScope.defaultId,
     valid: (v) => SessionScope.choices.some((choice) => choice.id === v),
     group: 'after-game', label: 'page-wide session',
-    describe: 'the one wall-clock session window for the session summary, ranks won in session, game data session comparisons, and the switch cost line; chosen only with the session picker in the settings row at the foot of the game page; default today (since local midnight, not the last 24 hours)',
+    describe: 'the one wall-clock session window for the session summary, ranks won in session, game data’s session comparison, and the switch cost line; chosen only with the session picker in the settings row at the foot of the game page; default today (since local midnight, not the last 24 hours)',
     control: 'none',
   },
   {
@@ -560,13 +570,13 @@ const SETTINGS_SCHEMA = [
     field: 'gameDataMetrics', default: GameData.defaults, mergeDefaults: true,
     valid: validGameDataMetrics, migrate: gameDataMetricsFromStored,
     group: 'after-game', label: 'game data measurements',
-    describe: 'which of your performance measurements game data compares with your lifetime and your session', control: 'none',
+    describe: 'which of your performance measurements game data compares against the chosen pool', control: 'none',
   },
   {
     field: 'gameDataBoardTraits', default: GAME_DATA_BOARD_TRAIT_DEFAULTS, mergeDefaults: true,
     valid: preferenceBooleans(GAME_DATA_BOARD_TRAIT_DEFAULTS), migrate: gameDataBoardTraitsFromStored,
     group: 'after-game', label: 'game data board traits',
-    describe: 'which of this board’s traits game data ranks against your lifetime and your session boards; chosen with configure on the chart, apart from the This board tables', control: 'none',
+    describe: 'which of this board’s traits game data ranks against the chosen pool (all games when a board-match pool is picked); chosen with configure on the chart, apart from the This board tables', control: 'none',
   },
   {
     field: 'gameDataSwitchCost', default: false,
@@ -590,19 +600,16 @@ const SETTINGS_SCHEMA = [
     describe: 'the scale of the live perf chart that sets each line against its whole-game value: log, doublings either side of 1× (default), or linear from 0; chosen with the log scale checkbox on that section', control: 'none',
   },
   {
-    field: 'gameDataBandPool', default: 'lifetime',
-    valid: (v) => v === 'lifetime' || v === 'session', group: 'after-game',
-    label: 'game data comparison pool', describe: 'whether game data places both sides’ points, and shows every hover card, among your lifetime games or your session games; chosen with the points switch on the chart', control: 'none',
+    field: 'gameDataPool', default: GameData.DEFAULT_POOL,
+    valid: GameData.isValidPool, migrate: gameDataPoolFromStored, group: 'after-game',
+    label: 'game data comparison pool',
+    describe: 'which pool game data compares this game with — all games, the session, a time window, or games matching one of this board’s traits; chosen with the compared-with picker on the chart',
+    control: 'none',
   },
   {
     field: 'gameDataDistributions', default: false,
     valid: (v) => typeof v === 'boolean', group: 'after-game',
-    label: 'game data distributions', describe: 'show game data as one distribution strip per measurement and comparison instead of the bar; chosen on the chart', control: 'none',
-  },
-  {
-    field: 'gameDataDistributionPools', default: 'both',
-    valid: (v) => v === 'lifetime' || v === 'session' || v === 'both', group: 'after-game',
-    label: 'game data distribution pools', describe: 'whether game data’s distributions show the lifetime groups, the session groups, or both, for your perf and board traits alike; chosen with the pools switch on the chart', control: 'none',
+    label: 'game data distributions', describe: 'show game data as one distribution strip per measurement instead of the bar; chosen on the chart', control: 'none',
   },
   {
     field: 'detailsColumnShare',

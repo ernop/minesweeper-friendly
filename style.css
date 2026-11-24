@@ -2701,15 +2701,6 @@ body.settings-page .return-to-game {
 }
 .board-time-profile h4 { margin: 0; font-size: 16px; font-weight: 400; color: #000000; }
 .board-time-profile .chart-help-label { font-weight: 400; }
-.game-data-pool-switch { display: inline-flex; align-items: baseline; gap: 0; }
-.board-time-profile .game-data-pool-switch button {
-  padding: 0 6px;
-  border-radius: 0;
-  border-color: #000000;
-  background: #ffffff;
-}
-.board-time-profile .game-data-pool-switch button + button { border-left: 0; }
-.board-time-profile .game-data-pool-switch button[aria-pressed="true"] { background: #dcecf5; }
 
 /* The band: rows, column heads, bar, dots, and leaders are absolutely
    placed by buildGameDataBand from measured column widths. Every row is
@@ -2762,10 +2753,9 @@ body.settings-page .return-to-game {
 .game-data-value,
 .game-data-pct { text-align: right; font-variant-numeric: tabular-nums; }
 .game-data-row .game-data-value,
-.game-data-row .game-data-pct.plotted { font-size: 1.0833em; }
+.game-data-row .game-data-pct { font-size: 1.0833em; }
 .game-data-block[data-orientation="around"] [data-side="board"] .game-data-pct { text-align: left; }
 .game-data-block[data-orientation="left"] [data-side="board"] .game-data-pct { order: 1; }
-.game-data-band[data-pool-columns="1"] .game-data-pct:not(.plotted) { display: none; }
 .game-data-values-hidden .game-data-value { display: none; }
 .game-data-bar {
   position: absolute;
@@ -2907,6 +2897,7 @@ body.settings-page .return-to-game {
 /* A side's title spans the columns above its groups. */
 .game-data-distributions > .game-data-side-title { grid-column: 1 / -1; position: static; }
 .game-data-dist-head { align-items: baseline; border-bottom: 1px solid #000000; }
+.game-data-dist-head .game-data-name,
 .game-data-dist-head .game-data-value,
 .game-data-dist-head .game-data-pct { font-size: 0.9167em; font-weight: 700; }
 .board-time-profile .game-data-dist-row > .chart-help-label {
@@ -2973,6 +2964,8 @@ body.settings-page .return-to-game {
 .board-time-profile .game-data-controls button:not(.chart-help),
 .during-game-controls button:not(.chart-help) { padding: 0 6px; }
 .game-data-controls label { display: inline-flex; align-items: center; gap: 3px; }
+.game-data-pool-select { max-width: 100%; }
+.game-data-pool-select select { min-width: 0; padding: 0 4px; }
 .game-data-controls input { margin: 0; }
 .game-data-config {
   flex: 1 0 auto;

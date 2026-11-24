@@ -201,9 +201,11 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   switches showed), `gameDataSwitchCost` (default off, since 2026-10-20:
   the switch cost line under the chart, chosen in its configure),
   `gameDataShowValues`,
-  `gameDataBandPool` (default lifetime), `gameDataDistributions`
-  (default off), and `gameDataDistributionPools` (default both; the last
-  three chosen on the chart itself) — the game data
+  `gameDataPool` (default `all`, replacing `gameDataBandPool` and
+  `gameDataDistributionPools` on 2026-11-23; saved profiles keep `session`
+  when that was active and map everything else to `all`), and
+  `gameDataDistributions` (default off; all three chosen on the chart
+  itself) — the game data
   column (see [Game data](game-data.md)); `shownThings.duringGame` (default
   on; "live perf charts", titled "during this game, second by second"
   until 2026-10-20, in the This game group before game data, which it leads

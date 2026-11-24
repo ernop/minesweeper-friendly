@@ -150,13 +150,9 @@ creator's approval ("continue"; same file, "Divergences resolved
 
 The details column follows
 [One look per kind of thing](docs/product/ui-doctrine.md) since 2026-10-14,
-and the backup row under the board since 2026-10-20 (creator: "yes
-standardize"). One control keeps its own look:
-
-- Game data's pool switch (`.game-data-pool-switch`, joined buttons with a
-  pressed one) is a choice between pools, so under the rule it would take
-  the select's look or the shared button look with its pressed state.
-  Not yet changed.
+the backup row under the board since 2026-10-20 (creator: "yes
+standardize"), and game data's pool picker since 2026-11-23 (when the
+`.game-data-pool-switch` button pair became one `.ui-select` picker).
 
 ## Guardian Angel rename: step 2 (step 1 built 2026-11-23)
 

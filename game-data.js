@@ -139,10 +139,51 @@ function unflaggedMineShareOf(record, mines) {
 }
 
 
+// Local midnight `daysBack` days before `ms`, shared by the session picker,
+// rank windows, average-chart trend lines, and game data's time-window pools.
+function startOfDay(ms, daysBack = 0) {
+  const d = new Date(ms);
+  d.setDate(d.getDate() - daysBack);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+// One measurement has one name in every table, game data row, chart, and
+// report (creator direction 2026-10-07); all of them read it here.
+const BOARD_TRAIT_NAMES = {
+  bv3: '3BV', zini: 'ZiNi', hzini: 'HZiNi', workSpread: '3BV spread',
+  maxAdjacent: 'max number', islandCount: 'islands', largestIsland: 'largest island',
+  zeroCount: 'zeros', zeroOneShare: '0–1 share', zeroOpeningCoverage: 'zero-opening coverage',
+};
+
+// Shared board-trait matching keys used by the This board tables, board-trait
+// charts, and game data's matching-board pools.
+function boardFractionOf(record, field) {
+  const m = record.boardMetrics;
+  return m?.version === 1 && Number.isSafeInteger(m.safeCells) && m.safeCells > 0
+    && Number.isSafeInteger(m[field]) && m[field] >= 0 && m[field] <= m.safeCells
+    ? m[field] / m.safeCells : undefined;
+}
+
+function boardShareGroup(record, field) {
+  if (boardFractionOf(record, field) === undefined) return undefined;
+  const m = record.boardMetrics;
+  // Integer arithmetic makes exact half-percentage ties round upward even
+  // when the corresponding floating-point ratio lies just below its tie.
+  return Math.floor((200 * m[field] + m.safeCells) / (2 * m.safeCells));
+}
+
+function boardSpreadGroup(record) {
+  const m = record.boardMetrics;
+  return m?.version === 1 && Number.isFinite(m.workSpread)
+    ? Math.round(2 * m.workSpread) / 2 : undefined;
+}
+
 // One page-wide definition, shared by live stats, ranks won, and game data.
 // "today" starts at local midnight; it is not the trailing 24 hours.
 const SessionScope = (() => {
   const dayStart = (now, days = 0, hour = 0) => {
+    if (hour === 0) return startOfDay(now, days);
     const d = new Date(now); d.setDate(d.getDate() - days); d.setHours(hour, 0, 0, 0); return d.getTime();
   };
   const choices = [
@@ -291,10 +332,91 @@ const GameData = (() => {
       value: actionRate((s) => s.modeledLifeGap), format: (v) => v.toFixed(3) + '/min',
       help: 'How much expected remaining life the one-move survival model saw given up in the life maximization moves, summed.' },
   ];
-  // The creator's own selection (2026-09-23), compared since 2026-10-07 with
-  // both lifetime and the session.
+  // Comparison pools for Game Data (creator 2026-11-23: one "compared with"
+  // pool replaces the lifetime/session pair): all games, the page-wide
+  // session, six calendar/rolling time windows sharing the rank tables'
+  // boundaries, and ten board-match pools sharing the This board tables'
+  // matching rules.
+  const TIME_WINDOW_POOLS = [
+    { id: 'past-hour', kind: 'time', group: 'time window',
+      start: (nowMs) => nowMs - 3600e3, label: () => 'past hour' },
+    { id: 'today', kind: 'time', group: 'time window',
+      start: (nowMs) => startOfDay(nowMs), label: () => 'today' },
+    { id: 'past-week', kind: 'time', group: 'time window',
+      start: (nowMs) => startOfDay(nowMs, 6), label: () => 'past week' },
+    { id: 'calendar-month', kind: 'time', group: 'time window',
+      start: (nowMs) => { const d = new Date(nowMs); return new Date(d.getFullYear(), d.getMonth(), 1).getTime(); },
+      label: () => 'this month' },
+    { id: 'calendar-year', kind: 'time', group: 'time window',
+      start: (nowMs) => new Date(new Date(nowMs).getFullYear(), 0, 1).getTime(),
+      label: (nowMs) => 'in ' + new Date(nowMs).getFullYear() },
+    { id: 'rolling-year', kind: 'time', group: 'time window',
+      start: (nowMs) => startOfDay(nowMs, 364), label: () => 'last 365 days' },
+  ];
+  const finiteField = (field) => (record) => (typeof record[field] === 'number' && Number.isFinite(record[field]) ? record[field] : undefined);
+  const BOARD_MATCH_POOLS = [
+    { id: 'board:bv3', traitId: 'bv3', key: finiteField('bv3'),
+      labelOf: (value) => BOARD_TRAIT_NAMES.bv3 + ' ' + value },
+    { id: 'board:zini', traitId: 'zini', key: finiteField('zini'),
+      labelOf: (value) => BOARD_TRAIT_NAMES.zini + ' ' + value },
+    { id: 'board:maxAdjacent', traitId: 'maxAdjacent', key: finiteField('maxAdjacent'),
+      labelOf: (value) => BOARD_TRAIT_NAMES.maxAdjacent + ' ' + value },
+    { id: 'board:hzini', traitId: 'hzini', key: finiteField('hzini'),
+      labelOf: (value) => BOARD_TRAIT_NAMES.hzini + ' ' + value },
+    { id: 'board:workSpread', traitId: 'workSpread', key: boardSpreadGroup,
+      labelOf: (value) => BOARD_TRAIT_NAMES.workSpread + ' ' + (value - 0.25).toFixed(2) + '–' + (value + 0.25).toFixed(2) + ' cells' },
+    { id: 'board:zeroOneShare', traitId: 'zeroOneShare', key: (record) => boardShareGroup(record, 'zeroOpenedZeroOneCells'),
+      labelOf: (value) => BOARD_TRAIT_NAMES.zeroOneShare + ' ' + value + '%' },
+    { id: 'board:zeroOpeningCoverage', traitId: 'zeroOpeningCoverage', key: (record) => boardShareGroup(record, 'zeroOpenedCells'),
+      labelOf: (value) => BOARD_TRAIT_NAMES.zeroOpeningCoverage + ' ' + value + '%' },
+    { id: 'board:islandCount', traitId: 'islandCount', key: finiteField('islandCount'),
+      labelOf: (value) => BOARD_TRAIT_NAMES.islandCount + ' ' + value },
+    { id: 'board:largestIsland', traitId: 'largestIsland', key: finiteField('largestIsland'),
+      labelOf: (value) => BOARD_TRAIT_NAMES.largestIsland + ' ' + value },
+    { id: 'board:zeroCount', traitId: 'zeroCount', key: finiteField('zeroCount'),
+      labelOf: (value) => BOARD_TRAIT_NAMES.zeroCount + ' ' + value },
+  ].map((entry) => ({
+    ...entry, kind: 'board', group: 'this board',
+    label: (record) => {
+      const value = record ? entry.key(record) : undefined;
+      return value === undefined ? 'same ' + BOARD_TRAIT_NAMES[entry.traitId] : entry.labelOf(value);
+    },
+  }));
+  const DEFAULT_POOL = 'all';
+  const pools = [
+    { id: 'all', kind: 'all', group: null, label: () => 'all games' },
+    { id: 'session', kind: 'time', group: null, label: () => 'session' },
+    ...TIME_WINDOW_POOLS,
+    ...BOARD_MATCH_POOLS,
+  ];
+  const POOL_BY_ID = new Map(pools.map((pool) => [pool.id, pool]));
+  const BOARD_MATCH_BY_TRAIT = new Map(BOARD_MATCH_POOLS.map((pool) => [pool.traitId, pool]));
+  function poolSpec(id) {
+    const spec = POOL_BY_ID.get(id);
+    if (spec === undefined) throw new Error('unknown game data pool: ' + id);
+    return spec;
+  }
+  function isValidPool(id) {
+    return typeof id === 'string' && POOL_BY_ID.has(id);
+  }
+  function timeWindowStart(id, nowMs) {
+    const spec = TIME_WINDOW_POOLS.find((window) => window.id === id);
+    if (spec === undefined) throw new Error('unknown time window: ' + id);
+    return spec.start(nowMs);
+  }
+  function boardMatchSpec(traitId) {
+    const spec = BOARD_MATCH_BY_TRAIT.get(traitId);
+    if (spec === undefined) throw new Error('unknown board match trait: ' + traitId);
+    return spec;
+  }
+  // Board-match pools don't apply to board traits (ranking 3BV among same-3BV
+  // boards is always a tie), so that side compares against all games.
+  function boardTraitPoolId(poolId) {
+    return poolSpec(poolId).kind === 'board' ? DEFAULT_POOL : poolId;
+  }
+  // The creator's own selection (2026-09-23).
   const defaults = Object.fromEntries(metrics.map((m) => [m.id, m.default]));
-  const defaultsForView = { gameDataMetrics: defaults, sessionDefinition: SessionScope.defaultId };
+  const defaultsForView = { gameDataMetrics: defaults, gameDataPool: DEFAULT_POOL, sessionDefinition: SessionScope.defaultId };
   const chronological = (records) => records.slice().sort((a, b) => a.endedAt - b.endedAt);
   const poolValues = (pool, spec, params) => pool.filter((r) => spec.allOutcomes || r.outcome === 'win')
     .map((r) => spec.value(r, params)).filter(Number.isFinite);
@@ -432,43 +554,53 @@ const GameData = (() => {
     }
     return { ...axis, counts, standing };
   }
-  // Each pool's histogram uses the lifetime axis, so one measurement's strips
-  // share bins. A pool of at most DOT_POOL games also carries its values, so
-  // its strip draws each game as its own dot. `step` is a declared spacing of
+  // A pool's histogram: time windows draw on the all-games axis (showing where
+  // the window sits in overall play); board-match pools draw on their own axis
+  // (so a narrow same-3BV pool is not compressed into a sliver of the full
+  // range). A pool of at most DOT_POOL games also carries its values, so its
+  // strip draws each game as its own dot. `step` is a declared spacing of
   // possible values.
   const DOT_POOL = 30;
-  function addDistributions(poolRows, poolValuesByScope, format, step) {
-    const axis = axisOf(poolValuesByScope.lifetime, step);
+  function addDistribution(row, values, axisValues, format, step) {
+    const axis = axisOf(axisValues, step);
     const labels = axisLabels(axis, format);
-    return poolRows.map((row) => {
-      const values = poolValuesByScope[row.scope];
-      return { ...row,
-        distribution: { ...distribution(values, row.higher, axis), labels,
-          ...(values.length <= DOT_POOL ? { values: values.slice().sort((a, b) => a - b) } : {}) } };
-    });
+    return { ...row,
+      distribution: { ...distribution(values, row.higher, axis), labels,
+        ...(values.length <= DOT_POOL ? { values: values.slice().sort((a, b) => a - b) } : {}) } };
   }
-  // The pools hold the games to `referenceMs`, the session's end: this
-  // game's end after it, now for an old game, which counts as one of the
-  // current session's games.
-  function poolsAt(record, records, sessionDefinition, referenceMs) {
+  // Resolve one comparison pool through `referenceMs` (this game's finish
+  // after it, or now for an old game viewed in High scores, which counts as
+  // one of the current window's games).
+  function poolAt(record, records, poolId, sessionDefinition, referenceMs) {
+    const spec = poolSpec(poolId);
     const past = records.filter((r) => r.endedAt <= referenceMs);
-    const session = SessionScope.records(past, sessionDefinition, referenceMs);
-    return { past, session: session.includes(record) ? session : chronological([...session, record]) };
+    if (spec.kind === 'all') {
+      return { past, pool: past, scope: spec.id, label: spec.label(referenceMs), ownAxis: false };
+    }
+    if (spec.kind === 'board') {
+      const target = spec.key(record);
+      const matched = target === undefined ? [] : past.filter((r) => spec.key(r) === target);
+      return { past, pool: matched, scope: spec.id, label: spec.label(record), ownAxis: true };
+    }
+    const matched = spec.id === 'session'
+      ? SessionScope.records(past, sessionDefinition, referenceMs)
+      : past.filter((r) => r.endedAt >= spec.start(referenceMs));
+    const pool = matched.includes(record) ? matched : chronological([...matched, record]);
+    return { past, pool, scope: spec.id, label: spec.label(referenceMs), ownAxis: false };
   }
   function rows(record, records, preferences = defaultsForView, params, referenceMs = record.endedAt) {
     if (record.outcome !== 'win' || !records.includes(record)) return [];
-    const { past, session } = poolsAt(record, records, preferences.sessionDefinition, referenceMs);
+    const { past, pool, scope, label, ownAxis } = poolAt(
+      record, records, preferences.gameDataPool, preferences.sessionDefinition, referenceMs);
     const result = [];
     for (const spec of metrics) {
       if (!preferences.gameDataMetrics[spec.id]) continue;
       const counted = spec.allOutcomes ? 'games' : 'wins';
-      const pools = [['lifetime', past], ['session', session]];
-      // The session pool is a subset of lifetime, so any row implies a lifetime row.
-      const poolRows = pools.map(([scope, pool]) => rankedRow(record, pool, spec, scope, params, counted))
-        .filter((row) => row !== null);
-      if (poolRows.length === 0) continue;
-      const valuesByScope = Object.fromEntries(pools.map(([scope, pool]) => [scope, poolValues(pool, spec, params)]));
-      result.push(...addDistributions(poolRows, valuesByScope, spec.format, spec.step?.(params)));
+      const row = rankedRow(record, pool, spec, scope, params, counted);
+      if (row === null) continue;
+      const values = poolValues(pool, spec, params);
+      const axisValues = ownAxis || pool === past ? values : poolValues(past, spec, params);
+      result.push(addDistribution({ ...row, poolLabel: label }, values, axisValues, spec.format, spec.step?.(params)));
     }
     return result;
   }
@@ -556,5 +688,6 @@ const GameData = (() => {
         of: mines.filter(Boolean).length },
     };
   }
-  return { FASTCLICK_GAP_VERSION, metrics, defaults, defaultsForView, poolsAt, rows, rankedRow, addDistributions, summary, history, domain, examples };
+  return { FASTCLICK_GAP_VERSION, DEFAULT_POOL, pools, poolSpec, isValidPool, timeWindowStart, boardMatchSpec,
+    boardTraitPoolId, metrics, defaults, defaultsForView, poolAt, rows, rankedRow, addDistribution, summary, history, domain, examples };
 })();

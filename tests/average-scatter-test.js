@@ -18,7 +18,7 @@ function section(from, to) {
 const tested = vm.runInThisContext(`(() => {
   ${fs.readFileSync(path.join(repo, 'game-data.js'), 'utf8')}
   const config = { width: 9, height: 9, mines: 10 };
-  ${section('function boardFractionOf', 'function boardShareHelp')}
+  ${section('function formatBoardShare', 'function boardShareHelp')}
   ${section('// Property charts group games', "// A chart's eligible wins.")}
   ${section("// A chart's eligible wins.", '// Bucket all finished games')}
   ${section('// Bucket all finished games', "// The property charts' three vertical readings")}

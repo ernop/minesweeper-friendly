@@ -1,14 +1,14 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261123-guardian-angel-2',
-  'game/evaluation.js?v=20261123-guardian-angel-2',
-  'game-data.js?v=20261107-score-lists', 'game/metric-definitions.js?v=20261123-guardian-angel-2',
+  'game/trace-metrics.js?v=20261123-game-data-pools',
+  'game/evaluation.js?v=20261123-game-data-pools',
+  'game-data.js?v=20261123-game-data-pools', 'game/metric-definitions.js?v=20261123-game-data-pools',
   'board-shape.js?v=20261020-no-left-panel', 'zini.js?v=20261020-no-left-panel', 'board-metrics.js?v=20261020-no-left-panel',
-  'game/rankings.js?v=20261123-guardian-angel-2',
-  'game/charts.js?v=20261123-guardian-angel-2', 'game/game-data-chart.js?v=20261123-guardian-angel-2',
+  'game/rankings.js?v=20261123-game-data-pools',
+  'game/charts.js?v=20261123-game-data-pools', 'game/game-data-chart.js?v=20261123-game-data-pools',
   'guardian-angel.js?v=20261123-guardian-angel-2', 'odds.js?v=20261123-guardian-angel-2', 'board-icons.js?v=20261105-glyph-sizes',
-  'game/replay-model.js?v=20261123-guardian-angel-2',
+  'game/replay-model.js?v=20261123-game-data-pools',
   'during-game.js?v=20261123-guardian-angel-2');
 
 let config;
@@ -210,7 +210,7 @@ function analyze(kind, data) {
       const comparisons = [...boardMetricCandidates([record], wins), ...boardShapeCandidates([record], wins)]
         .filter((c) => preferences.gameDataBoardTraits[c.measurementId]);
       return [...GameData.rows(record, records, preferences, data.config, data.referenceMs),
-        ...boardTraitRankProfile(record, comparisons, records, preferences.sessionDefinition, data.referenceMs)];
+        ...boardTraitRankProfile(record, comparisons, records, preferences.gameDataPool, preferences.sessionDefinition, data.referenceMs)];
     }
     case 'game-data-history': {
       const groups = GameData.history(data.records, data.endedAt, data.sessionDefinition, data.page, data.pageSize);

@@ -159,9 +159,24 @@ assert.equal(run('settingsFrom({ gameDataBoardTraits: { hzini: false } }).gameDa
   'unset traits keep their defaults');
 assert.deepEqual(plain(run('settingsFrom({ gameDataBoardTraits: { unknown: true } }).gameDataBoardTraits')),
   defaults.gameDataBoardTraits);
-assert.equal(run('settingsFrom({ gameDataBandPool: "day" }).gameDataBandPool'), 'lifetime');
-assert.equal(defaults.gameDataDistributionPools, 'both', 'distributions show both pools until the switch says otherwise');
-assert.equal(run('settingsFrom({ gameDataDistributionPools: "day" }).gameDataDistributionPools'), 'both');
+assert.equal(defaults.gameDataPool, 'all', 'game data compares against all games by default');
+for (const pool of plain(run('GameData.pools.map((p) => p.id)'))) {
+  context.pool = pool;
+  assert.equal(run('settingsFrom({ gameDataPool: pool }).gameDataPool'), pool, 'valid pool kept: ' + pool);
+}
+assert.equal(run('settingsFrom({ gameDataPool: "day" }).gameDataPool'), 'all');
+assert.equal(run('settingsFrom({ gameDataPool: "lifetime" }).gameDataPool'), 'all');
+assert.equal(run('settingsFrom({ gameDataBandPool: "session" }).gameDataPool'), 'session',
+  'saved band session pool migrates to session');
+assert.equal(run('settingsFrom({ gameDataBandPool: "lifetime" }).gameDataPool'), 'all');
+assert.equal(run('settingsFrom({ gameDataBandPool: "day" }).gameDataPool'), 'all');
+assert.equal(run('settingsFrom({ gameDataDistributions: true, gameDataDistributionPools: "session" }).gameDataPool'), 'session',
+  'saved distributions session pool migrates to session');
+assert.equal(run('settingsFrom({ gameDataDistributions: true, gameDataDistributionPools: "both" }).gameDataPool'), 'all');
+assert.equal(run('settingsFrom({ gameDataPool: "board:bv3", gameDataBandPool: "session" }).gameDataPool'), 'board:bv3',
+  'explicit gameDataPool wins over retired pool fields');
+assert.equal(run('!("gameDataBandPool" in settingsFrom({ gameDataBandPool: "session" }))'), true);
+assert.equal(run('!("gameDataDistributionPools" in settingsFrom({ gameDataDistributionPools: "both" }))'), true);
 
 // Mine styles: the setting offers exactly the drawn styles, classic first
 // and by default, and every style draws a mine and a crossed-out wrong flag.
@@ -222,7 +237,7 @@ const choices = {
   sessionDefinition: 'past30min', gameDataShowValues: false,
   gameDataMetrics: { ...defaults.gameDataMetrics, fastclickGap: false, ioe: true },
   gameDataBoardTraits: { ...defaults.gameDataBoardTraits, hzini: false, largestIsland: true },
-  gameDataBandPool: 'session', gameDataDistributions: true, gameDataDistributionPools: 'session',
+  gameDataPool: 'board:bv3', gameDataDistributions: true,
   difficulty: 'custom', customBoard: { width: 24, height: 12, mines: 45 },
   customBoardDraft: { width: '25', height: '12', mines: '45' },
   playerStates: [{ name: 'new mouse', active: true }, { name: 'sleepy', active: false }],

@@ -49,39 +49,57 @@ holding the two titles. Use Arial typography, white background, and
 ordinary controls. The separate "This win" and time caption is removed;
 solve time is the "time" row.
 
-Rows and columns (creator review 2026-10-07, built the same day; the creator:
-"game-data band is nice", then of the round-2 mockup "your changes to the
-vbar for percentiles look great, as does your mouseover distribution. let's
-do that!"; revised 2026-10-08, below):
+Rows and columns (creator review 2026-10-07, revised 2026-10-08; unified to
+one comparison pool 2026-11-23 — creator: "in the 'game summary perf' we
+hsould also have things like this as optoins: rank percentile within this
+boards's 3BV. and others; i.e. the perf numbers, but scoped to the board
+metrics. Also we should ahve like, time this session, week, day, etc not just
+'time ever'" and "hmm i think we should get rid of the lifetime/session
+distinction ACTUALLY. that way we reduce the complexity."):
 
 - One row per measurement, in aligned columns: your perf reads name, value,
-  session %, lifetime %; board traits read %, name, value. Column heads name
-  the performance pools ("session", "lifetime") and "value"; the board
-  side's percentage column has no head, and neither side's name column has
-  one (Board name, below). This replaced one label per pool with
-  "(session)" and "(day)" suffixes, which doubled the left side's labels.
+  %; board traits read %, name, value. Each side's name-column head names the
+  pool it compared against ("all games", "session", "past week", "3BV 75",
+  "no-mark", etc.); the other heads are "value" and "%". Neither side repeats
+  the board's name (Board name, below). From 2026-10-07 to 2026-11-23 the
+  performance side carried two percentage columns ("session" and "lifetime")
+  and dropped the unplotted one when narrow; removing that two-pool pair left
+  one percentage column per row.
 - Labels are black and uncolored. Names, values, and percentages are all
-  regular weight; values and the plotted percentage are one size larger
-  than names, right-aligned in tabular digits, so the measured values stay
-  the most legible text. Every row is one line.
+  regular weight; values and percentages are one size larger than names,
+  right-aligned in tabular digits, so the measured values stay the most
+  legible text. Every row is one line.
 - The bar carries the color: green (better) through white to red (worse),
   with its decile labels printed inside it in black. Leaders run from each
   row to its exact point on the bar's edge, where a dot marks it.
-- "points: lifetime | session" picks which pool places the dots on both
-  sides, which percentage the board side shows, and which pool every card
-  shows (below). The session column appears once any performance row has a
-  session rank. A row without a rank in the chosen pool is listed in a note
-  above the band ("Not ranked in this session yet: …").
+- One "compared with" picker (`gameDataPool`, default `all`, labeled "all
+  games") in the options row chooses the pool for both the band and the
+  distributions view, and every hover card. It offers:
+  - **all games** (no-mark wins: "all no-mark games", column/card "no-mark");
+  - **session** (follows the one page-wide session picker at the foot of the
+    page);
+  - **time windows** (sharing the rank tables' exact boundaries): past hour,
+    today (since local midnight), past week (7 calendar days), this month,
+    in `<year>`, last 365 days;
+  - **this board** (games matching one of this board's traits, sharing the
+    This board tables' exact matching buckets): 3BV, ZiNi, max number, HZiNi,
+    3BV spread (0.5-cell band), 0–1 share (rounded whole %), zero-opening
+    coverage (rounded whole %), islands, largest island, and zeros.
+  A measurement without two measured games in the chosen pool is simply
+  omitted (no "Not ranked in this session yet" notice). On the board-traits
+  side, all games and every time window apply as on the performance side;
+  board-match pools don't apply there (ranking 3BV among same-3BV boards is
+  always a tie), so the board-traits side compares against all games whenever
+  a board-match pool is picked.
 - Names are the standard names (one name per measurement, creator direction
   2026-10-07): "max number", "zero-opening coverage", "islands", never MN or
   ZOC.
-- Responsive: both sides share one row with both percentage columns while
-  they fit, then drop the session column (the points switch still offers
-  it), then, with both sides open, stack board traits under your perf with
-  two columns and then one. The band never scrolls: of these layouts it
-  takes the one that needs the least shrinking (the earlier one on a tie)
-  and scales its text and geometry together to fit its box. A title wider
-  than its columns stays centered over them, and the band's width keeps
+- Responsive: both sides share one row around one bar while they fit, then,
+  with both sides open, stack board traits under your perf, each with its own
+  bar and its rows on the bar's left. The band never scrolls: of those
+  layouts it takes the one that needs the least shrinking (side-by-side on a
+  tie) and scales its text and geometry together to fit its box. A title
+  wider than its columns stays centered over them, and the band's width keeps
   room for it (2026-10-17, when the titles gained their open/close arrows).
 
 Revision 2026-10-08 (creator, of the band at 2560 px: "top 'game data' -
@@ -103,11 +121,11 @@ the '?' mark"), built the same day:
   and mouseovers entirely, not replacing orputting the removed text
   anywhere; it merely wil lbe gone." Until 2026-10-17 the title itself
   opened the help.
-- Every chart option sits in one small wrapping row under the data:
-  points switch (in distributions mode the pools switch, below, takes
-  its place), "show distributions", "show values", "configure", and
-  "session history". Configuration and session history keep a "back to
-  game data" button at their top and bottom.
+- Every chart option sits in one small wrapping row under the data: the
+  "compared with" picker (replacing the separate band "points" and
+  distributions "pools" switches on 2026-11-23), "show distributions",
+  "show values", "configure", and "session history". Configuration and
+  session history keep a "back to game data" button at their top and bottom.
 - Nothing in the band or the distributions view scrolls, at any panel or
   window size: both scale to fit (below). Configuration and session history
   take their natural height. The details column's own scrolling, when its
@@ -143,10 +161,10 @@ opens it over the band, never reflowing it; the row itself takes no hover
 background (creator 2026-10-20: "entirely remove the blue-background when
 mousing over effect"), and keyboard focus keeps an outline. In order:
 
-1. The chosen pool's rank, the card's largest text: "lifetime: 19th of
-   1,201 wins", "session: tied 3rd–5th of 56 games", or for a constant
-   pool "lifetime: all 50 boards have this value". The population word is
-   wins, games, or boards.
+1. The chosen pool's rank, the card's largest text: "all games: 19th of
+   1,201 wins", "session: tied 3rd–5th of 56 games", "3BV 75: 4th of 22
+   wins", or for a constant pool "all games: all 50 boards have this value".
+   The population word is wins, games, or boards.
 2. In the band only, the pool's games on the measurement's axis, drawn as
    the distributions view's strips are (Strips and example boards, below).
    A distributions row already shows its strip, so its card does not draw
@@ -195,17 +213,19 @@ are not drawn."), went with it: the rank above the chart counts every game,
 and the count only described the drawing. The marks are unchanged
 ([UI doctrine](ui-doctrine.md), "No narrated marks").
 
-The chosen pool is the points switch's: in session mode the rank, dots or
-bars, and their colors all come from this session's games with these board
-settings (same size, mines, mode, generator), up to this game, under the
-one session definition; the lifetime mode uses every such game so far.
-Wins-only measurements count the session's wins, action
-measurements its wins and losses, board traits its boards. Both modes share
-the measurement's lifetime axis and bins, so switching modes shows where
-the session sits in the lifetime range. A session game past that range
-is not drawn. A session pool needs two measured games, like any pool;
-with fewer, the row has no session point and the note above the band lists
-it. A small session (most are) draws one dot per game.
+The chosen pool comes from the "compared with" picker: its rank, dots or
+bars, and their colors all come from that pool's games with these board
+settings (same size, mines, mode, generator), up to this game (or now when
+viewing an older win in High scores). Wins-only measurements count matching
+wins, action measurements matching wins and losses, and board traits matching
+boards (or all boards when a board-match pool is picked). Time-window pools
+(including session) draw on the all-games axis and bins, so switching windows
+shows where the window sits in overall play; a game past that range pins the
+axis end. Board-match pools draw on their own axis and bins, so a narrow
+same-3BV pool fills its strip instead of compressing into a sliver of the
+all-games range. Any pool needs two measured games; with fewer, the
+measurement is omitted. A small pool (at most 30 games) draws one dot per
+game.
 
 Better on the left (creator decision 2026-10-11, built the same day to try
 it). On 2026-10-08 the creator asked about the mixed sides ("some have
@@ -279,37 +299,27 @@ with one strip per measurement in sections. Each row reads name, value
 a measurement keeps its catalog position in every section. A row's card
 shows its own section's pool.
 
-Pools switch and strips that fill the height (creator 2026-10-08, of the
-distributions view: "for this ui, i also still want the same ability to
-choose to show lifetime/session or both. plus, i want if i remove items
-then the remaining ones should expand vertically to fill the space! it's
-vital, since that way i can see things more nicely"), built the same day:
+Pools and strips that fill the height (creator 2026-10-08: "plus, i want if
+i remove items then the remaining ones should expand vertically to fill the
+space! it's vital, since that way i can see things more nicely"; unified to
+one pool on 2026-11-23):
 
-- "pools: lifetime | session | both" takes the points switch's place in
-  the options row while distributions are shown; saved, default both. It
-  was labeled "sections" until 2026-10-17, when the details column gained
-  stat sections that open and close. Like the points switch it applies to
-  your perf and board traits alike: each chosen pool gets a group under
-  each side's title, in the order your perf against lifetime, your perf
-  against the session, board traits against lifetime, board traits against
-  the session. Each group's percentage head names its pool, and nothing
-  else does (Section titles, below). (Until 2026-10-08 the view always
-  showed your perf against both pools and board traits against lifetime
-  only.)
+- The same "compared with" picker in the options row drives both the band
+  and the distributions view; each side gets one group under its title, with
+  no "both" option. From 2026-10-08 to 2026-11-23 a separate "pools:
+  lifetime | session | both" switch (formerly "sections") stood in the
+  options row while distributions were shown.
 - No strip ticks the session's games under its axis (until 2026-10-20 the
-  lifetime strips did): the session's own strip shows them on the same
-  axis, and the axis now carries its x ticks. No key under the strips names
-  the marks (removed 2026-10-08, Hover card above). With the session alone,
-  measurements without a session rank are listed in the note above the
-  strips ("Not ranked in this session yet: …") instead of vanishing.
+  lifetime strips did), no key under the strips names the marks (removed
+  2026-10-08), and measurements without two games in the chosen pool are
+  simply omitted (no "Not ranked in this session yet" notice).
 - The strips take all the height the rows leave: every strip gets the
   tallest height at which the view still fits its box, so hiding
-  measurements (configure), a pool (the pools switch), or a side (its
-  title) makes the remaining strips taller. The text keeps its size; only
-  when even the shortest strip (25 px: pin, plot, ticks, and their labels)
-  does not fit does the view shrink, its text and strips together. The view
-  never scrolls (2026-10-08). The plot takes the extra height; the pin,
-  ticks, and labels keep their size.
+  measurements (configure) or a side (its title) makes the remaining strips
+  taller. The text keeps its size; only when even the shortest strip (25 px:
+  pin, plot, ticks, and their labels) does not fit does the view shrink, its
+  text and strips together. The view never scrolls (2026-10-08). The plot
+  takes the extra height; the pin, ticks, and labels keep their size.
 
 Board name (creator request 2026-10-15, built the same day; removed
 2026-10-20): "dosession timings (in distribution view) include ONLYthat
@@ -355,17 +365,13 @@ that agani.", and "remove topline "your games" which is pointless". Now:
   traits" over the board side; each title is the button that opens and
   closes its side (since 2026-10-17). In the distributions view each heads
   its side's groups.
-- Distributions view: a group has no title of its own. Its column heads
-  are "value" and the pool ("lifetime", "session", "no-mark", "no-mark
-  session"); the name and strip columns have no head. With both pools
-  shown, the pool head is what tells a side's two groups apart. From
-  2026-10-15 each group's title joined side and pool ("your performance
-  this game, within this session"), from 2026-10-17 a pool phrase ("within
-  your lifetime", "within this session") titled each group when both pools
-  were shown, and a "your games" head named the strip column, until the
-  creator removed both on 2026-10-20.
-- The band: the performance side's columns name both pools; the board
-  side's percentage column has no head.
+- Distributions view: one group per side, with no pool title line of its own
+  (the former "both" option and two-group layout were removed on 2026-11-23).
+  Its column heads are the pool name ("all games", "session", "past week",
+  "3BV 75", "no-mark", "no-mark session", "3BV 75 · no-mark", etc.) over the
+  measurement names, "value", empty over the strips, and "%".
+- The band: both sides use the same column heads — the pool name over the
+  measurement names, "value", and "%".
 
 ### Strips and example boards (creator 2026-10-20)
 
@@ -443,8 +449,9 @@ come on!" Built the same day:
 
 Linkage to the charts (creator: "this linkage should be very tight and
 clear"): each your-perf and board-trait chart heading carries a chip, "this
-1.784 · 55%", with this game's value and lifetime standing on the standing
-color; its tooltip is the card's rank ("lifetime: 19th of 1,201 wins").
+1.784 · 55%", with this game's value and standing in the chosen pool on the
+standing color; its tooltip is the card's rank ("all games: 19th of 1,201
+wins", or the chosen pool).
 Hovering or focusing a game-data row outlines the charts that plot the same
 measurement. A game summary perf row's hover also spotlights that
 measurement's line and event marks in the live perf charts, and hovering
@@ -542,18 +549,17 @@ them well without clutter" holds. The side titles' help states the
 position formula once. This chart does not estimate correlations or
 attribute time to board traits.
 
-Each performance row ranks **this game's** metric against both lifetime and
-session history of the same size, mine count, play mode, and generator.
-Historical comparisons end at the selected game. A third comparison, time
-against wins in the trailing 24 hours, was removed on 2026-10-08 (creator:
-"we have sssion, we have alltime. what is this 24hrs? seems unnecessary"):
-the session picker's "last 24 hours" choice covers that window.
+Each performance row ranks **this game's** metric against the chosen pool
+(`gameDataPool`: all games, session, a time window, or games matching one of
+this board's traits) within the same size, mine count, play mode, and
+generator. Historical comparisons end at the selected game (or now when
+viewing an older win in High scores).
 
 Right-side markers rank **board values themselves**, not solve times within
 matched-trait pools. Background is measured completed boards in the same
-category through this game's finish, including measured losses: every such
-board so far, or (points switch on session, since 2026-10-08) the session's
-boards. Preferred
+category through this game's finish, including measured losses: the chosen
+time window when a time window or session is picked, or all games when all
+games or a board-match pool is picked. Preferred
 ends (creator decision 2026-09-23): higher 0–1 share, zero count, max
 number, largest island, and zero-opening coverage; lower 3BV,
 ZiNi, HZiNi, 3BV spread, and island count. A preferred board opens a lot

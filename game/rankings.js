@@ -6,19 +6,13 @@
 
 //-------RANK WINDOWS AND AGES (local days, windows, relative ages)-------
 
-// Local midnight `daysBack` days before the given moment.
-function startOfDay(ms, daysBack = 0) {
-  const d = new Date(ms);
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - daysBack);
-  return d.getTime();
-}
-
 // Day-and-longer windows anchor at local midnights: "today" runs from the
 // last midnight, "past week" from midnight 6 days back (7 calendar days),
 // "this month"/"in <year>" from their calendar starts, and the rolling
 // "in the last year" starts at the end of the day exactly 365 days prior.
-// Sub-day windows stay purely rolling.
+// Sub-day windows stay purely rolling. The shared boundaries live in
+// game-data.js (`GameData.timeWindowStart`) so rank tables and game data
+// never drift.
 // Ordering concerns are deliberately separate:
 // - displayOrder is where the tablechart appears;
 // - dedupePriority is lower for the chart that claims a duplicate member set;
@@ -30,19 +24,22 @@ function rankWindows(nowMs) {
     { id: 'lifetime', label: 'lifetime', startMs: -Infinity,
       displayOrder: 10, dedupePriority: 12 },
     { id: 'calendar-year', label: 'in ' + d.getFullYear(),
-      startMs: new Date(d.getFullYear(), 0, 1).getTime(),
+      startMs: GameData.timeWindowStart('calendar-year', nowMs),
       displayOrder: 20, dedupePriority: 10 },
     { id: 'rolling-year', label: 'in the last year',
-      startMs: startOfDay(nowMs, 364),
+      startMs: GameData.timeWindowStart('rolling-year', nowMs),
       displayOrder: 30, dedupePriority: 11 },
     { id: 'calendar-month', label: 'this month',
-      startMs: new Date(d.getFullYear(), d.getMonth(), 1).getTime(),
+      startMs: GameData.timeWindowStart('calendar-month', nowMs),
       displayOrder: 40, dedupePriority: 9 },
-    { id: 'past-week', label: 'past week', startMs: startOfDay(nowMs, 6),
+    { id: 'past-week', label: 'past week',
+      startMs: GameData.timeWindowStart('past-week', nowMs),
       displayOrder: 50, dedupePriority: 8 },
-    { id: 'today', label: 'today', startMs: startOfDay(nowMs),
+    { id: 'today', label: 'today',
+      startMs: GameData.timeWindowStart('today', nowMs),
       displayOrder: 60, dedupePriority: 4 },
-    { id: 'past-hour', label: 'past hour', startMs: nowMs - 3600e3,
+    { id: 'past-hour', label: 'past hour',
+      startMs: GameData.timeWindowStart('past-hour', nowMs),
       displayOrder: 70, dedupePriority: 3 },
     { id: 'past-15-min', label: 'past 15 min',
       startMs: nowMs - 15 * 60e3,
@@ -196,38 +193,9 @@ function rankValueGroups(referenceWins, wins, field) {
   return groups;
 }
 
-function boardFractionOf(record, field) {
-  const m = record.boardMetrics;
-  return m?.version === 1 && Number.isSafeInteger(m.safeCells) && m.safeCells > 0
-    && Number.isSafeInteger(m[field]) && m[field] >= 0 && m[field] <= m.safeCells
-    ? m[field] / m.safeCells : undefined;
-}
-
 function formatBoardShare(fraction, digits) {
   return Number((100 * fraction).toFixed(digits)) + '%';
 }
-
-function boardShareGroup(record, field) {
-  if (boardFractionOf(record, field) === undefined) return undefined;
-  const m = record.boardMetrics;
-  // Integer arithmetic makes exact half-percentage ties round upward even
-  // when the corresponding floating-point ratio lies just below its tie.
-  return Math.floor((200 * m[field] + m.safeCells) / (2 * m.safeCells));
-}
-
-function boardSpreadGroup(record) {
-  const m = record.boardMetrics;
-  return m?.version === 1 && Number.isFinite(m.workSpread)
-    ? Math.round(2 * m.workSpread) / 2 : undefined;
-}
-
-// One measurement has one name in every table, game data row, chart, and
-// report (creator direction 2026-10-07); all of them read it here.
-const BOARD_TRAIT_NAMES = {
-  bv3: '3BV', zini: 'ZiNi', hzini: 'HZiNi', workSpread: '3BV spread',
-  maxAdjacent: 'max number', islandCount: 'islands', largestIsland: 'largest island',
-  zeroCount: 'zeros', zeroOneShare: '0–1 share', zeroOpeningCoverage: 'zero-opening coverage',
-};
 
 // What a trait is, for the traits whose name leaves it open. Its table's
 // help opens with it, and game data shows it on the trait's card and in
@@ -291,40 +259,38 @@ function boardShareStep(record) {
 // Matching one feature does not imply equal overall difficulty. A grouped
 // table names its group's range.
 const BOARD_METRIC_TABLES = [
-  { id: 'bv3', field: 'bv3', setting: 'exact3BV', priority: 13, summaryGroup: 3,
+  { id: 'bv3', setting: 'exact3BV', priority: 13, summaryGroup: 3,
     help: () => ['The fewest clicks that clear this board without flags: one for each zero region, plus one for each number that no zero region reveals.'] },
-  { id: 'zini', field: 'zini', setting: 'exactZiNi', priority: 14, summaryGroup: 4,
+  { id: 'zini', setting: 'exactZiNi', priority: 14, summaryGroup: 4,
     help: () => [BOARD_TRAIT_DEFINITIONS.zini] },
-  { id: 'maxAdjacent', field: 'maxAdjacent', setting: 'exactMaxNumber', priority: 15, summaryGroup: 7,
+  { id: 'maxAdjacent', setting: 'exactMaxNumber', priority: 15, summaryGroup: 7,
     help: () => ['Max number: the most mines touching any one safe cell, from 1 to 8.'] },
-  { id: 'hzini', field: 'hzini', setting: 'exactHZiNi', priority: 16, summaryGroup: 5,
+  { id: 'hzini', setting: 'exactHZiNi', priority: 16, summaryGroup: 5,
     help: () => [BOARD_TRAIT_DEFINITIONS.hzini] },
-  { id: 'workSpread', field: boardSpreadGroup,
-    labelOf: (value) => BOARD_TRAIT_NAMES.workSpread + ' ' + (value - 0.25).toFixed(2) + '–' + (value + 0.25).toFixed(2) + ' cells',
-    setting: 'workSpreadTable', priority: 17, summaryGroup: 6,
+  { id: 'workSpread', setting: 'workSpreadTable', priority: 17, summaryGroup: 6,
     help: (record) => [
       BOARD_TRAIT_DEFINITIONS.workSpread,
       'This board: ' + record.boardMetrics.workSpread.toFixed(3) + ' cells. Its table holds boards from '
         + (boardSpreadGroup(record) - 0.25).toFixed(2) + ' cells up to, not including, '
         + (boardSpreadGroup(record) + 0.25).toFixed(2) + ' cells.',
     ] },
-  { id: 'zeroOneShare', field: (win) => boardShareGroup(win, 'zeroOpenedZeroOneCells'),
-    labelOf: (value) => BOARD_TRAIT_NAMES.zeroOneShare + ' ' + value + '%', setting: 'zeroOneShareTable', priority: 18, summaryGroup: 13,
+  { id: 'zeroOneShare', setting: 'zeroOneShareTable', priority: 18, summaryGroup: 13,
     step: boardShareStep,
     help: (record) => boardShareHelp(record, 'zeroOpenedZeroOneCells', BOARD_TRAIT_DEFINITIONS.zeroOneShare) },
-  { id: 'zeroOpeningCoverage', field: (win) => boardShareGroup(win, 'zeroOpenedCells'),
-    labelOf: (value) => BOARD_TRAIT_NAMES.zeroOpeningCoverage + ' ' + value + '%', setting: 'zeroOpeningTable', priority: 19, summaryGroup: 14,
+  { id: 'zeroOpeningCoverage', setting: 'zeroOpeningTable', priority: 19, summaryGroup: 14,
     step: boardShareStep,
     help: (record) => boardShareHelp(record, 'zeroOpenedCells', BOARD_TRAIT_DEFINITIONS.zeroOpeningCoverage) },
 ];
 
 // A family's id names its trait and group value, so a full score list finds
-// the same family again.
+// the same family again. Matching keys and group labels come from
+// GameData.boardMatchSpec so tables and game data's pools never drift.
 function boardMetricCandidates(referenceWins, wins) {
-  return BOARD_METRIC_TABLES.flatMap((spec) =>
-    [...rankValueGroups(referenceWins, wins, spec.field)].map(([value, rows]) => ({
+  return BOARD_METRIC_TABLES.flatMap((spec) => {
+    const match = GameData.boardMatchSpec(spec.id);
+    return [...rankValueGroups(referenceWins, wins, match.key)].map(([value, rows]) => ({
       id: spec.id + '-' + value,
-      label: spec.labelOf ? spec.labelOf(value) : BOARD_TRAIT_NAMES[spec.id] + ' ' + value,
+      label: match.labelOf(value),
       ...boardTraitFields(spec.id),
       setting: spec.setting,
       help: spec.help,
@@ -332,7 +298,8 @@ function boardMetricCandidates(referenceWins, wins) {
       dedupePriority: spec.priority,
       summaryOrder: [spec.summaryGroup, value],
       wins: rows,
-    })));
+    }));
+  });
 }
 
 // Board-shape chart candidates for the reference wins' finished-board families:
