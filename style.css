@@ -3854,46 +3854,6 @@ body.vigilance-running #self-check-header {
   letter-spacing: 0.02em;
 }
 
-/* Switch cost, an optional line under game data's chart: this game's cost
-   and each pool's estimate after its name, the values leading by size and
-   weight. A narrow column wraps it between items, never inside one. */
-.switch-cost-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 2px 12px;
-  margin: 4px 0 2px;
-  color: #000000;
-  font-size: 12px;
-}
-.switch-cost-pool { white-space: nowrap; }
-/* Six characters hold every estimate under 100% either way and every cost
-   under 100 s, so a reply does not shift the line. */
-.switch-cost-value {
-  display: inline-block;
-  min-width: 6ch;
-  font-size: 14px;
-  font-weight: bold;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
-.chart-help-tip:has(> .switch-cost-card) { width: auto; max-width: calc(100vw - 12px); }
-/* The table sets the card's width; the paragraphs wrap to it. */
-.switch-cost-card { width: max-content; min-width: 330px; max-width: 100%; }
-.switch-cost-card p { width: 0; min-width: 100%; }
-.switch-cost-card table { margin: 0 0 7px; border-collapse: collapse; }
-.switch-cost-card th,
-.switch-cost-card td {
-  padding: 0 0 0 14px;
-  font-weight: normal;
-  text-align: right;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-.switch-cost-card thead th { font-weight: bold; }
-.switch-cost-card tbody th { padding-left: 0; text-align: left; }
-
 /* Line charts' series lines and legend entries (live perf charts). The
    per-series color travels inline; only the shared geometry lives here. */
 .end-line { fill: none; stroke-width: 1.6; }

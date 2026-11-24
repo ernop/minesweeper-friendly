@@ -1,15 +1,15 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261124-settings-s1',
-  'game/evaluation.js?v=20261124-settings-s1',
-  'game-data.js?v=20261124-settings-s1', 'game/metric-definitions.js?v=20261124-settings-s1',
+  'game/trace-metrics.js?v=20261124-switch-cost-w1',
+  'game/evaluation.js?v=20261124-switch-cost-w1',
+  'game-data.js?v=20261124-switch-cost-w1', 'game/metric-definitions.js?v=20261124-switch-cost-w1',
   'board-shape.js?v=20261020-no-left-panel', 'zini.js?v=20261020-no-left-panel', 'board-metrics.js?v=20261020-no-left-panel',
-  'game/rankings.js?v=20261124-settings-s1',
-  'game/charts.js?v=20261124-settings-s1', 'game/game-data-chart.js?v=20261124-settings-s1',
+  'game/rankings.js?v=20261124-switch-cost-w1',
+  'game/charts.js?v=20261124-switch-cost-w1', 'game/game-data-chart.js?v=20261124-switch-cost-w1',
   'guardian-angel.js?v=20261123-guardian-angel-2', 'odds.js?v=20261123-guardian-angel-2', 'board-icons.js?v=20261105-glyph-sizes',
-  'game/replay-model.js?v=20261124-settings-s1',
-  'during-game.js?v=20261124-settings-s1');
+  'game/replay-model.js?v=20261124-switch-cost-w1',
+  'during-game.js?v=20261124-switch-cost-w1');
 
 let config;
 
@@ -125,6 +125,9 @@ function finishedMeasurements(plan, metrics, gameId) {
   }
   if (plan.needFastclickGap) {
     Object.assign(measurements, DuringGame.fastclickGap(heldDuringGameModel({ gameId, timeMs: plan.timeMs, outcome: plan.outcome })));
+  }
+  if (plan.needFlagChordGap) {
+    Object.assign(measurements, DuringGame.flagChordGap(heldDuringGameModel({ gameId, timeMs: plan.timeMs, outcome: plan.outcome })));
   }
   if (plan.needGivenOpeningBv3) {
     const solved = DuringGame.bv3SolvedAtStart(plan.width, plan.height, plan.mines, duringGameSource.events);

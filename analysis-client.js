@@ -10,11 +10,9 @@ function analysisFailure(error) {
   throw error;
 }
 
-// Each lane is one worker. The analysis lanes compute on data the page sends;
-// the switch-cost lane's worker reads the saved traces it needs itself.
-function startAnalysisWorker(lane) {
-  if (lane === 'switch-cost') return new Worker('switch-cost-worker.js?v=20261123-guardian-angel-2');
-  return new Worker('analysis-worker.js?v=20261124-settings-s1');
+// Each lane is one worker computing on data the page sends.
+function startAnalysisWorker() {
+  return new Worker('analysis-worker.js?v=20261124-switch-cost-w1');
 }
 
 async function analysisTask(lane, kind, payload) {

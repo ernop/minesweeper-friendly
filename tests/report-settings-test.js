@@ -21,7 +21,8 @@ function check(name, condition) {
   const fresh = settingsFrom({});
   check('new-player default shows no action report', fresh.reportScope === 'none');
   check('motion stats start closed', fresh.panels.motionStats === false);
-  check('the switch cost line starts off', fresh.gameDataSwitchCost === false);
+  check('the retired switch cost line setting is dropped',
+    !('gameDataSwitchCost' in settingsFrom({ gameDataSwitchCost: true })));
   check('the removed left panel\u2019s settings are dropped',
     !('showSessionStats' in settingsFrom({ showSessionStats: true, metricsPanelWidth: 300 }))
       && !('metricsPanelWidth' in settingsFrom({ metricsPanelWidth: 300 })));

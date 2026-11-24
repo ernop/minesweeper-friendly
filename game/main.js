@@ -79,6 +79,7 @@ async function completePendingGames(storedHistory, trial) {
         width, height, mines: stored.finalBoard.cells.map((cell) => cell.mine),
         drill: record.playMode === 'endgame-drill',
         needZini: true, needBoardMetrics: true, needCadence: true, needMoveHabits: true, needFastclickGap: true,
+        needFlagChordGap: true,
         gameId: record.endedAt, timeMs: record.timeMs, outcome: record.outcome,
         guardianAngelEnabled: record.guardianAngelEnabled, guessLedger: guessLedgerAppliesTo(record.playMode),
         trace: { t: stored.sampleT, x: stored.sampleX, y: stored.sampleY, merged: storedMergedObservations(stored),
@@ -145,5 +146,4 @@ async function init() {
   document.documentElement.classList.remove('game-booting');
   // After startup, so catching up on older data never delays the first board.
   loadArchive(renderArchiveChip);
-  refreshSwitchCost();
 }

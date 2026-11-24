@@ -1,31 +1,34 @@
 'use strict';
 
 // Switch cost: how much longer the next press takes after changing mouse
-// buttons (flag versus click or chord) than after repeating the same move.
-// Spec: docs/product/game-data.md ("Switch cost line"); study and
-// estimator choice: reference/mode-switch-2026-09-28.md. Pure: game data's
-// switch cost line runs it in switch-cost-worker.js over the saved
-// traces of the session's, the latest, and the earlier standard games, and
-// Node tests load it directly.
+// buttons (flag versus chord) than after repeating the same button.
+// Spec: docs/product/training.md ("Button switch cost"); study and
+// estimator choice: reference/mode-switch-2026-09-28.md. Pure: the training
+// page runs it in switch-cost-worker.js over the saved traces of the latest
+// and earlier 500 flagged standard games (short-range flag/chord transitions),
+// and Node tests load it directly.
 //
 // Per game, every pair of consecutive board inputs that are both moves
 // (reveal, chord, flag; no other input between them) is one transition,
-// timed press to press. The row's estimate pools many games in the
-// pre-registered model P1 of the study: least squares on log interval with
-// one intercept per game, previous and next move type, the button switch S
-// and the same-button change of move T, natural cubic splines of travel
-// distance (Fitts index), of the cells the previous move opened, and of
-// board progress, whether the previous move opened an empty region, whether
-// single-number logic offered the next target, and what the board offered
-// before the next move. Its interval is cluster-robust by game. One game has
-// too few transitions to estimate its own value (split-half reliability near
-// zero in the study), so a game's cost prices its switches at a pool's
-// estimate instead (switchCostTimeMs).
+// timed press to press; `shortRangeRows` narrows those to flag/chord pairs
+// at most SWITCH_COST_MAX_CELLS (2) squares apart. The pooled estimate runs
+// the study's model P1: least squares on log interval with one intercept per
+// game, previous and next move type, the button switch S and the same-button
+// change of move T, natural cubic splines of travel distance (Fitts index),
+// of the cells the previous move opened, and of board progress, whether the
+// previous move opened an empty region, whether single-number logic offered
+// the next target, and what the board offered before the next move (terms
+// constant or collinear on a subset drop out automatically in QR). Its
+// interval is cluster-robust by game. One game has too few transitions to
+// estimate its own value (split-half reliability near zero in the study), so
+// per-board averages price switches at a pool's estimate (switchCostTimeMs).
 
 // The latest standard games that have a timed transition.
 const SWITCH_COST_WINDOW_GAMES = 500;
 // Below this many games the interval is too wide to show a value.
 const SWITCH_COST_MIN_GAMES = 30;
+// Maximum Chebyshev cell distance for short-range flag/chord switch cost.
+const SWITCH_COST_MAX_CELLS = 2;
 const SWITCH_COST_INTERVAL_MIN_MS = 40;
 const SWITCH_COST_INTERVAL_MAX_MS = 5000;
 // Standard play on the three standard boards with the default generator.
@@ -108,6 +111,7 @@ function switchCostGameRows(trace, outcome, board, deps) {
     };
   });
   if (replay.status !== 'replayed') return { status: replay.status, rows: [] };
+  if (layouts.length === 0) return { status: 'no-layout', rows: [] };
   const inputs = TrainingCore.boardInputs(trace);
   const presses = switchCostPresses(trace, inputs);
   const last = layouts[layouts.length - 1];
@@ -125,16 +129,19 @@ function switchCostGameRows(trace, outcome, board, deps) {
     if (intervalMs < SWITCH_COST_INTERVAL_MIN_MS || intervalMs > SWITCH_COST_INTERVAL_MAX_MS) continue;
     const layoutA = switchCostLayoutAt(layouts, pressA.t);
     const layoutB = switchCostLayoutAt(layouts, pressB.t);
-    const sameRect = layoutA.left === layoutB.left && layoutA.top === layoutB.top
+    const sameRect = layoutA !== null && layoutB !== null
+      && layoutA.left === layoutB.left && layoutA.top === layoutB.top
       && layoutA.width === layoutB.width && layoutA.height === layoutB.height;
+    const dxCells = (b.index % board.width) - (a.index % board.width);
+    const dyCells = Math.floor(b.index / board.width) - Math.floor(a.index / board.width);
+    const cellDistance = Math.max(Math.abs(dxCells), Math.abs(dyCells));
     const distancePx = sameRect
       ? Math.hypot(pressB.x - pressA.x, pressB.y - pressA.y)
-      : Math.hypot((b.index % board.width) - (a.index % board.width),
-        Math.floor(b.index / board.width) - Math.floor(a.index / board.width)) * cellPx;
+      : Math.hypot(dxCells, dyCells) * cellPx;
     const prevButton = prev === 'flag' ? 'R' : 'L';
     const nextButton = next === 'flag' ? 'R' : 'L';
     rows.push({
-      intervalMs, prev, next,
+      intervalMs, prev, next, cellDistance,
       switched: prevButton !== nextButton,
       leftMoveChanged: prevButton === 'L' && nextButton === 'L' && prev !== next,
       fitts: Math.log2(1 + distancePx / cellPx),
@@ -146,6 +153,15 @@ function switchCostGameRows(trace, outcome, board, deps) {
     });
   }
   return { status: 'measured', rows };
+}
+
+// Short-range flag/chord transitions (creator 2026-11-24): keeps only pairs
+// whose previous and next moves are flag or chord and at most
+// SWITCH_COST_MAX_CELLS squares apart (Chebyshev distance), removing reveal
+// transitions and long cross-board jumps.
+function switchCostShortRangeRows(rows) {
+  return rows.filter((row) => row.prev !== 'reveal' && row.next !== 'reveal'
+    && row.cellDistance <= SWITCH_COST_MAX_CELLS);
 }
 
 // numpy.percentile's default ("linear") interpolation, including its
@@ -377,14 +393,42 @@ function switchCostFit(games) {
   const switchIntervals = rows.filter((row) => row.switched).map((row) => row.intervalMs);
   const medianSwitchMs = switchCostMedian(switchIntervals);
   const percent = (b) => 100 * Math.expm1(b);
+  const msPer = (b) => medianSwitchMs * -Math.expm1(-b);
   return {
     status: 'measured', ...counted, columns: p, beta, se,
     percent: percent(beta),
     percentLow: percent(beta - SWITCH_COST_Z95 * se),
     percentHigh: percent(beta + SWITCH_COST_Z95 * se),
     medianSwitchMs,
-    msPerSwitch: medianSwitchMs * -Math.expm1(-beta),
+    msPerSwitch: msPer(beta),
+    msPerSwitchLow: msPer(beta - SWITCH_COST_Z95 * se),
+    msPerSwitchHigh: msPer(beta + SWITCH_COST_Z95 * se),
     switchShare: switchIntervals.length / n,
+  };
+}
+
+// Two-sample comparison of two disjoint pooled fits (latest vs earlier).
+// Reports whether (latest.beta - earlier.beta) moved beyond its 95% interval.
+function switchCostCompare(latest, earlier) {
+  if (latest.status !== 'measured' || earlier.status !== 'measured') {
+    return { status: 'not-comparable' };
+  }
+  const deltaBeta = latest.beta - earlier.beta;
+  const seDelta = Math.hypot(latest.se, earlier.se);
+  const lowBeta = deltaBeta - SWITCH_COST_Z95 * seDelta;
+  const highBeta = deltaBeta + SWITCH_COST_Z95 * seDelta;
+  const changed = lowBeta > 0 || highBeta < 0;
+  const direction = !changed ? 'unchanged' : deltaBeta < 0 ? 'faster' : 'slower';
+  return {
+    status: 'compared',
+    deltaBeta,
+    seDelta,
+    lowBeta,
+    highBeta,
+    deltaPercent: latest.percent - earlier.percent,
+    deltaMs: latest.msPerSwitch - earlier.msPerSwitch,
+    changed,
+    direction,
   };
 }
 
@@ -454,16 +498,19 @@ async function switchCostSince(candidates, fromMs, gameOf) {
 const SwitchCost = {
   WINDOW_GAMES: SWITCH_COST_WINDOW_GAMES,
   MIN_GAMES: SWITCH_COST_MIN_GAMES,
+  MAX_CELLS: SWITCH_COST_MAX_CELLS,
   KNOT_TOLERANCE: SWITCH_COST_KNOT_TOLERANCE,
   INTERVAL_MIN_MS: SWITCH_COST_INTERVAL_MIN_MS,
   INTERVAL_MAX_MS: SWITCH_COST_INTERVAL_MAX_MS,
   KEYS: SWITCH_COST_KEYS,
   offers: switchCostOffers,
   gameRows: switchCostGameRows,
+  shortRangeRows: switchCostShortRangeRows,
   knots: switchCostKnots,
   splineColumns: switchCostSplineColumns,
   design: switchCostDesign,
   fit: switchCostFit,
+  compare: switchCostCompare,
   timeMs: switchCostTimeMs,
   perGame: switchCostPerGame,
   game: switchCostGame,

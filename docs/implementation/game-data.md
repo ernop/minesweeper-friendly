@@ -350,80 +350,22 @@ Spec: [Switch cost line](../product/game-data.md#switch-cost-line-creator-reques
   the input opened, empty ones among them); `beforeInput(event, view)` sees
   the visible board before each input and its return value becomes
   `step.before`; `boardInputs` is exported.
-- `switch-cost-worker.js` is `analysisTask`'s `switch-cost` lane
-  (`startAnalysisWorker` in `analysis-client.js`; one task kind, `estimate`,
-  payload `{ database, candidates, sessionFromMs, shownEndedAt }`, reply
-  `{ session, latest, earlier, shown }`: per pool a `fit` result with its
-  `perGame`, and `shown`, the candidate ending at `shownEndedAt` as
-  `game(rows, latest)` with its `endedAt`, or null when no candidate ends
-  then or its trace is not saved). Saved games carry their key for
-  `perGame`. It opens the database
-  with the page's name and version as `training-worker.js` does, reads each
-  trace in its own transaction, keeps every saved game's rows for the page's
-  lifetime, and does not remember a missing trace (a just-finished game's
-  trace may not be committed when an earlier request lists it). It keeps the
-  previous reply's fits (with their `perGame`) keyed by their games' end
-  times, so a pool whose games did not change (the latest 500 when another
-  session is picked, or the session when it holds the same games as a
-  window) is not fitted again.
-  `solver.js` needs `guardian-angel.js` loaded first.
-- `game/switch-cost-line.js` (page only, so the analysis worker's imports
-  never reach it):
-  - `buildSwitchCostLine(record)`: built by the game data task's chart
-    view under the chart when `settings.gameDataSwitchCost` is on, for the
-    game game data shows (`switchCostShownEndedAt`). One wrapping flex line:
-    the label (`chartHelpButton`), "this game" and its value, then per
-    `SWITCH_COST_POOLS` entry (session, latest, earlier) the pool name and a
-    `.switch-cost-value`; its `updateFits` changes only those values' text,
-    with a true minus sign, and closes an open card. "this game" shows only
-    a reply whose `shown.endedAt` is the line's game
-    (`switchCostShownGame`).
-  - `fillSwitchCostCard`: `SWITCH_COST_DETAILS` per pool (the per-board rows
-    from `DIFFICULTIES`' standard keys), a sentence per `not-measurable`
-    pool, this game's sentence, the definition, how to read the earlier
-    pool, and which games count. `switchCostSeconds` formats seconds in at
-    most six characters.
-  - `switchCostCandidates`: the three keys' records, newest first.
-  - `refreshSwitchCost`: while `settings.gameDataSwitchCost` is off it only
-    sets `switchCostStale`. Otherwise one request in flight and one rerun
-    queued; `switchCostRequest` keeps the request's candidates, its session
-    start, the shown game it priced, and how many candidates ended inside
-    the window. Failures go through `analysisFailure`.
-  - `keepSwitchCostCurrent`: called by `buildSwitchCostLine` and
-    `setSessionDefinition`. It runs a stale refresh, or one when the line
-    now sits under another game or the session window now holds a different
-    number of the request's candidates (another session picked, or the
-    window's start passing a game).
-  - `switchCostSourcesChanged`: called when a judged game's `storeGame`
-    completes (a game pending judgment is not in `history`, so never a
-    candidate). `init` calls `refreshSwitchCost` after startup.
-  - Configure's checkbox for `gameDataSwitchCost` sits between the
-    performance measurements and the board traits.
-- `style.css`, `.switch-cost-value`: `min-width: 6ch`, 14px bold tabular
-  digits, right-aligned, so every estimate under 100% either way and every
-  cost under 100 s fits and a reply does not shift the line;
-  `.switch-cost-pool` keeps each name with its value.
-- Verification: `tests/switch-cost-test.js` (known-answer transitions from a
-  hand-built game, numpy knots, the fit against `tests/switch-cost-reference.json`
-  within 1e-9, coverage of the fixture's planted effect, a game's cost at a
-  known estimate, per board, the windows and session rules);
-  `tests/training-core-test.js` (the replay additions);
-  `tests/switch-cost-browser-check.js`: nothing read while the line is off;
-  en dashes and zero game counts with no saved games and under the minimum;
-  the line directly under game data's chart, above its controls row; every
-  pool's fit and per-board cost, and the shown game's cost, from IndexedDB
-  equal Node's within 1e-12 over the past 4 hours, the past hour, the past
-  10 minutes, and the past hour ten minutes later (a shifted `Date.now`);
-  the rendered line and card; a finished game joining the session and the
-  latest 500; turning the line off stops reading and turning it on catches
-  up; the line wraps only between items and never overflows game data at
-  any column width. It serves the
-  working tree by request routing under 8099, so it needs no server, and
-  runs in Chromium only: Firefox does not route the requests a worker makes
-  itself (`importScripts`). An optional third argument saves a screenshot of
-  the line with the card open. After a fixture or estimator change,
-  regenerate the reference: `node tests/switch-cost-fixture.js ROWS.jsonl` then
-  `python analysis/switch-cost/reference.py ROWS.jsonl tests/switch-cost-reference.json`.
+- Switch cost (`switch-cost.js`, `switch-cost-worker.js`): moved from the game
+  page to `training.html` on 2026-11-24 (Option W1; `game/switch-cost-line.js`,
+  `gameDataSwitchCost`, and the `switch-cost` lane in `analysis-client.js` were
+  removed). See [Training page implementation](training.md#button-switch-cost).
+  `switch-cost.js` still keeps `gameRows` emitting all transitions (plus
+  `cellDistance`) so `tests/switch-cost-reference.json` parity with
+  `analysis/switch-cost/reference.py` remains intact, and adds
+  `MAX_CELLS = 2`, `shortRangeRows`, `msPerSwitchLow`/`High`, and `compare`.
+- Per-game `flagChordGap` (`flag→chord gap`, added 2026-11-24): catalog entry
+  in `game-data.js` (`allOutcomes: true`, `higher: false`, `default: true`,
+  gated on `r.flagsPlaced > 0 && !r.flagsBlocked && Number.isFinite(r.flagChordGapMs)`),
+  computed by `DuringGame.flagChordPairsOf` / `DuringGame.flagChordGap` in
+  `during-game.js` and `finishedMeasurements` (`needFlagChordGap`) in
+  `analysis-worker.js`, stored as `flagChordGapMs` (`game/history.js`),
+  backfilled on restore (`preferences-game.js`), and included in
+  `PERF_CHART_SPECS` (`game/charts.js`) and `buildGameStats` (`game/results.js`).
 - Real-data parity (2026-09-28, the study's latest 500 standard games,
   25,970 transitions, the same window by end time as by start time): in-game
   +7.383% (+6.371 to +8.405), 17.9 ms per switch, 53.62% of moves switching;

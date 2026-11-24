@@ -123,6 +123,7 @@ function reportResult(outcome, endedAt = Date.now()) {
   analysisTask('reports', 'finished-game', {
     width: config.width, height: config.height, mines: mineAt, drill: endgameDrillActive(),
     needZini: true, needBoardMetrics: true, needCadence: true, needMoveHabits: true, needFastclickGap: true,
+    needFlagChordGap: true,
     gameId: record.endedAt, timeMs: record.timeMs, outcome: record.outcome, guardianAngelEnabled: record.guardianAngelEnabled,
     guessLedger: guessLedgerAppliesTo(record.playMode),
     trace: { t: finishedTrace.t, x: finishedTrace.x, y: finishedTrace.y, merged: liveMergedObservations(),
@@ -131,10 +132,7 @@ function reportResult(outcome, endedAt = Date.now()) {
   }).then((result) => {
     Object.assign(record, result.measurements);
     completeGameRecord(record, stored, result.evaluation);
-    storeGame(key, record, stored, () => {
-      switchCostSourcesChanged(key);
-      requestArchiveSync();
-    });
+    storeGame(key, record, stored, requestArchiveSync);
     const modeRecords = addGameRecord(key, record);
     if (trialResult !== null) {
       trialResult.actionEvaluations = record.actionEvaluations;
@@ -951,6 +949,7 @@ function buildGameStats(record) {
     ...measurementRow('flagRate'),
     ...(fullAnalysis ? measurementRow('flagRemovalRate') : []),
     ...measurementRow('fastclickGap'),
+    ...measurementRow('flagChordGap'),
     ...measurementRow('cadenceSpread'),
     ...measurementRow('pathPerClick'),
     ...measurementRow('pathPer3bv'),

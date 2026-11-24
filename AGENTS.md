@@ -20,10 +20,7 @@ Runtime: `index.html` + `style.css` load `storage.js`; pure `rng.js` /
 `trial.js`; shared `game-data.js` / `during-game.js` (pure, the during-the-game
 model and rows, also in `analysis-worker.js`) / `board-icons.js` / `settings-core.js` / `preferences-game.js`;
 `analysis-client.js` (named worker queues in `analysis-worker.js`, using
-`trend-fit.js` for exact slope selection; its switch-cost lane runs
-`switch-cost-worker.js`, which reads saved traces and runs the pure
-`switch-cost.js` with `training-core.js`, `guardian-angel.js`, `solver.js`, and
-`rng.js`); pure `switch-cost.js` (the page reads its constants); the pure
+`trend-fit.js` for exact slope selection); the pure
 `play-limits.js` (daily play limits, after `settings-core.js`); then the game page's own scripts in `game/` (below). No dependencies, no
 build step. The settings page is
 `settings.html` + `settings-page.js`, loading the same `style.css`,
@@ -62,7 +59,9 @@ interrupt play (creator decision 2026-10-11;
 The training page is `training.html` + `training-page.js`, loading
 `style.css`, `training.css`, and `storage.js`; `training-worker.js` reads the
 saved games and runs the pure `training-core.js` with `guardian-angel.js`,
-`solver.js`, `rng.js`, and `game/evaluation.js`.
+`solver.js`, `rng.js`, and `game/evaluation.js`, and `switch-cost-worker.js`
+runs in parallel to estimate the short-range flag/chord button switch cost
+(`switch-cost.js`) across flagged standard games.
 
 ### Game page code (`game/`)
 
@@ -107,7 +106,6 @@ Files, in load order:
 | `charts.js` | chart models and presentation (heavy models execute in the analysis worker); chart basics (SVG namespace, count phrases, text widths, displayed numbers, sparkline sizes), axis ticks, trend lines, the (?) help tip, scatter and average-time charts |
 | `trial-review.js` | after-trial identity review, run overlays |
 | `game-data-chart.js` | game data: pure ranking and label layout, then the 0–100% band and its views, the strips, and the cards' example boards |
-| `switch-cost-line.js` | the optional switch cost line under game data: the session's and the latest 500 standard games' estimates, its card, refresh requests |
 | `during-game-chart.js` | live perf charts (head of the game data column): the progress, moves available, and relative charts and event tracks on one time axis, legend picks, the log or linear scale and the count axis, hover line, the card for the hovered line, the board's replay previewing the hovered moment, replay link, configure |
 | `result-ranks.js` | `renderRanks`: result tables and charts in section order |
 | `score-list.js` | full score lists: a rank table's every win in a window over the page, its columns and sort; the old games its rows open, compared as of now |

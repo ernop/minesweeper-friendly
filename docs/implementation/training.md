@@ -8,9 +8,11 @@ Specification: [docs/product/training.md](../product/training.md).
 | --- | --- |
 | `training.html` | page shell, the plan's static text, section containers |
 | `training.css` | page layout; `style.css` still supplies the base font and the shared `.return-to-game` dress |
-| `training-page.js` | renderer; defines `userdataReady` / `storageFailure` for `storage.js`; starts the worker |
-| `training-worker.js` | reads IndexedDB, replays, posts the summary |
+| `training-page.js` | renderer; defines `userdataReady` / `storageFailure` for `storage.js`; starts `training-worker.js` and `switch-cost-worker.js` in parallel |
+| `training-worker.js` | reads IndexedDB, replays Expert games, posts the training summary |
 | `training-core.js` | pure measurements (`TrainingCore`), loaded by the worker and by Node tests |
+| `switch-cost-worker.js` | reads flagged standard records & traces from IndexedDB, filters short-range `flag`/`chord` pairs (`<= 2` cells), fits latest & earlier 500 windows |
+| `switch-cost.js` | pure switch-cost transition extractor, short-range filter, P1 OLS fit (`msPerSwitchLow`/`High`), and two-sample `compare` |
 
 The game page links it from `#site-footer` (2026-10-20; from 2026-10-14
 `#other-pages-menu` in `#top-bar`; the `#training-btn` button in
@@ -94,6 +96,23 @@ comparable pair's difference (null under 3 pairs); its quantile comes from
 `chord-short-of-flags` and returns `undefined` for a record without a ledger
 or with a `chord-unavailable` no-op (the reason before the 2026-09-26 split).
 The page renders them in `#training-states` with `renderTrainingStates`.
+
+## Button switch cost
+
+`userdataReady` launches `switch-cost-worker.js` in parallel with
+`training-worker.js` with the same `{ name, version, recordStore, traceStore }`
+database descriptor and terminates it on reply. The worker reads judged
+standard records across `SwitchCost.KEYS` (`9x9/10@standard`,
+`16x16/40@standard`, `30x16/99@standard`) where `flagsPlaced > 0 &&
+!flagsBlocked`, sorts newest first, walks `SwitchCost.windows` (up to 500
+`latest` + 500 `earlier` games with saved traces and qualifying transitions),
+applies `SwitchCost.shortRangeRows` (`prev !== 'reveal' && next !== 'reveal' &&
+cellDistance <= 2`), fits both windows with `SwitchCost.fit` + `perGame`,
+compares them with `SwitchCost.compare` (two-sample 95% interval on
+`latest.beta - earlier.beta` with `seDelta = hypot(latest.se, earlier.se)`),
+and posts `{ switchCost }`. `renderTrainingSwitchCost` renders
+`#training-switch-cost` (hidden when `totalFlaggedGames === 0`; sets
+`data-status` to `empty`, `ready`, or `error`).
 
 ## Offline comparison pipeline (plan v2)
 

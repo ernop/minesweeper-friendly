@@ -15,9 +15,9 @@ const records = [
   { ...current, endedAt: now + 1000, timeMs: 1000 },
 ];
 const on = (selection) => Object.keys(selection).filter((id) => selection[id]);
-assert.deepEqual(on(GameData.defaults), ['time', 'misclickRate', 'fastclickGap', 'bvPerSecond',
+assert.deepEqual(on(GameData.defaults), ['time', 'misclickRate', 'fastclickGap', 'flagChordGap', 'bvPerSecond',
   'clickRate', 'noopRate', 'boardChangingClickShare', 'mouseSpeed', 'timeBeforeMove', 'easyWorkLeftShare', 'unusedFlagShare', 'unflaggedMineShare'],
-  'the creator’s defaults, plus the requested unflagged mine share and move habits');
+  'the creator’s defaults, plus the requested unflagged mine share, move habits, and flag→chord gap');
 const board = { width: 9, height: 9, mines: 10 };
 assert.deepEqual(GameData.rows(current, records, GameData.defaultsForView, board).map((r) => r.id), ['time.all',
   'misclickRate.all', 'fastclickGap.all', 'bvPerSecond.all', 'clickRate.all',
@@ -104,6 +104,14 @@ assert.equal(formula('ios')({ outcome: 'win', bv3: 10, timeMs: 5000 }), Math.log
 assert.equal(formula('fastclickGap')({ fastclickGapMs: 140, fastclickGapVersion: 'planned-pairs-v1' }), 140);
 assert.equal(formula('fastclickGap')({ fastclickGapMs: 300 }), undefined,
   'a value under the definition before planned pairs is another measurement');
+assert.equal(formula('flagChordGap')({ flagsPlaced: 5, flagChordGapMs: 165 }), 165,
+  'flag→chord gap is measured on flagged wins and losses');
+assert.equal(formula('flagChordGap')({ flagsPlaced: 0, flagChordGapMs: 165 }), undefined,
+  'no-mark games are unmeasured for flag→chord gap');
+assert.equal(formula('flagChordGap')({ flagsPlaced: 5, flagsBlocked: true, flagChordGapMs: 165 }), undefined,
+  'flag-blocked games are unmeasured for flag→chord gap');
+assert.equal(formula('flagChordGap')({ flagsPlaced: 5 }), undefined,
+  'flagged games with no qualifying flag→chord pair are unmeasured');
 assert.equal(row('time.all').definition, undefined);
 assert.equal(row('misclickRate.session').definition, GameData.metrics.find((m) => m.id === 'misclickRate').help,
   'every pool’s row carries its measurement’s definition');

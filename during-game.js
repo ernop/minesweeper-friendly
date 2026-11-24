@@ -250,6 +250,38 @@ const DuringGame = (() => {
     return pairs;
   }
 
+  // Short-range planned flag-to-chord pairs (creator 2026-11-24): a flag
+  // placed followed immediately by a chord at most NEAR_SQUARES (2) squares
+  // away (a chord's square is its number), every square they act on proven
+  // before the flag, and nothing else pressed between them. Each pair's gap
+  // runs press to press (right press to the chord's first press) and is
+  // placed at the chord. Works for single-click, two-button, and 1.5-click
+  // chords alike.
+  function flagChordPairsOf(events, decisions, factsAt, width) {
+    const decisionIndex = new Map(decisions.map((decision, k) => [decision, k]));
+    const pairs = [];
+    let previous = null;
+    let lefts = [];
+    let rights = [];
+    for (const event of events) {
+      if (event.kind === 'ldown') lefts.push(event);
+      else if (event.kind === 'rdown') rights.push(event);
+      if (event.kind !== 'decision' || !decisionIndex.has(event)) continue;
+      const { evaluation } = event;
+      const click = pairClickOf(evaluation, lefts, rights);
+      lefts = [];
+      rights = [];
+      if (click !== null && previous !== null && click.alone
+          && previous.evaluation.action === 'flag-place' && evaluation.action === 'chord'
+          && squareDistance(width, targetCellOf(previous.evaluation), targetCellOf(evaluation)) <= NEAR_SQUARES
+          && provenTogether(factsAt[previous.k], [previous.evaluation, evaluation])) {
+        pairs.push({ atMs: evaluation.atMs, gapMs: click.pressT - previous.pressT });
+      }
+      previous = click === null ? null : { k: decisionIndex.get(event), pressT: click.pressT, evaluation };
+    }
+    return pairs;
+  }
+
   function pathAt(path, atMs) {
     const i = lastIndexAtOrBefore(path.times, atMs);
     return i < 0 ? 0 : path.cumulative[i];
@@ -878,6 +910,7 @@ const DuringGame = (() => {
       bv3: { total: board.total, atStart: solvedAtStart },
       safe: { total: size - mineCount, atStart: openedAtStart },
       actions, presses, plannedPairs: plannedPairsOf(game.events, decisions, factsAt, game.t, width),
+      flagChordPairs: flagChordPairsOf(game.events, decisions, factsAt, width),
       progress, known, path, events,
     };
   }
@@ -912,6 +945,15 @@ const DuringGame = (() => {
     const gaps = m.plannedPairs.map((pair) => pair.gapMs);
     return { fastclickGapVersion: GameData.FASTCLICK_GAP_VERSION,
       ...(gaps.length > 0 ? { fastclickGapMs: Math.round(medianOf(gaps)) } : {}) };
+  }
+
+  // The record's flag->chord gap (game/history.js): median press-to-press gap
+  // of the short-range planned flag-to-chord pairs, rounded to the ms; absent
+  // where the game had no such pair.
+  function flagChordGap(m) {
+    if (!m.recorded) return {};
+    const gaps = m.flagChordPairs.map((pair) => pair.gapMs);
+    return gaps.length > 0 ? { flagChordGapMs: Math.round(medianOf(gaps)) } : {};
   }
 
   //-------DURING THE GAME: ROWS (catalog, per-row data)-------
@@ -1127,6 +1169,11 @@ const DuringGame = (() => {
     measurementRow('fastclickGap', { group: 'pace', default: true, chart: 'relative', color: '#ef6c00',
       data: (m) => ({ kind: 'value', aggregate: 'median',
         incidents: m.plannedPairs.map((pair) => ({ atMs: pair.atMs, value: pair.gapMs })) }) }),
+    measurementRow('flagChordGap', { group: 'pace', default: false, chart: 'relative', color: '#e65100',
+      data: (m) => (m.actions.some((a) => a.kind === 'flag-place')
+        ? { kind: 'value', aggregate: 'median',
+          incidents: m.flagChordPairs.map((pair) => ({ atMs: pair.atMs, value: pair.gapMs })) }
+        : { kind: 'unrecorded' }) }),
     measurementRow('mouseSpeed', { group: 'pace', default: true, chart: 'relative', color: '#6a1b9a',
       data: (m) => ({ kind: 'speed', path: m.path,
         incidents: changingActions(m).filter((a) => a.gapMs > 0)
@@ -1418,5 +1465,5 @@ const DuringGame = (() => {
 
   return { NEAR_SQUARES, LONG_GAP_MS, QUICK_UNDO_MS, GROUPS, CHARTS, RELATIVE_SCALES, DEFAULT_RELATIVE_SCALE, TRACKS,
     ROWS, defaults, AVERAGES, DEFAULT_AVERAGE, rowById, positionProofs, model, cursorTravelPx, bv3SolvedBy, bv3SolvedAtStart,
-    plannedPairsOf, moveHabits, fastclickGap, view, valueAt, legendPick, legendHides };
+    plannedPairsOf, flagChordPairsOf, moveHabits, fastclickGap, flagChordGap, view, valueAt, legendPick, legendHides };
 })();

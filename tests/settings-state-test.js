@@ -259,7 +259,7 @@ const choices = {
   customBoardDraft: { width: '25', height: '12', mines: '45' },
   playerStates: [{ name: 'new mouse', active: true }, { name: 'sleepy', active: false }],
   pathView: 'click-speed', replayOverlays: { moves: false, mines: false, probs: true, pointless: true, purposeful: true, movement: true },
-  gameDataSwitchCost: true, trialSpeedBucketMs: 375, resultView: 'scores',
+  trialSpeedBucketMs: 375, resultView: 'scores',
   mineSize: 70, numberSize: 115,
   replayPosition: { endedAt: 12345, step: 7 },
   panels: { boardPosition: true, states: true, importHistory: true, dataFormat: true,

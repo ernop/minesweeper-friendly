@@ -100,6 +100,16 @@ console.log('transitions of a hand-built win');
     rows[0].chordable === 3 && rows[0].safe === 2 && rows[0].mine === 0);
   check('before the first chord: 5 chordable numbers, 4 safe cells',
     rows[1].chordable === 5 && rows[1].safe === 4 && rows[1].mine === 0);
+  check('Chebyshev cell distance recorded per transition',
+    JSON.stringify(rows.map((r) => r.cellDistance)) === JSON.stringify([2, 1, 2, 2, 1]));
+  const shortRows = SwitchCost.shortRangeRows(rows);
+  check('shortRangeRows keeps only flag/chord pairs within ' + SwitchCost.MAX_CELLS + ' cells',
+    shortRows.map((r) => r.prev + '>' + r.next).join(',') === 'flag>flag,flag>chord,flag>chord');
+  check('shortRangeRows drops distances above ' + SwitchCost.MAX_CELLS,
+    SwitchCost.shortRangeRows([{ prev: 'flag', next: 'chord', cellDistance: 3 }, { prev: 'flag', next: 'chord', cellDistance: 2 }]).length === 1);
+  const noLayoutTrace = { ...gameTrace(winMoves), events: gameTrace(winMoves).events.filter((e) => e.kind !== 'layout') };
+  check('trace without layout events returns no-layout safely',
+    SwitchCost.gameRows(noLayoutTrace, 'win', board, deps).status === 'no-layout');
 }
 
 console.log('chain breaks, bounds, and a board that moved');
@@ -181,6 +191,35 @@ console.log('fit: the independent Python reference on the synthetic fixture');
   const planted = 100 * Math.expm1(PLANTED.switch);
   check('the 95% interval covers the planted +' + planted.toFixed(2) + '%',
     fit.percentLow < planted && planted < fit.percentHigh);
+  check('msPerSwitch interval is ordered around msPerSwitch',
+    fit.msPerSwitchLow < fit.msPerSwitch && fit.msPerSwitch < fit.msPerSwitchHigh);
+
+  console.log('short-range flag/chord fit and two-sample comparison');
+  const shortGames = window.map((game) => ({ ...game, rows: SwitchCost.shortRangeRows(game.rows) }))
+    .filter((game) => game.rows.length > 0);
+  const shortFit = SwitchCost.fit(shortGames);
+  check('short-range fit is measured on fixture', shortFit.status === 'measured');
+  check('short-range 95% interval covers the planted +' + planted.toFixed(2) + '%',
+    shortFit.percentLow < planted && planted < shortFit.percentHigh);
+  check('short-range msPerSwitch interval is ordered',
+    shortFit.msPerSwitchLow < shortFit.msPerSwitch && shortFit.msPerSwitch < shortFit.msPerSwitchHigh);
+  check('compare returns not-comparable when a pool is not measured',
+    SwitchCost.compare(shortFit, { status: 'too-few-games' }).status === 'not-comparable');
+  const sameCompare = SwitchCost.compare(shortFit, shortFit);
+  check('identical fits compare as unchanged',
+    sameCompare.status === 'compared' && sameCompare.changed === false && sameCompare.direction === 'unchanged');
+  const fasterCompare = SwitchCost.compare(
+    { status: 'measured', beta: 0.04, se: 0.01, percent: 4.08, msPerSwitch: 10 },
+    { status: 'measured', beta: 0.14, se: 0.01, percent: 15.03, msPerSwitch: 35 });
+  check('meaningfully lower switch cost compares as faster',
+    fasterCompare.status === 'compared' && fasterCompare.changed === true && fasterCompare.direction === 'faster'
+    && close(fasterCompare.deltaMs, -25, 1e-9));
+  const slowerCompare = SwitchCost.compare(
+    { status: 'measured', beta: 0.16, se: 0.01, percent: 17.35, msPerSwitch: 40 },
+    { status: 'measured', beta: 0.05, se: 0.01, percent: 5.13, msPerSwitch: 12 });
+  check('meaningfully higher switch cost compares as slower',
+    slowerCompare.status === 'compared' && slowerCompare.changed === true && slowerCompare.direction === 'slower'
+    && close(slowerCompare.deltaMs, 28, 1e-9));
 
   console.log('windows: the latest games first, then the earlier as many, only games with a timed transition');
   const loads = [];

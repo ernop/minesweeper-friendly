@@ -856,7 +856,33 @@ IOE, ZiNi and HZiNi efficiency, IOS, STNB, path / click, cadence spread, and
 the nine measurements added 2026-10-20. This inventory is for the user's next placement
 choices; it is not approval to add unrelated ranking directions.
 
-## Switch cost line (creator request and approval 2026-09-28; under game data since 2026-10-20)
+- **flag→chord gap** (added 2026-11-24, creator choice Option W1): median
+  press-to-press time of a planned flag followed immediately by a chord within
+  2 squares (Chebyshev distance `<= 2`, no other press between them, the
+  flagged mine and every square the chord opens already proven before the
+  flag), shown by default on flagged wins and losses (`flagsPlaced > 0 &&
+  !flagsBlocked`, lower is better, `Math.round(v) + 'ms'`). Works for
+  single-click, two-button, and 1.5-click chords alike. Stored as
+  `flagChordGapMs` on the game record and plotted as an optional line in live
+  perf charts and in the your-perf charts.
+
+## Switch cost line (creator request and approval 2026-09-28; under game data 2026-10-20 to 2026-11-24; moved to Training 2026-11-24)
+
+On 2026-11-24 (creator choice, Option W1), the under-chart switch cost line
+(`gameDataSwitchCost` and `game/switch-cost-line.js`) was retired from the
+game page and replaced by two cleaner pieces:
+
+1. Per-game **`flag→chord gap`** in `game summary perf` (above), giving an
+   immediate, intuitive millisecond number for each flagged game without
+   relying on a 500-game pooled regression to price single games.
+2. The pooled 500-game regression moved to the Training page's **Button switch
+   cost** section ([Training](training.md#button-switch-cost-moved-from-game-data-2026-11-24)),
+   narrowed to short-range `flag`/`chord` transitions (`<= 2` cells) across
+   flagged standard games (excluding no-mark and flag-blocked games), leading
+   with **ms per switch** (and its 95% interval) plus a formal two-sample 95%
+   interval comparison between the latest 500 and earlier 500 games.
+
+Historical record of the earlier game-page design (2026-09-28 to 2026-11-24):
 
 Creator request (verbatim): "what about a new type of user perf stat for
 "frequency of switching button presses"? i.e. from going between "marking"

@@ -34,7 +34,7 @@ function assertEq(name, actual, want) {
 assertEq(
   'your-perf chart order',
   tested.PERF_CHART_SPECS.map((spec) => spec.label).join(','),
-  'IOE,HZiNi efficiency,board-changing click share,click rate,fastclick gap,mouse speed,cadence spread,misclicks,unused flag share,unflagged mine share');
+  'IOE,HZiNi efficiency,board-changing click share,click rate,fastclick gap,flag→chord gap,mouse speed,cadence spread,misclicks,unused flag share,unflagged mine share');
 assertEq(
   'board-trait chart order',
   tested.BOARD_CHART_SPECS.map((spec) => spec.label).join(','),

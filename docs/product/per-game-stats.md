@@ -553,6 +553,16 @@ the current definition, and restoring a result measures again only a gap
 of an earlier definition. The prover now always finishes. The stats table
 shows a "Fastclick gap" row when the game has a value.
 
+Flag→chord gap (added 2026-11-24, Option W1) — median press-to-press time of
+short-range planned `flag → chord` pairs in flagged games (`flagsPlaced > 0 &&
+!flagsBlocked`): a `flag-place` followed immediately by a `chord` at Chebyshev
+distance `<= 2` (a chord's square is its number), no other press between them,
+with the flagged mine and every square the chord opens already proven before
+the flag. Works across single-click, two-button, and 1.5-click chords through
+`pairClickOf`. Stored as `flagChordGapMs` (rounded ms; absent when the game had
+no qualifying pair), plotted on the live perf charts' relative chart, ranked in
+Game Data, and shown in the stats table when measured.
+
 Before 2026-10-26 the fastclick gap was the median gap between consecutive
 board-changing actions of at most 1 s with a cursor move within 100 ms
 before the later action, each action timed when it took effect (a flag at

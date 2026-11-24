@@ -950,9 +950,6 @@ function setSessionDefinition(value) {
   settings.sessionDefinition = value;
   saveSettings();
   for (const view of document.querySelectorAll('[data-session-scope-view]')) view.dispatchEvent(new Event('session-scope-change'));
-  // The switch cost's session pool changes with the window itself, before
-  // game data redraws its line.
-  keepSwitchCostCurrent();
 }
 
 // The page's only session picker, in the settings row at the page foot

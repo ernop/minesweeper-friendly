@@ -371,13 +371,42 @@ the first incomplete one. Achieving the goal does not wait for earlier stages.
   only. Other keys never mix in.
 - Sections in order: **Now** (cards listed below), **Stages** (each measure's current value, target, met, and the
   sample it was measured over; the current stage outlined), **Where the time
-  goes in your latest wins**, **The plan** (the text above; the current stage's
-  block outlined; readable even with no games), **Week by week**. The Now cards
+  goes in your latest wins**, **Button switch cost** (pooled short-range
+  flag/chord switch cost across flagged standard games, moved here from game
+  data on 2026-11-24), **Openings**, **The plan** (the text above; the current stage's
+  block outlined; readable even with no games), **Week by week**, and
+  **Experiments: player states compared**. The Now cards
   are best Expert win (with its 3BV and date), median win, median 3BV/s, IOE,
   seconds per input, wins under 60 s, and current stage, each with the sample
   it describes.
-- Empty state: with no saved Expert games the measured sections stay hidden
-  and the status says so. Failures show in the status line with their message.
+- Empty state: with no saved Expert games the Expert measured sections stay hidden
+  and the status says so; **Button switch cost** stays hidden when there are
+  no flagged standard games. Failures show in their section or the status line
+  with their message.
+
+### Button switch cost (moved from game data 2026-11-24)
+
+Creator review on 2026-11-24 (Option W1) moved the pooled 500-game switch-cost
+regression off the game page to `training.html` alongside the other multi-game
+training diagnostics and narrowed it to what the original study
+([reference/mode-switch-2026-09-28.md](../../reference/mode-switch-2026-09-28.md))
+found actually carries a button-switch effect:
+
+- **Scope:** judged Standard games on Beginner, Intermediate, and Expert that
+  placed at least one flag (`flagsPlaced > 0 && !flagsBlocked`; no-mark and
+  flag-blocked games are excluded).
+- **Transitions:** consecutive moves that are both `flag` or `chord` and at
+  most 2 squares apart (Chebyshev distance `<= 2`), timed press to press
+  between 40 ms and 5 s. Reveals and long cross-board jumps are excluded.
+- **Pools:** latest 500 and earlier 500 flagged standard games that have a
+  saved trace and at least one qualifying short-range pair (minimum 30 games
+  to fit a pool).
+- **Display:** leads with **extra time per switch** in milliseconds and its
+  95% interval, followed by the relative `%` change and 95% interval, median
+  switched gap, share of short-range pairs that switch, mean short-range
+  switch time per Beginner/Intermediate/Expert flagged game, measured game and
+  pair counts, and a plain-English two-sample 95% interval verdict comparing
+  latest 500 against earlier 500.
 
 ### Definitions
 

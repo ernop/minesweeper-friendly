@@ -46,12 +46,18 @@ body.training-page .return-to-game {
   font-size: 14px;
 }
 
-#training-status.training-error {
+#training-status.training-error,
+.training-section .training-error {
   border: 1px solid #d6a2a2;
   border-radius: 7px;
   background: #fff5f5;
   padding: 12px 14px;
   color: #8d3030;
+}
+
+.training-switch-cost-verdict {
+  margin: 12px 0 6px;
+  font-weight: 600;
 }
 
 .training-section {

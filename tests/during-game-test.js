@@ -103,6 +103,14 @@ function playGame(width, height, mineCells, steps) {
     } else if (step.act === 'flag') {
       evaluation.action = flagged.has(cell) ? 'flag-remove' : 'flag-place';
       if (flagged.has(cell)) flagged.delete(cell); else flagged.add(cell);
+    } else if (step.act === 'chord') {
+      const targets = near(cell).filter((n) => !revealed.has(n) && !flagged.has(n));
+      evaluation.action = 'chord';
+      evaluation.triggerCell = cell;
+      evaluation.selected = targets;
+      for (const n of targets) {
+        if (mine[n]) { evaluation.result = 'death'; outcome = 'loss'; } else open(n);
+      }
     } else if (step.act === 'no-op') {
       evaluation.action = 'no-op';
       evaluation.evidence = { reason: step.reason };
@@ -783,6 +791,103 @@ assert.equal(DuringGame.DEFAULT_RELATIVE_SCALE, 'log', 'log by default');
   const flaggedView = viewOf(flagged, ['flagRate', 'flagRemovalRate'], 'rolling-2');
   assert.equal(flaggedView.rows.find((item) => item.id === 'flagRate').summary, 2 * 1000 / 2000);
   assert.equal(flaggedView.rows.find((item) => item.id === 'flagRemovalRate').summary, 1 * 60000 / 2000);
+}
+
+// Option W1 (2026-11-24): short-range planned flag->chord pairs (<= 2 squares),
+// covering single-click, 1.5-click, and two-button chords, excluding > 2-cell
+// jumps, non-flag->chord transitions, unproven pairs, intervening presses, and
+// no-flag games.
+{
+  const pathDecisionEvents = vm.runInContext('pathDecisionEvents', context);
+  const facts = (entries) => new Map(entries);
+  const decision = (t, action, selected, extra = {}) => ({ t, kind: 'decision',
+    evaluation: { action, atMs: t - START_T, selected, position: {}, ...extra } });
+  const fcPairs = (events, factsBefore) => {
+    const decisions = pathDecisionEvents(events);
+    return structuredClone(DuringGame.flagChordPairsOf(events, decisions, decisions.map(() => factsBefore), 5));
+  };
+
+  // 1-square touching 1.5-click flag->chord (distance 1).
+  assert.deepEqual(fcPairs([
+    { t: 1000, kind: 'rdown', index: 6 }, decision(1000, 'flag-place', [6]),
+    { t: 1120, kind: 'ldown', index: 7 }, { t: 1170, kind: 'lup', index: 7 },
+    decision(1170, 'chord', [3, 8], { triggerCell: 7 }),
+  ], facts([[6, 1], [3, 2], [8, 2]])), [{ atMs: 670, gapMs: 120 }], '1-cell 1.5-click flag->chord');
+
+  // 2-square short-range flag->chord (distance 2: (1,1)=6 to (3,1)=8).
+  assert.deepEqual(fcPairs([
+    { t: 2000, kind: 'rdown', index: 6 }, decision(2000, 'flag-place', [6]),
+    { t: 2150, kind: 'rdown', index: 8, chordGesture: true },
+    { t: 2165, kind: 'ldown', index: 8, chordGesture: true },
+    { t: 2210, kind: 'lup', index: 8, chordGesture: true },
+    decision(2210, 'chord', [9], { triggerCell: 8 }),
+  ], facts([[6, 1], [9, 2]])), [{ atMs: 1710, gapMs: 150 }], '2-cell two-button flag->chord');
+
+  // > 2 squares away ((0,0)=0 to (3,0)=3 -> distance 3) is excluded.
+  assert.deepEqual(fcPairs([
+    { t: 3000, kind: 'rdown', index: 0 }, decision(3000, 'flag-place', [0]),
+    { t: 3180, kind: 'ldown', index: 3 }, { t: 3230, kind: 'lup', index: 3 },
+    decision(3230, 'chord', [4], { triggerCell: 3 }),
+  ], facts([[0, 1], [4, 2]])), [], 'distance 3 excluded');
+
+  // Reverse direction (chord->flag) and flag->reveal are excluded.
+  assert.deepEqual(fcPairs([
+    { t: 4000, kind: 'ldown', index: 7 }, { t: 4050, kind: 'lup', index: 7 },
+    decision(4050, 'chord', [3], { triggerCell: 7 }),
+    { t: 4140, kind: 'rdown', index: 6 }, decision(4140, 'flag-place', [6]),
+    { t: 4240, kind: 'ldown', index: 8 }, { t: 4290, kind: 'lup', index: 8 },
+    decision(4290, 'reveal', [8]),
+  ], facts([[3, 2], [6, 1], [8, 2]])), [], 'only flag->chord qualifies');
+
+  // Unproven chord square excluded.
+  assert.deepEqual(fcPairs([
+    { t: 5000, kind: 'rdown', index: 6 }, decision(5000, 'flag-place', [6]),
+    { t: 5110, kind: 'ldown', index: 7 }, { t: 5160, kind: 'lup', index: 7 },
+    decision(5160, 'chord', [3, 8], { triggerCell: 7 }),
+  ], facts([[6, 1], [3, 2]])), [], 'unproven chord target excluded');
+
+  // Intervening press between flag and chord breaks the pair.
+  assert.deepEqual(fcPairs([
+    { t: 6000, kind: 'rdown', index: 6 }, decision(6000, 'flag-place', [6]),
+    { t: 6050, kind: 'ldown', index: 7 }, { t: 6070, kind: 'lup', index: null },
+    { t: 6120, kind: 'ldown', index: 7 }, { t: 6170, kind: 'lup', index: 7 },
+    decision(6170, 'chord', [8], { triggerCell: 7 }),
+  ], facts([[6, 1], [8, 2]])), [], 'intervening press breaks pair');
+
+  // End-to-end through DuringGame.model, DuringGame.flagChordGap, finished-game worker, and live perf row.
+  const width = 5;
+  const at = cellAt(width);
+  const mines = [at(2, 0), at(4, 2)];
+  const flaggedGame = playGame(width, 3, mines, [
+    { act: 'reveal', cell: at(0, 0), atMs: 0 },
+    { act: 'flag', cell: at(2, 0), atMs: 500 },
+    { act: 'chord', cell: at(2, 1), atMs: 700 }, // press at 640 -> gap 140ms (distance 1)
+    { act: 'flag', cell: at(4, 2), atMs: 1100 },
+    { act: 'chord', cell: at(3, 1), atMs: 1360 }, // press at 1300 -> gap 200ms (distance 1)
+  ]);
+  assert.equal(flaggedGame.outcome, 'win');
+  const model = modelOf(flaggedGame);
+  assert.equal(model.flagChordPairs.length, 2, 'two short-range planned flag->chord pairs');
+  assert.deepEqual(structuredClone(DuringGame.flagChordGap(model)), { flagChordGapMs: 170 });
+  const finished = task('finished-game', {
+    width, height: 3, mines: flaggedGame.mines, drill: false, needCadence: false,
+    needMoveHabits: false, needFastclickGap: false, needFlagChordGap: true,
+    gameId: 1760000000099, timeMs: flaggedGame.timeMs, outcome: flaggedGame.outcome,
+    guardianAngelEnabled: false, guessLedger: false,
+    trace: { t: flaggedGame.t, x: flaggedGame.x, y: flaggedGame.y, merged: flaggedGame.merged,
+      events: flaggedGame.events, wallMs: 2000, initialPageState: flaggedGame.initialPageState },
+  });
+  assert.deepEqual(finished.measurements, { flagChordGapMs: 170 });
+  const liveView = viewOf(flaggedGame, ['flagChordGap'], 'rolling-2');
+  assert.equal(liveView.rows[0].summary, 170, 'live perf row matches record measurement');
+
+  const noMark = playGame(width, 2, [at(4, 0)], [
+    { act: 'reveal', cell: at(0, 0), atMs: 0 },
+    { act: 'reveal', cell: at(3, 0), atMs: 900 },
+  ]);
+  assert.deepEqual(structuredClone(DuringGame.flagChordGap(modelOf(noMark))), {});
+  assert.deepEqual(viewOf(noMark, ['flagChordGap'], 'rolling-2').rows[0],
+    { id: 'flagChordGap', kind: 'unrecorded', summary: undefined }, 'no-flag game is unrecorded');
 }
 
 console.log('during-game tests passed');

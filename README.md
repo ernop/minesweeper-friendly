@@ -295,20 +295,15 @@ regions your hand serves slower. These are observations, not
 explanations: the app does not infer fatigue, attention, hardware trouble,
 judgment, or any other cause from a change in a value.
 
-Game data can add one line under its chart: switch cost, how much longer
-the next press takes after you change buttons (flag versus click or chord)
-than after repeating the same move over the same distance. It gives the
-time this game's switches added, in seconds at your latest 500 games'
-estimate, then the estimate over three pools of standard games with saved
-traces: the session's, your latest 500, and the 500 before those, so you
-can see whether practice is shrinking it. Its label opens each pool's 95%
-interval, the cost per switch in milliseconds and per Beginner,
-Intermediate, and Expert game in seconds, the share of moves that switch,
-and the game count. One game has too few presses to measure the cost on
-its own, so a game's seconds use the pooled estimate. Configure turns it
-on, as it does the optional rows: flag and flag-removal rates, the
-report's mistake categories per minute, excess game risk, and modeled life
-gap.
+Game data also tracks per-game `flag→chord gap` (median press-to-press gap on
+short-range planned flag-to-chord pairs within 2 squares, in flagged games),
+while the Training page (`training.html`) carries the pooled **Button switch
+cost** analysis over your latest 500 vs. earlier 500 flagged standard games
+(short-range flag/chord pairs within 2 squares, no-mark games excluded),
+reporting milliseconds per switch with a 95% interval, per-board flagged-game
+cost, and whether the change exceeds sampling noise. Configure on Game data
+controls the optional rows: flag and flag-removal rates, the report's mistake
+categories per minute, excess game risk, and modeled life gap.
 
 The home-page score buttons open the same full result view for Beginner,
 Intermediate, or Expert without requiring a new game; historical views have

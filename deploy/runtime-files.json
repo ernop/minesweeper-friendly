@@ -38,7 +38,6 @@
   "game/result-ranks.js",
   "game/results.js",
   "game/score-list.js",
-  "game/switch-cost-line.js",
   "game/trace-metrics.js",
   "game/trial-review.js",
   "generators.js",

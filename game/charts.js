@@ -558,6 +558,7 @@ const PERF_CHART_SPECS = [
   steppedMetric('boardChangingClickShare', 1, { percent: true }),
   steppedMetric('clickRate', 0.1),
   steppedMetric('fastclickGap', 10),
+  steppedMetric('flagChordGap', 10),
   steppedMetric('mouseSpeed', 50),
   steppedMetric('cadenceSpread', 0.1),
   { label: 'misclicks', value: (s) => s.misclicks, has: (s) => typeof s.misclicks === 'number' },

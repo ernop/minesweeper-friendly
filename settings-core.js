@@ -596,11 +596,6 @@ const SETTINGS_SCHEMA = [
     describe: 'which of this board’s traits game data ranks against the chosen pool (all games when a board-match pool is picked); chosen with configure on the chart, apart from the This board tables', control: 'none',
   },
   {
-    field: 'gameDataSwitchCost', default: false,
-    valid: (v) => typeof v === 'boolean', group: 'after-game', label: 'switch cost line',
-    describe: 'your switch cost, the extra time before a press after changing buttons: what the shown game’s switches cost, and the estimate over the session’s, the latest 500, and the earlier 500 standard games, shown under game data’s chart; chosen with configure on the chart', control: 'none',
-  },
-  {
     field: 'duringGameRows', default: DuringGame.defaults, mergeDefaults: true,
     valid: preferenceBooleans(DuringGame.defaults), migrate: duringGameRowsFromStored,
     group: 'after-game', label: 'during-the-game rows',

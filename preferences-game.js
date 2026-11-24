@@ -196,6 +196,7 @@ function showSavedGame(record, modeRecords, stored, step, reviewList) {
       drill: record.playMode === 'endgame-drill', needBoardMetrics, needZini,
       needCadence: true, needMoveHabits: record.movesMovedOn === undefined,
       needFastclickGap: record.fastclickGapVersion !== GameData.FASTCLICK_GAP_VERSION,
+      needFlagChordGap: record.flagChordGapMs === undefined && record.flagsPlaced > 0 && !record.flagsBlocked,
       needGivenOpeningBv3: hadGivenOpening(record) && record.givenOpeningBv3 === undefined,
       timeMs: record.timeMs, outcome: record.outcome },
   }).then(async (restored) => {

@@ -150,6 +150,15 @@ decisions. Otherwise:
   `fastclickGapMs` (rounded `medianOf`; absent with no pair or a null);
   the fastclick row draws them as a median `value` row, or `unrecorded`
   for null.
+- Short-range planned `flag→chord` pairs (`flagChordPairs`, added 2026-11-24):
+  `flagChordPairsOf(game.events, decisions, factsAt, width)` runs the same
+  press-pairing pass as `plannedPairsOf` for consecutive `flag-place` → `chord`
+  decisions with `click.alone`, `squareDistance <= NEAR_SQUARES` (2), and
+  `provenTogether(factsAt[previous.k], [previous.evaluation, evaluation])`.
+  `DuringGame.flagChordGap(m)` returns `{ flagChordGapMs: Math.round(medianOf(gaps)) }`
+  (or `{}` when empty); the `flagChordGap` row (`#e65100`, off by default)
+  draws them on the relative chart as a median `value` row (or `unrecorded`
+  when no flag was placed).
 - Pass 2: each action's gap, squares moved, cursor path, no-op reason,
   misclick (recomputed from the exact proof, as the game-end judgment's
   `MISCLICK_MISTAKES` define it), guess, opening,

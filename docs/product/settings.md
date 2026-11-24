@@ -103,8 +103,8 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
     `flagSize`, `flagIntensity`, `mineStyle`, `mineSize`), after-game report
     level (`reportScope`), preferences backup, and archive folder.
   - **Local view composition** (directly on the game page): which rows show in
-    Game Data (`gameDataMetrics`, `gameDataBoardTraits`, `gameDataScopedRows`,
-    `gameDataSwitchCost`), which lines/tracks show in live perf charts
+    Game Data (`gameDataMetrics`, `gameDataBoardTraits`, `gameDataScopedRows`),
+    which lines/tracks show in live perf charts
     (`duringGameRows`), which columns show in full score lists
     (`scoreListColumns`), and which lower result sections/tables/charts show
     (`shownThings` and `collapseDuplicateCharts`). Every surface supports
@@ -218,9 +218,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   [Measurement catalog](measurement-catalog.md), "Ids renamed 2026-10-26"), `gameDataBoardTraits` (since 2026-10-14: which
   board traits game data ranks, chosen in its configure, apart from the This
   board table switches; a profile saved before then starts from what those
-  switches showed), `gameDataSwitchCost` (default off, since 2026-10-20:
-  the switch cost line under the chart, chosen in its configure),
-  `gameDataShowValues`,
+  switches showed), `gameDataShowValues`,
+  (`gameDataSwitchCost` was retired on 2026-11-24 when pooled switch cost moved
+  to `training.html` and per-game `flag→chord gap` joined `gameDataMetrics`),
   `gameDataPool` (default `all`, replacing `gameDataBandPool` and
   `gameDataDistributionPools` on 2026-11-23; saved profiles keep `session`
   when that was active and map everything else to `all`),

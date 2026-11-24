@@ -1218,11 +1218,6 @@ function buildBoardTimeRankProfile(record, records, referenceMs) {
         configView.append(otherTitle, adder, otherList);
         syncOtherScoped();
       }
-      const switchCostLabel = 'switch cost, this game and over the session, the latest ' + SwitchCost.WINDOW_GAMES
-        + ', and the earlier ' + SwitchCost.WINDOW_GAMES + ' standard games';
-      configView.appendChild(checkbox(switchCostLabel, settings.gameDataSwitchCost, (checked) => {
-        settings.gameDataSwitchCost = checked; saveSettings();
-      }, 'switch-cost'));
       selectionList('board traits', 'all board traits', 'trait', 'gameDataBoardTraits',
         Object.keys(GAME_DATA_BOARD_TRAIT_DEFAULTS).map((id) =>
           ({ id, name: BOARD_TRAIT_NAMES[id], help: BOARD_TRAIT_DEFINITIONS[id] })));
@@ -1340,16 +1335,6 @@ function buildBoardTimeRankProfile(record, records, referenceMs) {
         section.appendChild(fitted.element);
         profile.appendChild(section);
         observeFit(fitted);
-      }
-      if (settings.gameDataSwitchCost) {
-        const switchCostLine = buildSwitchCostLine(record);
-        switchCostLine.addEventListener('contextmenu', (event) => {
-          openContextMenu(event, [{
-            label: 'hide switch cost',
-            action: () => { settings.gameDataSwitchCost = false; saveSettings(); render(); },
-          }]);
-        });
-        profile.appendChild(switchCostLine);
       }
       // Every chart option in one small row at the bottom, out of the data's way.
       const footer = document.createElement('div');

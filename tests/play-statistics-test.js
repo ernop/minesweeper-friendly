@@ -121,7 +121,7 @@ Object.assign(game, {
 });
 for (const name of ['renderImmediateGameEnd', 'renderPregenCharts', 'endTrial', 'persistUserdata',
   'renderMotionStats', 'updateSettings', 'renderPathView', 'scheduleMetricsUpdate', 'renderResult',
-  'showGuardianAngelSurvivals', 'renderTrialReview']) {
+  'showGuardianAngelSurvivals', 'renderTrialReview', 'requestArchiveSync']) {
   game[name] = () => {};
 }
 

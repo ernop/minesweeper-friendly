@@ -37,7 +37,8 @@ function storageFailure(what) {
 }
 
 function userdataReady() {
-  const worker = new Worker('training-worker.js?v=20261124-settings-s1');
+  const database = { name: DB_NAME, version: db.version, recordStore: RECORD_STORE, traceStore: TRACE_STORE };
+  const worker = new Worker('training-worker.js?v=20261124-switch-cost-w1');
   worker.onmessage = ({ data }) => {
     worker.terminate();
     if (data.error !== undefined) showTrainingStatus('Training summary failed: ' + data.error, true);
@@ -47,8 +48,18 @@ function userdataReady() {
   worker.onerror = (event) => {
     showTrainingStatus('Training worker failed: ' + event.message, true);
   };
-  worker.postMessage({ database: { name: DB_NAME, version: db.version, recordStore: RECORD_STORE,
-    traceStore: TRACE_STORE } });
+  worker.postMessage({ database });
+
+  const switchWorker = new Worker('switch-cost-worker.js?v=20261124-switch-cost-w1');
+  switchWorker.onmessage = ({ data }) => {
+    switchWorker.terminate();
+    if (data.error !== undefined) renderTrainingSwitchCostError('Button switch cost failed: ' + data.error);
+    else renderTrainingSwitchCost(data.switchCost);
+  };
+  switchWorker.onerror = (event) => {
+    renderTrainingSwitchCostError('Button switch cost worker failed: ' + event.message);
+  };
+  switchWorker.postMessage({ database });
 }
 
 function trainingElement(tag, className, text) {
@@ -74,6 +85,19 @@ function trainingSeconds(value, digits) {
 
 function trainingSignedSeconds(value) {
   return (value > 0 ? '+' : value < 0 ? '\u2212' : '') + Math.abs(value).toFixed(1) + ' s';
+}
+
+function trainingSignedNumber(value, digits) {
+  const text = Math.abs(value).toFixed(digits);
+  return (value < 0 && Number(text) !== 0 ? '\u2212' : '+') + text;
+}
+
+function trainingSignedMs(value) {
+  return trainingSignedNumber(value, 0) + ' ms';
+}
+
+function trainingSignedBoardSeconds(ms) {
+  return trainingSignedNumber(ms / 1000, Math.abs(ms) < 9995 ? 2 : 1) + ' s';
 }
 
 function trainingPercent(value) {
@@ -201,6 +225,103 @@ function renderTrainingBudget(summary) {
     + budget.withoutRemovableUnderGoal + ' of ' + budget.wins + ' under 60 s',
     'Each win\u2019s time minus the gaps before its removable inputs. Arithmetic on the recorded games, not a prediction: it assumes nothing else about the game changes.');
   content.replaceChildren(trainingElement('p', '', coverageText), table, facts);
+}
+
+const TRAINING_SWITCH_COST_BOARDS = [
+  ['Beginner', '9x9/10@standard'],
+  ['Intermediate', '16x16/40@standard'],
+  ['Expert', '30x16/99@standard'],
+];
+
+function renderTrainingSwitchCostError(message) {
+  const section = document.getElementById('training-switch-cost');
+  const content = document.getElementById('training-switch-cost-content');
+  section.dataset.status = 'error';
+  content.replaceChildren(trainingElement('p', 'training-error', message));
+  section.hidden = false;
+}
+
+function trainingSwitchCostVerdict(data) {
+  const { latest, earlier, comparison, windowGames, minGames } = data;
+  if (latest.status === 'too-few-games') {
+    return 'Needs at least ' + minGames + ' flagged standard games with a saved trace and short-range '
+      + 'flag/chord pairs before estimating a switch cost (' + latest.games + ' measured so far).';
+  }
+  if (latest.status === 'not-measurable') {
+    return 'The latest ' + latest.games + ' flagged standard games do not have enough varied short-range '
+      + 'flag/chord pairs to separate a button switch cost yet.';
+  }
+  if (comparison.status !== 'compared') {
+    return 'Latest ' + latest.games + ' flagged standard games: ' + trainingSignedMs(latest.msPerSwitch)
+      + ' per short-range button switch (95% interval ' + trainingSignedNumber(latest.msPerSwitchLow, 0) + ' to '
+      + trainingSignedNumber(latest.msPerSwitchHigh, 0) + ' ms). Earlier ' + windowGames + ' needs at least ' + minGames
+      + ' older measured games before comparing (' + earlier.games + ' so far).';
+  }
+  const deltaText = trainingSignedMs(comparison.deltaMs) + ' per switch ('
+    + trainingSignedNumber(comparison.deltaPercent, 1) + ' percentage points)';
+  const outcome = !comparison.changed
+    ? 'within the 95% uncertainty interval, so no reliable change yet.'
+    : comparison.direction === 'faster'
+      ? 'faster beyond the 95% uncertainty interval.'
+      : 'slower beyond the 95% uncertainty interval.';
+  return 'Change from earlier ' + earlier.games + ' to latest ' + latest.games + ' games: '
+    + deltaText + ' \u2014 ' + outcome;
+}
+
+function renderTrainingSwitchCost(data) {
+  const section = document.getElementById('training-switch-cost');
+  const content = document.getElementById('training-switch-cost-content');
+  if (data.totalFlaggedGames === 0) {
+    section.dataset.status = 'empty';
+    section.hidden = true;
+    return;
+  }
+  const lead = trainingElement('p', '',
+    'Extra time when switching between right-click flags and left-click chords on short-range pairs (at most '
+    + data.maxCells + ' squares apart) across standard games that placed at least one flag (no-mark games excluded). '
+    + 'Controlled for move type, cursor travel, cells opened, and board progress.');
+  const { latest, earlier, windowGames } = data;
+  const cell = (fit, format) => (fit.status === 'measured' ? format(fit) : 'not measured');
+  const boardRow = ([name, key]) => {
+    const hasBoard = (latest.perGame !== null && latest.perGame[key] !== undefined)
+      || (earlier.perGame !== null && earlier.perGame[key] !== undefined);
+    if (!hasBoard) return [];
+    const of = (fit) => (fit.perGame !== null && fit.perGame[key] !== undefined
+      ? trainingSignedBoardSeconds(fit.perGame[key].meanMs) : '\u2013');
+    return [{ cells: ['per ' + name + ' flagged game', of(latest), of(earlier)] }];
+  };
+  const rows = [
+    { cells: ['extra time per switch',
+      cell(latest, (f) => trainingSignedMs(f.msPerSwitch) + ' (95% ' + trainingSignedNumber(f.msPerSwitchLow, 0) + ' to ' + trainingSignedNumber(f.msPerSwitchHigh, 0) + ' ms)'),
+      cell(earlier, (f) => trainingSignedMs(f.msPerSwitch) + ' (95% ' + trainingSignedNumber(f.msPerSwitchLow, 0) + ' to ' + trainingSignedNumber(f.msPerSwitchHigh, 0) + ' ms)')] },
+    { cells: ['relative change',
+      cell(latest, (f) => trainingSignedNumber(f.percent, 1) + '% (95% ' + trainingSignedNumber(f.percentLow, 1) + ' to ' + trainingSignedNumber(f.percentHigh, 1) + '%)'),
+      cell(earlier, (f) => trainingSignedNumber(f.percent, 1) + '% (95% ' + trainingSignedNumber(f.percentLow, 1) + ' to ' + trainingSignedNumber(f.percentHigh, 1) + '%)')] },
+    { cells: ['median switched gap',
+      cell(latest, (f) => Math.round(f.medianSwitchMs) + ' ms'),
+      cell(earlier, (f) => Math.round(f.medianSwitchMs) + ' ms')] },
+    { cells: ['short-range pairs that switch',
+      cell(latest, (f) => Math.round(f.switchShare * 100) + '%'),
+      cell(earlier, (f) => Math.round(f.switchShare * 100) + '%')] },
+    ...TRAINING_SWITCH_COST_BOARDS.flatMap(boardRow),
+    { cells: ['measured flagged games',
+      latest.games + ' (' + latest.transitions.toLocaleString() + ' pairs)',
+      earlier.games + ' (' + earlier.transitions.toLocaleString() + ' pairs)'] },
+  ];
+  const table = trainingTable([
+    { text: 'measure' },
+    { text: 'latest ' + windowGames },
+    { text: 'earlier ' + windowGames },
+  ], rows, [1, 2]);
+  const verdict = trainingElement('p', 'training-switch-cost-verdict', trainingSwitchCostVerdict(data));
+  const scopeNote = data.totalStandardGames > data.totalFlaggedGames
+    ? [trainingElement('p', '',
+      'Counted ' + data.totalFlaggedGames + ' flagged standard games; skipped '
+      + (data.totalStandardGames - data.totalFlaggedGames) + ' no-mark or flag-blocked standard games.')]
+    : [];
+  content.replaceChildren(lead, table, verdict, ...scopeNote);
+  section.dataset.status = 'ready';
+  section.hidden = false;
 }
 
 function renderTrainingOpenings(summary) {
