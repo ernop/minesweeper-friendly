@@ -59,14 +59,21 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   `tiedOthers` (other games with an equal value; always 0 for time), `total`,
   `allEqual`, `percentile` (100 × (better + tiedOthers ÷ 2) ÷ (total − 1),
   best 0%; 50 for constant non-time values), `definition` (the catalog
-  `help`, undefined for a self-evident measurement), and `standingText`, the
-  rank alone ("19th of 1,201 wins", "tied 3rd–5th of 56 games", "all 50
-  boards have this value"), its population word `rankedRow`'s `counted`
-  argument (wins, games, boards): no pool description and no arithmetic
-  (creator 2026-10-08).
+  `help`, undefined for a self-evident measurement), `standingText` ("19th of
+  1,201 wins", "tied 3rd–5th of 56 games", "all 50 won boards have this
+  value"), and `compactRankText` ("1st / 29", "2–3 / 29", "all 50").
+  `GameData.formatPercentile(percentile)` formats tail-aware percentages
+  (2026-11-24: `0%` strictly for `0`, `100%` strictly for `100`, one
+  significant tail digit inside `(0, 1)` and `(99, 100)`, rounded integer in
+  `[1, 99]`). `GameData.domain(rows)`, `GameData.barFraction(p, domain)`, and
+  `GameData.barTicks(domain, plotHeight, scale)` own the symmetric regularized
+  logit bar scale (`BAR_LOGIT_EPSILON = 0.1`), logit-space autozoom, and
+  priority-ordered non-overlapping bar ticks (`1st`, `last`, and milestone `%`).
   `boardTraitRankProfile(record, comparisons, records, poolId,
   sessionDefinition, referenceMs)` (game/game-data-chart.js) ranks this
-  board's scalar traits through the same `rankedRow`, side `board`, using
+  board's scalar traits through the same `rankedRow`, side `board`, against
+  won boards (`allOutcomes: false`, `counted = 'won boards'`, filtering
+  distribution values to `outcome === 'win'`, creator 2026-11-24), using
   `GameData.boardTraitPoolId(poolId)` (`poolId` for `'all'` and time windows;
   `'all'` whenever a board-match pool is picked), its definition
   `BOARD_TRAIT_DEFINITIONS[measurementId]`. The share traits also declare
@@ -105,32 +112,37 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   row.poolLabel)` (`'no-mark'`, `'no-mark session'`, or `'<label> · no-mark'`
   for a no-mark win).
 - Band: `buildGameDataBand(rows, valuesShown, titles)` builds one
-  `.game-data-row` button per row (cells `.game-data-name`,
-  `.game-data-value`, `.game-data-pct` with `data-pool`) under
-  `.game-data-column-heads` (the side's pool label over names, `"value"`, and
-  `"%"`). Side titles (`titles`, one per side with rows) come from
+  `.game-data-row` button per row without side `%` columns (2026-11-24):
+  performance rows hold `.game-data-name` and `.game-data-value` (using
+  `gameDataDisplayValue` so scoped rows show `compactRankText` when their base
+  measurement is also shown, else `valueText`) under `[poolLabel, "value"]`;
+  board-trait rows hold `.game-data-name`, `.game-data-value`, and
+  `.game-data-rank` (`compactRankText`) under `[won-boards pool label, "value",
+  "rank"]`. Side titles (`titles`, one per side with rows) come from
   `gameDataSideTitle`: a `.game-data-side-title` holding a
   `.stat-section-toggle` that flips `settings.panels.gamePerformance` or
   `.boardTraits` (`GAME_DATA_SIDES`, `gameDataSideOpen`); no (?) since
   2026-10-20. `layout()` reads the open state each time: the drawn sides are
-  the open ones with rows, and the zoom domain comes from them. With none
-  drawn the titles share one wrapping `.game-data-titles` line. Otherwise it
-  measures every column at scale 1 (`measure`; a closed side measures only
-  its title), computes each plan's needed width and height (`geometry`: side
-  by side around one bar, and, with both sides drawn, stacked; a closed
-  side's span is its title's width, and a title wider than its columns adds
-  its overhang on both sides), takes the plan with the largest fit (min of 1,
-  width ratio, height ratio; side-by-side on a tie), and sets
-  `--game-data-scale` on the band, re-measuring until it fits. Band text
-  sizes are ems of the band's font, and the bar, leader, and gap constants
-  are multiplied by the scale, so the band (overflow hidden) never scrolls.
-  Titles center over their side's columns; a closed side's title sits beside
-  the bar on its side. Laying out moves the band's nodes, so
+  the open ones with rows, and the logit zoom domain (`GameData.domain`) comes
+  from them. With none drawn the titles share one wrapping `.game-data-titles`
+  line. Otherwise it measures every column at scale 1 (`measure`; a closed side
+  measures only its title), computes each plan's needed width and height
+  (`geometry`: side by side around one bar, and, with both sides drawn,
+  stacked; a closed side's span is its title's width, and a title wider than
+  its columns adds its overhang on both sides), takes the plan with the largest
+  fit (min of 1, width ratio, height ratio; side-by-side on a tie), and sets
+  `--game-data-scale` on the band, re-measuring until it fits. Band text sizes
+  are ems of the band's font, and the bar (`GAME_DATA_BAR_WIDTH = 40`), leader,
+  and gap constants are multiplied by the scale, so the band (overflow hidden)
+  never scrolls. Titles center over their side's columns; a closed side's title
+  sits beside the bar on its side. Laying out moves the band's nodes, so
   `restoreGameDataFocus` gives the focus back to the toggle or row that held
-  it. `boardTraitLabelLayout` fits rows to exact percentile points; leaders
-  and `.game-data-dot` mark each point. `standingColor` interpolates
-  `STANDING_BAR_STOPS` (bar) or `STANDING_MARK_STOPS` (histogram marks,
-  chips): green, neutral, red.
+  it. `boardTraitLabelLayout` fits rows to exact logit positions
+  (`GameData.barFraction`); leaders and `.game-data-dot` mark each point,
+  `GameData.barTicks` draws non-overlapping `.game-data-decile` labels inside
+  the bar, and `standingColor` interpolates `STANDING_BAR_STOPS` at
+  `GAME_DATA_BAR_GRADIENT_ANCHORS` mapped by `GameData.barFraction` so green,
+  white, and red keep their absolute percentile meaning on the non-linear bar.
 - Strip: `gameDataStrip(row, width, height, scale)` draws one pool's
   distribution as an SVG of exactly `width` x `height` px; `GAME_DATA_STRIP`
   holds its sizes in px at scale 1 (pin 5, minimum plot 7, tick 3, label
@@ -149,7 +161,8 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
 - Card: `fillGameDataCard(tip, row, withStrip)` fills the shared help tip
   for the row's pool (the band passes `withStrip`; a distributions row passes
   `false`, without the strip it already shows) with only what the row does
-  not show: the pool's label and `standingText` (`.game-data-card-standing`),
+  not show: the pool's label and `standingText` (plus `' · ' +
+  gameDataPercentText(row)` when `withStrip`, since band rows omit `%`),
   the strip at `GAME_DATA_CARD_STRIP` (314 x 72) when `withStrip`, the
   example board and its key, and last the `definition` when there is one; no
   key line for the strip (removed 2026-10-08). The tip is the one owned
@@ -221,11 +234,13 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   `gameDataChartChip(row)` for the matching base (`!r.scoped`) row in
   `gameDataRows`; `renderRanks` awaits the game-data job before building
   charts so the chips exist. Hover and focus on a band or distribution row
-  call `linkMeasurements([metricId], 'gameData')`, which toggles
-  `.game-data-linked` on those charts: a `--this-game` ring with black edges
-  (two box-shadows plus a 1px outline, so it never reflows), and spotlights
-  the measurement in the live perf charts; their lines and legend entries
-  ring performance rows the same way
+  call `linkMeasurements([metricId], 'gameData', gameDataCrossLink(row))`,
+  which toggles `.game-data-linked` on those charts (a `--this-game` ring with
+  black edges — two box-shadows plus a 1px outline, so it never reflows), rings
+  paired rows across the bar (`data-scoped-trait` performance rows ↔ matching
+  `board` trait rows in both directions, creator 2026-11-24), and spotlights
+  the measurement in the live perf charts; their lines and legend entries ring
+  performance rows the same way
   ([measurement catalog](measurement-catalog.md), "Hover link"). Rows take
   no hover background (2026-10-20); `:focus-visible` keeps a 1px outline.
 - Configuration: `selectionList(title, allLabel, nameHead, field, entries)`

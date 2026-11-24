@@ -109,14 +109,18 @@ const { chromium } = require(process.argv[2]);
     assert.equal(await profile.locator('.game-data-row[data-side="performance"]').count(), 8,
       'one row per measurement for the chosen pool');
     // Each side's name column head names the pool it compares against; no
-    // head copies the board's name, which the preset links show (creator 2026-10-20).
+    // head copies the board's name, which the preset links show (creator
+    // 2026-10-20). Both side % columns are condensed into the middle bar
+    // (creator 2026-11-24); board traits carry their won-boards rank column.
     assert.deepEqual(await profile.locator('.game-data-column-heads[data-side="performance"] > span').allTextContents(),
-      ['all games', 'value', '%']);
+      ['all games', 'value']);
     assert.deepEqual(await profile.locator('.game-data-column-heads[data-side="board"] > span').allTextContents(),
-      ['%', 'all games', 'value'], 'no "boards" head and no board name');
+      ['won boards', 'value', 'rank'], 'board traits name won boards and show value + rank without % column');
+    assert.equal(await profile.locator('.game-data-band .game-data-pct').count(), 0, 'no % column on either band side');
     assert.deepEqual(await profile.locator('.game-data-row button').evaluateAll((buttons) =>
       [...new Set(buttons.map((button) => getComputedStyle(button).cursor))]), ['default'], 'never the help cursor');
     assert.equal(await profile.locator('.game-data-row[data-measurement="bv3"] .game-data-value').textContent(), '75');
+    assert.equal(await profile.locator('.game-data-row[data-measurement="bv3"] .game-data-rank').textContent(), '3–24 / 24');
     assert.equal(await profile.locator('.game-data-row[data-measurement="zeroOpeningCoverage"] .game-data-name').textContent(),
       'zero-opening coverage');
     assert.equal(await profile.locator('.game-data-row[data-measurement="zeroOpeningCoverage"] .game-data-value').textContent(), '69%');
@@ -147,20 +151,24 @@ const { chromium } = require(process.argv[2]);
             : parseFloat(columnStyle.maxHeight) - parseFloat(columnStyle.paddingBottom)
               - parseFloat(columnStyle.borderBottomWidth)
               - (bounds.bottom - column.getBoundingClientRect().top + column.scrollTop),
-          hiddenPools: [...el.querySelectorAll('.game-data-row .game-data-pct')].filter((cell) => !cell.checkVisibility())
-            .map((cell) => cell.dataset.pool),
           nameWeight: getComputedStyle(el.querySelector('.game-data-row .game-data-name')).fontWeight,
           valueWeight: getComputedStyle(el.querySelector('.game-data-row .game-data-value')).fontWeight,
-          numberWeights: [...new Set([...el.querySelectorAll('.game-data-row .game-data-pct, .game-data-decile')]
+          numberWeights: [...new Set([...el.querySelectorAll('.game-data-row .game-data-rank, .game-data-decile')]
             .map((cell) => getComputedStyle(cell).fontWeight))],
           sizes: ['.game-data-name', '.game-data-value'].map((name) =>
             parseFloat(getComputedStyle(el.querySelector('.game-data-row ' + name)).fontSize)),
           blocks: [...el.querySelectorAll('.game-data-block')].map((block) => {
-            const bar = block.querySelector('.game-data-bar').getBoundingClientRect();
-            const deciles = [...block.querySelectorAll('.game-data-decile')].map((label) => parseInt(label.textContent, 10));
+            const barEl = block.querySelector('.game-data-bar');
+            const bar = barEl.getBoundingClientRect();
+            const domain = [Number(barEl.dataset.domainLow), Number(barEl.dataset.domainHigh)];
+            const ticks = [...block.querySelectorAll('.game-data-decile')].map((label) => {
+              const r = label.getBoundingClientRect();
+              return { text: label.textContent, top: r.top, bottom: r.bottom };
+            });
             const center = (node) => { const r = node.getBoundingClientRect(); return r.left + r.width / 2; };
             return {
               barWidth: bar.width,
+              ticks,
               leaders: block.querySelectorAll('.game-data-leader').length,
               title: [...block.querySelectorAll('.game-data-side-title')].map(center),
               heads: [...block.querySelectorAll('.game-data-column-heads')].map(center),
@@ -170,8 +178,7 @@ const { chromium } = require(process.argv[2]);
                 const percentile = Number(row.dataset.percentile);
                 return { side: row.dataset.side, top: rect.top, bottom: rect.bottom, height: rect.height,
                   inside: rect.left >= bounds.left - 0.5 && rect.right <= bounds.right + 0.5,
-                  dotOffset: dot.top + dot.height / 2 - (bar.top + (percentile - deciles[0])
-                    / (deciles[deciles.length - 1] - deciles[0]) * bar.height) };
+                  dotOffset: dot.top + dot.height / 2 - (bar.top + GameData.barFraction(percentile, domain) * bar.height) };
               }),
             };
           }),
@@ -181,16 +188,16 @@ const { chromium } = require(process.argv[2]);
       // Below the narrowest plan a band shrinks as a whole rather than
       // scrolling, shortening names, or hiding values.
       assert.equal(layout.overflow, false, width + 'px nothing in game data scrolls');
-      assert.equal(layout.scale < 1, width === 280, width + 'px only the narrowest width scales the band: ' + layout.scale);
+      assert.equal(layout.scale < 1, width <= 320, width + 'px only narrow widths scale the band: ' + layout.scale);
       assert.equal(layout.nameWeight, '400');
       assert.equal(layout.valueWeight, '400', 'numbers are never bold');
-      assert.deepEqual(layout.numberWeights, ['400'], 'percentages and bar labels are never bold');
+      assert.deepEqual(layout.numberWeights, ['400'], 'ranks and bar labels are never bold');
       assert(layout.sizes[1] > layout.sizes[0], 'values outsize their names: ' + layout.sizes);
-      assert.deepEqual(layout.hiddenPools, [],
-        width + 'px one percentage column per row, never hidden: ' + JSON.stringify(layout.hiddenPools));
       for (const block of layout.blocks) {
-        assert(Math.abs(block.barWidth - 32 * layout.scale) < 0.6, width + 'px bar width ' + block.barWidth);
+        assert(Math.abs(block.barWidth - 40 * layout.scale) < 0.6, width + 'px bar width ' + block.barWidth);
         assert.equal(block.leaders, block.rows.length, 'every row has a leader');
+        assert(block.ticks.length >= 2 && block.ticks.every((t, i) => i === 0 || t.top >= block.ticks[i - 1].bottom - 0.5),
+          width + 'px bar ticks never overlap: ' + JSON.stringify(block.ticks));
         assert(block.title.every((center, i) => Math.abs(center - block.heads[i]) <= 1),
           width + 'px side titles center over their columns: ' + JSON.stringify([block.title, block.heads]));
         assert(block.rows.every((row) => row.height < 20 && row.inside),
@@ -201,7 +208,7 @@ const { chromium } = require(process.argv[2]);
             width + 'px ' + side + ' rows overlap: ' + JSON.stringify(rows));
         }
         assert(block.rows.every((row) => Math.abs(row.dotOffset) < 0.6),
-          width + 'px row collisions must never move the dots off their percentiles: ' + JSON.stringify(block.rows.map((r) => r.dotOffset)));
+          width + 'px row collisions must never move the dots off their logit positions: ' + JSON.stringify(block.rows.map((r) => r.dotOffset)));
       }
       // The chart fills the column below any other content; a column too
       // short for each open side's minimum scrolls instead of crushing it.
@@ -217,9 +224,9 @@ const { chromium } = require(process.argv[2]);
     await zeros.focus();
     const card = page.locator('.chart-help-tip .game-data-card');
     assert.equal(await card.getAttribute('data-pool'), 'all', 'the card follows the compared-with picker');
-    // The card opens with the rank: the row already shows the name, value,
-    // and percentage (creator 2026-10-08: "just cut all the fluff").
-    assert.equal(await card.locator('p').first().innerText(), 'all games: all 50 boards have this value');
+    // The band card opens with the rank and exact tail-aware percentile
+    // (band rows omit their % column).
+    assert.equal(await card.locator('p').first().innerText(), 'all games: all 50 won boards have this value · 50%');
     assert.equal(await card.locator('.game-data-card-definition').count(), 0, 'a self-evident trait has no definition');
     assert(!/÷|=|settings|so far|This is/.test(await card.innerText()), await card.innerText());
     assert.equal(await card.locator('svg.game-data-histogram').count(), 1, 'the card draws the distribution');
@@ -352,7 +359,7 @@ const { chromium } = require(process.argv[2]);
     await frames();
     await bandReady();
     const timeRow = profile.locator('.game-data-row[data-measurement="time"]');
-    const allBefore = await timeRow.locator('[data-pool="all"]').textContent();
+    const allBefore = await timeRow.getAttribute('data-percentile');
     assert.equal(await timeRow.locator('.game-data-value').textContent(), '33.542s');
     const picker = page.getByLabel('session', { exact: true });
     const poolPicker = profile.getByLabel('compared with', { exact: true });
@@ -368,27 +375,25 @@ const { chromium } = require(process.argv[2]);
     await bandReady();
     assert.equal(await page.evaluate(() => settings.gameDataPool), 'session');
     assert.deepEqual(await profile.locator('.game-data-column-heads[data-side="performance"] > span').allTextContents(),
-      ['session', 'value', '%']);
+      ['session', 'value']);
     assert.deepEqual(await profile.locator('.game-data-column-heads[data-side="board"] > span').allTextContents(),
-      ['%', 'session', 'value']);
+      ['session wins', 'value', 'rank']);
     assert.equal(await profile.locator('.game-data-unplotted').count(), 0, 'no "Not ranked in this session yet" note');
     await picker.selectOption('past10min');
     assert.equal(await page.evaluate(() => settings.sessionDefinition), 'past10min');
-    await page.waitForFunction(() => document.querySelector('.game-data-row[data-measurement="time"] [data-pool="session"]')?.textContent === '100%');
+    await page.waitForFunction(() => document.querySelector('.game-data-row[data-measurement="time"][data-pool="session"]')?.dataset.percentile === '100');
     await picker.selectOption('pastHour');
-    await page.waitForFunction(() => document.querySelector('.game-data-row[data-measurement="time"] [data-pool="session"]')?.textContent === '50%',
+    await page.waitForFunction(() => document.querySelector('.game-data-row[data-measurement="time"][data-pool="session"]')?.dataset.percentile === '50',
       null, { timeout: 5000 });
     assert.equal(await page.locator('.recent-placements h4').textContent(), 'ranks won in session');
     assert.equal(await page.locator('#metrics-panel').count(), 0, 'the page has no left stats panel');
-    assert.equal(Math.round(Number(await timeRow.getAttribute('data-percentile'))) + '%',
-      await timeRow.locator('[data-pool="session"]').textContent(), 'session pool plots session standings');
-    // In session mode every card shows the session: its standing and its games
-    // (one dot each for a small pool).
+    // In session mode every card shows the session: its standing, tail-aware %,
+    // and its games (one dot each for a small pool).
     await timeRow.locator('button').hover();
     const sessionCard = page.locator('.chart-help-tip .game-data-card');
     assert.equal(await sessionCard.getAttribute('data-pool'), 'session');
-    assert.equal(await sessionCard.locator('p').first().innerText(), 'session: 2nd of 3 wins',
-      'the card opens with the rank alone');
+    assert.equal(await sessionCard.locator('p').first().innerText(), 'session: 2nd of 3 wins · 50%',
+      'the band card opens with the rank and exact percentile');
     assert(await sessionCard.locator('text').count() > 0, 'the card’s strip labels its x ticks');
     assert.equal(await sessionCard.locator('.game-data-histogram-dot').count(), 3, 'the session’s 3 wins, one dot each');
     assert.equal(await sessionCard.locator('.game-data-card-definition').count(), 0, 'time needs no definition');
@@ -403,20 +408,20 @@ const { chromium } = require(process.argv[2]);
     'this game is its own dot in the this-game light blue, under a pin at its value, both edged in black');
     await page.mouse.move(0, 0);
     // Board-match pools scope game summary perf to matching boards (own axis),
-    // while board traits stay on all games.
+    // while board traits stay on all won boards.
     await poolPicker.selectOption('board:bv3');
     await bandReady();
     assert.equal(await page.evaluate(() => settings.gameDataPool), 'board:bv3');
     assert.deepEqual(await profile.locator('.game-data-column-heads[data-side="performance"] > span').allTextContents(),
-      ['3BV 75', 'value', '%']);
+      ['3BV 75', 'value']);
     assert.deepEqual(await profile.locator('.game-data-column-heads[data-side="board"] > span').allTextContents(),
-      ['%', 'all games', 'value'], 'board traits use all games for a board-match pool');
+      ['won boards', 'value', 'rank'], 'board traits use all won boards for a board-match pool');
     assert.equal(await profile.locator('.game-data-row[data-side="board"]').count(), 9, 'all 9 board traits still rank');
-    assert.equal(await timeRow.locator('[data-pool="board:bv3"]').textContent(), '14%', '4th of 22 wins in 3BV 75');
+    assert.equal(Math.round(Number(await timeRow.getAttribute('data-percentile'))), 14, '4th of 22 wins in 3BV 75');
     await timeRow.locator('button').hover();
     const bv3Card = page.locator('.chart-help-tip .game-data-card');
     assert.equal(await bv3Card.getAttribute('data-pool'), 'board:bv3');
-    assert.equal(await bv3Card.locator('p').first().innerText(), '3BV 75: 4th of 22 wins');
+    assert.equal(await bv3Card.locator('p').first().innerText(), '3BV 75: 4th of 22 wins · 14%');
     const bv3Labels = await bv3Card.locator('svg text').evaluateAll((nodes) => nodes.map((n) => parseFloat(n.textContent)));
     assert(bv3Labels.every((v) => v >= 33 && v <= 35), 'board-match card draws on the 3BV 75 pool’s own axis: ' + JSON.stringify(bv3Labels));
     await page.mouse.move(0, 0);
@@ -424,12 +429,12 @@ const { chromium } = require(process.argv[2]);
     await poolPicker.selectOption('past-week');
     await bandReady();
     assert.deepEqual(await profile.locator('.game-data-column-heads[data-side="performance"] > span').allTextContents(),
-      ['past week', 'value', '%']);
+      ['past week', 'value']);
     assert.deepEqual(await profile.locator('.game-data-column-heads[data-side="board"] > span').allTextContents(),
-      ['%', 'past week', 'value']);
+      ['past week · wins', 'value', 'rank']);
     await poolPicker.selectOption('all');
     await bandReady();
-    assert.equal(Math.round(Number(await timeRow.getAttribute('data-percentile'))) + '%', allBefore);
+    assert.equal(await timeRow.getAttribute('data-percentile'), allBefore);
     // Distributions: one strip per measurement in one group per side, both
     // sides on one set of columns, sharing the compared-with picker, and the
     // strips take whatever height the rows leave.
@@ -480,7 +485,7 @@ const { chromium } = require(process.argv[2]);
     let shown = await distributionsShown('all');
     assert.equal(await page.evaluate(() => settings.gameDataDistributions), true);
     assert.deepEqual(shown.heads, [
-      ['performance', 'all games', '', '%'], ['board', 'all games', '', '%']],
+      ['performance', 'all games', '', '%'], ['board', 'won boards', '', '%']],
     'one group per side; each names its pool in its name head');
     assert.equal(shown.poolTitles, 0, 'no pool title lines (creator 2026-10-20)');
     assert.deepEqual(shown.titles, ['game summary perf', 'board traits'], 'each side under its title');
@@ -500,7 +505,7 @@ const { chromium } = require(process.argv[2]);
     // Board-match pool in distributions: perf shows 3BV 75, board traits stays all games.
     await poolPicker.selectOption('board:bv3');
     shown = await distributionsShown('board:bv3');
-    assert.deepEqual(shown.heads, [['performance', '3BV 75', '', '%'], ['board', 'all games', '', '%']]);
+    assert.deepEqual(shown.heads, [['performance', '3BV 75', '', '%'], ['board', 'won boards', '', '%']]);
     fillsBox(shown, 'board:bv3');
     await poolPicker.selectOption('all');
     shown = await distributionsShown('all');
@@ -535,7 +540,7 @@ const { chromium } = require(process.argv[2]);
     // Session alone: unmeasured traits are simply omitted, with no unranked note.
     await poolPicker.selectOption('session');
     shown = await distributionsShown('session');
-    assert.deepEqual(shown.heads, [['performance', 'session', '', '%'], ['board', 'session', '', '%']]);
+    assert.deepEqual(shown.heads, [['performance', 'session', '', '%'], ['board', 'session wins', '', '%']]);
     assert.deepEqual(shown.captions, [], 'only groups under the strips: no key');
     assert.equal(shown.note, null, 'no unranked note');
     assert.equal(shown.rows, 2, 'only time and 3BV have two measured session games');
@@ -551,15 +556,15 @@ const { chromium } = require(process.argv[2]);
       await collector.stream(resultRanks);
     });
     shown = await distributionsShown('all');
-    assert.deepEqual(shown.heads, [['performance', 'no-mark', '', '%'], ['board', 'no-mark', '', '%']]);
+    assert.deepEqual(shown.heads, [['performance', 'no-mark', '', '%'], ['board', 'no-mark wins', '', '%']]);
     await poolPicker.selectOption('session');
     shown = await distributionsShown('session');
-    assert.deepEqual(shown.heads, [['performance', 'no-mark session', '', '%'], ['board', 'no-mark session', '', '%']]);
+    assert.deepEqual(shown.heads, [['performance', 'no-mark session', '', '%'], ['board', 'no-mark session wins', '', '%']]);
     assert.match(await profile.locator('.game-data-dist-section[data-side="performance"][data-pool="session"] '
       + '.game-data-dist-row[data-measurement="time"] button').getAttribute('aria-label'), /^time 33\.542s: no-mark session \d+%$/);
     await poolPicker.selectOption('board:bv3');
     shown = await distributionsShown('board:bv3');
-    assert.deepEqual(shown.heads, [['performance', '3BV 75 · no-mark', '', '%'], ['board', 'no-mark', '', '%']]);
+    assert.deepEqual(shown.heads, [['performance', '3BV 75 · no-mark', '', '%'], ['board', 'no-mark wins', '', '%']]);
     fillsBox(shown, 'no-mark');
     await page.evaluate(async () => { crowdGameData(); settings.gameDataPool = 'all'; await drawProfileFixture(); });
     await distributionsShown('all');
@@ -612,18 +617,34 @@ const { chromium } = require(process.argv[2]);
     await profile.locator(':scope[aria-busy="true"]').waitFor({ state: 'hidden' });
     await bandReady();
     assert.equal(await profile.locator('.game-data-row[data-row-id="time.all"] .game-data-name').textContent(), 'time');
+    assert.equal(await profile.locator('.game-data-row[data-row-id="time.all"] .game-data-value').textContent(), '33.542s');
     assert.equal(await profile.locator('.game-data-row[data-row-id="time.board:bv3"] .game-data-name').textContent(), 'time · 3BV 75');
-    assert.equal(await profile.locator('.game-data-row[data-row-id="time.board:bv3"] .game-data-pct').textContent(), '14%');
+    assert.equal(await profile.locator('.game-data-row[data-row-id="time.board:bv3"] .game-data-value').textContent(), '4th / 22',
+      'scoped row replaces repeated value with compact rank when base measurement is shown');
     assert.equal(await profile.locator('.game-data-row[data-row-id="time.board:zeroCount"] .game-data-name').textContent(), 'time · zeros 59');
+    assert.equal(await profile.locator('.game-data-row[data-row-id="time.board:zeroCount"] .game-data-value').textContent(), '24th / 50');
     assert.equal(await profile.locator('.game-data-row[data-row-id="time.board:islandCount"] .game-data-name').textContent(), 'time · islands 21');
+    assert.equal(await profile.locator('.game-data-row[data-row-id="time.board:islandCount"] .game-data-value').textContent(), '56th / 137');
     assert.equal(await profile.locator('.game-data-row[data-row-id="time.past-week"] .game-data-name').textContent(), 'time · past week');
     assert.equal(await profile.locator('.game-data-row[data-row-id="clickRate.board:bv3"] .game-data-name').textContent(), 'click rate · 3BV 75');
     await profile.screenshot({ path: '/tmp/game-data-scoped-rows.png' });
+    // Cross-bar hover links: hovering time · 3BV 75 rings 3BV on board traits,
+    // and hovering 3BV rings both 3BV-scoped performance rows on the left.
     await profile.locator('.game-data-row[data-row-id="time.board:bv3"] button').hover();
     const scopedBv3Card = page.locator('.chart-help-tip .game-data-card');
-    assert.equal(await scopedBv3Card.locator('p').first().innerText(), '3BV 75: 4th of 22 wins');
+    assert.equal(await scopedBv3Card.locator('p').first().innerText(), '3BV 75: 4th of 22 wins · 14%');
+    assert.deepEqual(await profile.locator('.game-data-row.game-data-linked').evaluateAll((rows) => rows.map((r) => [r.dataset.side, r.dataset.rowId])),
+      [['board', 'bv3.all']], 'hovering board-scoped perf row rings paired board trait');
+    await profile.locator('.game-data-row[data-side="board"][data-measurement="bv3"] button').hover();
+    assert.deepEqual(await profile.locator('.game-data-row.game-data-linked').evaluateAll((rows) => rows.map((r) => [r.dataset.side, r.dataset.rowId]).sort()),
+      [['performance', 'clickRate.board:bv3'], ['performance', 'time.board:bv3']],
+      'hovering board trait rings all matching board-scoped perf rows');
+    await profile.screenshot({ path: '/tmp/game-data-hover-link.png' });
     await page.mouse.move(0, 0);
-    // Distributions view places scoped rows directly under their base metric.
+    assert.equal(await profile.locator('.game-data-row.game-data-linked').count(), 0);
+    // Distributions view places scoped rows directly under their base metric
+    // and uses compact rank when the base row is shown; distributions cards
+    // omit % since the row already prints it.
     await profile.getByLabel('show distributions', { exact: true }).check();
     await distributionsShown('all');
     const perfDistIds = await profile.locator('.game-data-dist-section[data-side="performance"] .game-data-dist-row')
@@ -631,9 +652,27 @@ const { chromium } = require(process.argv[2]);
     assert.deepEqual(perfDistIds.slice(0, 5),
       ['time.all', 'time.past-week', 'time.board:bv3', 'time.board:islandCount', 'time.board:zeroCount'],
       'scoped time strips sit right below time in canonical pool order');
+    assert.equal(await profile.locator('.game-data-dist-row[data-row-id="time.board:bv3"] .game-data-value').textContent(), '4th / 22');
     assert.equal(perfDistIds.includes('clickRate.board:bv3'), true);
+    await profile.locator('.game-data-dist-row[data-row-id="time.board:bv3"] button').hover();
+    assert.equal(await page.locator('.chart-help-tip .game-data-card p').first().innerText(), '3BV 75: 4th of 22 wins',
+      'distributions card keeps rank alone without repeating %');
+    await page.mouse.move(0, 0);
     await profile.screenshot({ path: '/tmp/game-data-scoped-rows-dist.png' });
     await profile.getByLabel('show distributions', { exact: true }).uncheck();
+    await bandReady();
+    // Unchecking base time makes scoped time rows display the measured value.
+    await profile.getByRole('button', { name: 'configure', exact: true }).click();
+    await profile.locator('.game-data-config input[aria-label="time"]').uncheck();
+    await profile.getByRole('button', { name: 'back to game data', exact: true }).first().click();
+    await profile.locator(':scope[aria-busy="true"]').waitFor({ state: 'hidden' });
+    await bandReady();
+    assert.equal(await profile.locator('.game-data-row[data-row-id="time.board:bv3"] .game-data-value').textContent(), '33.542s',
+      'when base time is hidden, scoped time keeps the measured value');
+    await profile.getByRole('button', { name: 'configure', exact: true }).click();
+    await profile.locator('.game-data-config input[aria-label="time"]').check();
+    await profile.getByRole('button', { name: 'back to game data', exact: true }).first().click();
+    await profile.locator(':scope[aria-busy="true"]').waitFor({ state: 'hidden' });
     await bandReady();
     // Clean up scoped rows via configure (testing remove and all-time-pools toggle).
     await profile.getByRole('button', { name: 'configure', exact: true }).click();
@@ -745,7 +784,7 @@ const { chromium } = require(process.argv[2]);
     // Linkage: a chart of a band measurement repeats this game's value and
     // lifetime standing, and hovering the band row outlines that chart.
     const bvRow = profile.locator('.game-data-row[data-measurement="bv3"]');
-    const bvPercent = Math.round(Number(await bvRow.getAttribute('data-percentile'))) + '%';
+    const bvPercent = await page.evaluate((p) => GameData.formatPercentile(p), Number(await bvRow.getAttribute('data-percentile')));
     assert.equal(await page.locator('.result-chart-section-boardCharts [data-measurement="bv3"] .game-data-chart-chip').textContent(),
       'this 75 · ' + bvPercent);
     assert.equal(await page.locator('.result-chart-section-perfCharts [data-measurement="clickRate"] .game-data-chart-chip').count(), 1);

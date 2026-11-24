@@ -54,9 +54,12 @@ assert.equal(row('fastclickGap.session').percentile, 50, 'all-equal timing has n
 // pool and the row shows the percentage, so no pool description ("so far
 // with these board settings") and no arithmetic.
 assert.equal(row('time.all').standingText, '3rd of 4 wins');
+assert.equal(row('time.all').compactRankText, '3rd / 4');
 assert.equal(row('misclickRate.session').standingText, 'tied 1st–2nd of 3 games');
+assert.equal(row('misclickRate.session').compactRankText, '1–2 / 3');
 assert.deepEqual([row('misclickRate.session').better, row('misclickRate.session').tiedOthers], [0, 1]);
 assert.equal(row('fastclickGap.session').standingText, 'both games have this value');
+assert.equal(row('fastclickGap.session').compactRankText, 'all 2');
 const equalTimes = [{ ...current, endedAt: now - 60000 }, current];
 assert.equal(GameData.rows(current, equalTimes, GameData.defaultsForView, board)[0].standingText, '2nd of 2 wins', 'an equal time set earlier ranks ahead');
 const constant = GameData.rows(current, [1, 2, 3].map((i) => ({ ...current, endedAt: now - i * 60000 })).concat(current),
@@ -255,11 +258,34 @@ assert.equal(GameData.history(records, now, 'pastHour', 2, 2).windows.length, 1)
 const summary = GameData.summary(history.windows[0].records, 'fastclickGap');
 assert.deepEqual(summary, { games: 3, wins: 2, measured: 2, median: 200, lower: 200, upper: 200 });
 assert.equal(GameData.summary(history.windows[0].records, 'time').measured, 2);
-assert.deepEqual(GameData.domain([{ percentile: 0 }, { percentile: 43 }]), [0, 50], '43% never clipped by a 40% endpoint');
-assert.deepEqual(GameData.domain([{ percentile: 32 }, { percentile: 43 }]), [30, 50]);
+// Tail-aware percentile formatting: 0% strictly for 1st, 100% strictly for
+// last, and one significant tail digit inside (0, 1) and (99, 100).
+for (const [p, want] of [
+  [0, '0%'], [100, '100%'],
+  [100 / 240, '0.4%'], [100 / 999, '0.1%'], [0.05, '0.05%'], [0.024, '0.02%'], [0.0042, '0.004%'], [0.98, '1%'],
+  [1, '1%'], [1.4, '1%'], [50, '50%'], [98.6, '99%'], [99, '99%'],
+  [99.02, '99%'], [100 - 100 / 240, '99.6%'], [99.95, '99.95%'], [99.98, '99.98%'],
+]) {
+  assert.equal(GameData.formatPercentile(p), want, 'formatPercentile(' + p + ')');
+}
+// Symmetric regularized logit bar scale, logit-space autozoom, and tick placement.
+assert.equal(GameData.barFraction(0, [0, 100]), 0);
+assert.equal(GameData.barFraction(50, [0, 100]), 0.5);
+assert.equal(GameData.barFraction(100, [0, 100]), 1);
+assert(Math.abs(GameData.barFraction(1, [0, 100]) + GameData.barFraction(99, [0, 100]) - 1) < 1e-12, 'logit scale is symmetric');
+assert(GameData.barFraction(1, [0, 100]) - GameData.barFraction(0, [0, 100])
+  > GameData.barFraction(51, [0, 100]) - GameData.barFraction(50, [0, 100]) * 10,
+  'tail 0%–1% gets far more resolution than middle 50%–51%');
+assert.deepEqual(GameData.domain([{ percentile: 0 }, { percentile: 43 }]), [0, 60], '43% padded in logit space without clipping');
+assert.deepEqual(GameData.domain([{ percentile: 0 }, { percentile: 32 }]), [0, 50]);
 assert.deepEqual(GameData.domain([{ percentile: 50 }]), [40, 60]);
 assert.deepEqual(GameData.domain([]), [0, 100]);
-assert.deepEqual(GameData.domain([{ percentile: 98 }, { percentile: 100 }]), [90, 100]);
+assert.deepEqual(GameData.domain([{ percentile: 98 }, { percentile: 100 }]), [95, 100]);
+const fullTicks = GameData.barTicks([0, 100], 520, 1);
+assert.equal(fullTicks[0].text, '1st');
+assert.equal(fullTicks[fullTicks.length - 1].text, 'last');
+assert(fullTicks.some((t) => t.percentile === 50 && t.text === '50%'));
+assert(fullTicks.every((t, i) => i === 0 || t.y - fullTicks[i - 1].y >= 18.9), 'bar ticks never collide');
 assert.equal(GameData.rows(current, records, { ...GameData.defaultsForView, gameDataMetrics: none }).length, 0);
 
 // Distributions: time windows on the all-games axis.

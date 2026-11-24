@@ -34,7 +34,7 @@ function assertEq(name, actual, want) {
   if (actual !== want) throw new Error(`${name}: got ${actual}, want ${want}`);
 }
 
-// Trait markers rank board values, with the player's preferred directions.
+// Trait markers rank board values within won boards, with the player's preferred directions.
 {
   const current = { outcome: 'win', endedAt: 3, bv3: 75, zeroCount: 59 };
   const past = [{ outcome: 'win', endedAt: 1, bv3: 70, zeroCount: 40 },
@@ -44,15 +44,16 @@ function assertEq(name, actual, want) {
   const rows = boardTraitRankProfile(current, comparisons, past, 'all', 'today');
   const workload = rows.find((r) => r.metricId === 'bv3');
   const zeros = rows.find((r) => r.metricId === 'zeroCount');
-  assertEq('lower 3BV preferred', workload.rank, 3);
-  assertEq('higher zero count preferred', zeros.rank, 1);
-  assertEq('trait values compare all measured boards including losses', workload.total, 3);
+  assertEq('lower 3BV preferred among won boards', workload.rank, 2);
+  assertEq('higher zero count preferred among won boards', zeros.rank, 1);
+  assertEq('trait values rank won boards only (losses excluded)', workload.total, 2);
   assertEq('trait measured value stays visible', workload.valueText, '75');
+  assertEq('trait carries compact won-board rank', workload.compactRankText, '2nd / 2');
   assertEq('the best board in the pool is 0%', zeros.percentile, 0);
   assertEq('the worst board in the pool is 100%', workload.percentile, 100);
   assertEq('a board trait has the same name as its table and chart', workload.name, '3BV');
-  assertEq('board traits count boards', workload.standingText, '3rd of 3 boards');
-  assertEq('board trait distributions count every measured board', workload.distribution.counts.reduce((a, b) => a + b, 0), 3);
+  assertEq('board traits count won boards', workload.standingText, '2nd of 2 won boards');
+  assertEq('board trait distributions count won boards only', workload.distribution.counts.reduce((a, b) => a + b, 0), 2);
   const low = { outcome: 'win', endedAt: 1, maxAdjacent: 2, largestIsland: 3, islandCount: 12,
     boardMetrics: { version: 1, safeCells: 100, zeroOpenedCells: 20, zeroOpenedZeroOneCells: 10 } };
   const mid = { outcome: 'win', endedAt: 2, maxAdjacent: 5, largestIsland: 8, islandCount: 6,
@@ -89,7 +90,8 @@ function assertEq(name, actual, want) {
   assertEq('a self-evident trait’s card has no definition', of(highRows, 'maxAdjacent').definition, undefined);
   assertEq('a trait the name leaves open keeps its definition', of(highRows, 'islandCount').definition,
     'Groups of touching mines on this board, diagonals included.');
-  assertEq('a board trait’s card gives the rank alone', of(highRows, 'maxAdjacent').standingText, '1st of 3 boards');
+  assertEq('a board trait’s card gives the rank alone', of(highRows, 'maxAdjacent').standingText, '1st of 3 won boards');
+  assertEq('a board trait carries compact rank', of(highRows, 'maxAdjacent').compactRankText, '1st / 3');
   assertEq('single board has no comparison rows', boardTraitRankProfile(current, comparisons, [current], 'all', 'today').length, 0);
   assertEq('no board profile for a loss', boardTraitRankProfile({ ...current, outcome: 'loss' }, comparisons, past, 'all', 'today').length, 0);
 }
@@ -116,8 +118,12 @@ function assertEq(name, actual, want) {
 
 {
   const layout = (values) => boardTraitLabelLayout(values.map((percentile) => ({ percentile })), 0, 100, 20);
-  assertEq('nearby trait labels share the displacement', layout([40, 40]).map((r) => r.labelY).join(','), '30,50');
-  assertEq('displaced trait labels retain exact points', layout([40, 40]).map((r) => r.pointY).join(','), '40,40');
+  const p50 = GameData.barFraction(50, [0, 100]) * 100;
+  assertEq('50% maps to the middle of the logit bar', p50, 50);
+  assertEq('nearby trait labels share the displacement', layout([50, 50]).map((r) => r.labelY).join(','), '40,60');
+  assertEq('displaced trait labels retain exact logit points', layout([50, 50]).map((r) => r.pointY).join(','), '50,50');
+  const p1 = GameData.barFraction(1, [0, 100]) * 100;
+  assertEq('1% sits at its exact logit point', layout([1])[0].pointY, p1);
   assertEq('top trait cluster stays on scale', layout([0, 0, 0]).map((r) => r.labelY).join(','), '0,20,40');
   assertEq('bottom trait cluster stays on scale', layout([100, 100, 100]).map((r) => r.labelY).join(','), '60,80,100');
   assertEq('separated labels keep exact positions', layout([100, 0, 50]).map((r) => r.labelY).join(','), '0,50,100');

@@ -448,15 +448,37 @@ const GameData = (() => {
     const standingText = allEqual
       ? (total === 2 ? 'both ' + counted : 'all ' + count(total) + ' ' + counted) + ' have this value'
       : place + ' of ' + count(total) + ' ' + counted;
+    const compactRankText = allEqual
+      ? 'all ' + count(total)
+      : (tiedOthers > 0 ? count(better + 1) + '–' + count(better + equal) : ordinalOf(rank)) + ' / ' + count(total);
     return { id: spec.id + '.' + scope, metricId: spec.id, scope, name: spec.name,
       value, valueText: spec.format(value), higher: spec.higher, side: 'performance',
       rank, firstRank: better + 1, lastRank: better + 1 + tiedOthers, better, tiedOthers,
-      total, allEqual, percentile, definition: spec.help, standingText,
+      total, allEqual, percentile, definition: spec.help, standingText, compactRankText,
     };
   }
   function ordinalOf(n) {
     const rem100 = n % 100, rem10 = n % 10;
     return count(n) + (rem100 >= 11 && rem100 <= 13 ? 'th' : rem10 === 1 ? 'st' : rem10 === 2 ? 'nd' : rem10 === 3 ? 'rd' : 'th');
+  }
+  // Tail-aware percentile formatting (creator 2026-11-24): 0% is reserved
+  // strictly for 1st (percentile === 0) and 100% strictly for last (100);
+  // values strictly inside (0, 1) and (99, 100) keep one significant tail
+  // digit so 2nd of 241 (0.41%) never rounds down to 0%.
+  function formatPercentile(percentile) {
+    if (percentile === 0) return '0%';
+    if (percentile === 100) return '100%';
+    if (percentile > 0 && percentile < 1) {
+      const decimals = Math.max(1, -Math.floor(Math.log10(percentile)));
+      return tidyNumber(percentile.toFixed(decimals)) + '%';
+    }
+    if (percentile > 99 && percentile < 100) {
+      const tail = 100 - percentile;
+      const decimals = Math.max(1, -Math.floor(Math.log10(tail)));
+      const roundedTail = Number(tail.toFixed(decimals));
+      return tidyNumber((100 - roundedTail).toFixed(decimals)) + '%';
+    }
+    return Math.round(percentile) + '%';
   }
   // The drawn axis of one measurement, shared by all its pools. A discrete
   // measurement takes only multiples of `step`: whole counts (step 1, found
@@ -657,13 +679,63 @@ const GameData = (() => {
           records: SessionScope.records(past, choiceId, record.endedAt) })),
     };
   }
+  // Symmetric regularized logit scale for the middle standing bar (creator
+  // 2026-11-24, Option 3A): expands resolution near 0% (1st) and 100% (last)
+  // while compressing the middle (25%–75%) where 1% differences matter less.
+  const BAR_LOGIT_EPSILON = 0.1;
+  const BAR_DOMAIN_STOPS = [0, 0.01, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 25, 30, 40, 50,
+    60, 70, 75, 80, 90, 95, 98, 99, 99.5, 99.8, 99.9, 99.95, 99.99, 100];
+  const BAR_TICK_TIERS = [
+    [0, 50, 100],
+    [0.1, 1, 10, 90, 99, 99.9],
+    [0.01, 0.5, 5, 25, 75, 95, 99.5, 99.99],
+    [0.05, 0.2, 2, 98, 99.8, 99.95],
+    [20, 30, 40, 60, 70, 80],
+  ];
+  function barLogit(p) {
+    return Math.log((p + BAR_LOGIT_EPSILON) / (100 - p + BAR_LOGIT_EPSILON));
+  }
+  function barFraction(p, [low, high] = [0, 100]) {
+    const fLow = barLogit(low), fHigh = barLogit(high);
+    if (fHigh === fLow) return 0.5;
+    return (barLogit(p) - fLow) / (fHigh - fLow);
+  }
+  function barTickLabel(p) {
+    if (p === 0) return '1st';
+    if (p === 100) return 'last';
+    return p + '%';
+  }
   function domain(rows) {
     const positions = rows.map((r) => r.percentile).filter(Number.isFinite);
     if (!positions.length) return [0, 100];
     const low = Math.min(...positions), high = Math.max(...positions);
-    const padding = Math.max(2, (high - low) * .05);
-    return [Math.max(0, Math.floor((low - padding) / 10) * 10),
-      Math.min(100, Math.ceil((high + padding) / 10) * 10)];
+    const fLow = barLogit(low), fHigh = barLogit(high);
+    const pad = Math.max(0.35, (fHigh - fLow) * 0.05);
+    let lo = 0;
+    for (const stop of BAR_DOMAIN_STOPS) if (barLogit(stop) <= fLow - pad + 1e-9) lo = stop;
+    let hi = 100;
+    for (let i = BAR_DOMAIN_STOPS.length - 1; i >= 0; i--) {
+      if (barLogit(BAR_DOMAIN_STOPS[i]) >= fHigh + pad - 1e-9) hi = BAR_DOMAIN_STOPS[i];
+    }
+    return [lo, hi];
+  }
+  function barTicks([low, high], plotHeight, scale = 1) {
+    const edgePad = 6 * scale + 1;
+    const minGap = 19 * scale;
+    const labelY = (p) => Math.max(edgePad, Math.min(plotHeight - edgePad, barFraction(p, [low, high]) * plotHeight));
+    const placed = [];
+    const tryAdd = (p) => {
+      if (p < low - 1e-9 || p > high + 1e-9) return;
+      const y = labelY(p);
+      if (placed.some((q) => Math.abs(q.y - y) < minGap)) return;
+      placed.push({ percentile: p, text: barTickLabel(p), fraction: barFraction(p, [low, high]), y });
+    };
+    tryAdd(low);
+    tryAdd(high);
+    for (const tier of BAR_TICK_TIERS) {
+      for (const p of tier) tryAdd(p);
+    }
+    return placed.sort((a, b) => a.percentile - b.percentile);
   }
   // What each measurement counts on this game's board, for the example board
   // on its card (creator 2026-10-20: "visible UI examples of what the number
@@ -719,5 +791,6 @@ const GameData = (() => {
     };
   }
   return { FASTCLICK_GAP_VERSION, DEFAULT_POOL, pools, scopedPools, poolSpec, isValidPool, timeWindowStart, boardMatchSpec,
-    boardTraitPoolId, metrics, defaults, defaultsForView, poolAt, rows, rankedRow, addDistribution, summary, history, domain, examples };
+    boardTraitPoolId, metrics, defaults, defaultsForView, poolAt, rows, rankedRow, formatPercentile, addDistribution,
+    summary, history, domain, barFraction, barTicks, examples };
 })();

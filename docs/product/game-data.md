@@ -57,21 +57,43 @@ metrics. Also we should ahve like, time this session, week, day, etc not just
 'time ever'" and "hmm i think we should get rid of the lifetime/session
 distinction ACTUALLY. that way we reduce the complexity."):
 
-- One row per measurement, in aligned columns: your perf reads name, value,
-  %; board traits read %, name, value. Each side's name-column head names the
-  pool it compared against ("all games", "session", "past week", "3BV 75",
-  "no-mark", etc.); the other heads are "value" and "%". Neither side repeats
-  the board's name (Board name, below). From 2026-10-07 to 2026-11-23 the
-  performance side carried two percentage columns ("session" and "lifetime")
-  and dropped the unplotted one when narrow; removing that two-pool pair left
-  one percentage column per row.
-- Labels are black and uncolored. Names, values, and percentages are all
-  regular weight; values and percentages are one size larger than names,
-  right-aligned in tabular digits, so the measured values stay the most
-  legible text. Every row is one line.
-- The bar carries the color: green (better) through white to red (worse),
-  with its decile labels printed inside it in black. Leaders run from each
-  row to its exact point on the bar's edge, where a dot marks it.
+- One row per measurement, in aligned columns (revised 2026-11-24 — creator
+  condensed both side `%` columns into a non-linear middle bar, added compact
+  rank order on scoped performance rows, and added won-board rank order on
+  board traits):
+  - **`game summary perf`** (left): name and value (2 columns; heads: the pool
+    name, `"value"`). On a scoped performance row whose base measurement is
+    also shown, the value cell shows its compact rank order in that pool
+    (`1st / 29`, ties `2–3 / 29`, constant `all 29`) instead of repeating the
+    measured value shown on the base row; if the base row is hidden, the scoped
+    row keeps the measured value.
+  - **`board traits`** (right): name, value, and rank (3 columns; heads:
+    `"won boards"` / `"session wins"` / `"<window> · wins"`, `"value"`,
+    `"rank"`). The value cell holds the board's measured trait (`62`) and the
+    rank cell holds its compact rank order among won boards (`152–164 / 412`).
+  - Both side `%` columns are removed from the band view: the non-linear middle
+    bar carries the standing scale and its labels (`1st`, `0.1%`, `1%`, `5%`,
+    `10%`, `25%`, `50%`, `75%`, `90%`, `95%`, `99%`, `99.9%`, `last`), and each
+    row's hover card shows its exact rank and tail-aware percentage. Neither
+    side repeats the board's name (Board name, below). From 2026-10-07 to
+    2026-11-23 the performance side carried two percentage columns ("session"
+    and "lifetime") and dropped the unplotted one when narrow; from 2026-11-23
+    to 2026-11-24 each side carried one percentage column.
+- Labels are black and uncolored. Names, values, ranks, and bar labels are all
+  regular weight; values and ranks are one size larger than names,
+  right-aligned in tabular digits, so the measured values and ranks stay the
+  most legible text. Every row is one line.
+- The bar carries the color and standing scale: green (better) through white to
+  red (worse) at each percentile's true standing color, plotted on a symmetric
+  regularized logit scale $\ln((p + 0.1) / (100 - p + 0.1))$ (creator
+  2026-11-24: *"at the top, 0.01% is diff than literally 1st/best ever is dif
+  than 1% so we need more resolution at the end"*; *"note that in this world,
+  NOT every emasurement will have its exact value shown; but we'll be ablet to
+  see which region it's in (very good, bad, etc.)"*). Non-overlapping milestone
+  ticks (`1st`, `0.1%`, `1%`, `5%`, `10%`, `25%`, `50%`, `75%`, `90%`, `95%`,
+  `99%`, `99.9%`, `last`, plus finer tail/middle ticks when zoomed) are printed
+  inside the bar in black. Leaders run from each row directly to its exact
+  point on the bar's edge, where a dot marks it.
 - One "compared with" picker (`gameDataPool`, default `all`, labeled "all
   games") in the options row chooses the pool for both the band and the
   distributions view, and every hover card. It offers:
@@ -103,10 +125,13 @@ distinction ACTUALLY. that way we reduce the complexity."):
   time given the zeros count, time given this islands count etc."*).
   - Each scoped row is named `<measurement> · <pool>` (for example `time ·
     3BV 12`, `time · zeros 33`, `time · islands 4`, `time · past week`,
-    `click rate · 3BV 12`), keeps this game's value, plots its own dot on the
-    band, opens a hover card for its own pool (`3BV 12: 35th of 94 wins` plus
-    its distribution strip), and gets its own strip directly beneath its base
-    measurement in distributions view.
+    `click rate · 3BV 12`), shows its compact rank order (`1st / 29`, ties
+    `2–3 / 29`, constant `all 29`) in the value column whenever its base
+    measurement row is also shown (or keeps this game's measured value when the
+    base row is hidden — creator 2026-11-24, Option 1A), plots its own dot on
+    the band, opens a hover card for its own pool (`3BV 12: 35th of 94 wins ·
+    37%` plus its distribution strip), and gets its own strip directly beneath
+    its base measurement in distributions view.
   - A scoped row whose pool matches the active "compared with" pool while the
     base measurement is also shown is suppressed rather than plotted twice.
   - In `configure`, `time in specific pools` offers one-click checkboxes for
@@ -162,8 +187,8 @@ the chart uses the whole width of the fluid details column
 left below the controls and live perf charts, so its
 options row stays on screen, keeping at least 240px per open side (480px
 with both); the column scrolls below that. Configuration and session
-history take that height as one view, at least 480px. The
-bar is 32px wide at full size (it scales with the band); rows are fitted to
+history take that height as one view, at least 480px. The bar is 40px wide at full size (it scales with the band; widened from 32px
+on 2026-11-24 to fit tail labels like `0.05%` and `99.95%`); rows are fitted to
 their exact points with minimum squared displacement, and exact percentile
 points never move. Text is pure black on white, including ticks, controls,
 and disabled buttons.
@@ -183,10 +208,13 @@ opens it over the band, never reflowing it; the row itself takes no hover
 background (creator 2026-10-20: "entirely remove the blue-background when
 mousing over effect"), and keyboard focus keeps an outline. In order:
 
-1. The chosen pool's rank, the card's largest text: "all games: 19th of
-   1,201 wins", "session: tied 3rd–5th of 56 games", "3BV 75: 4th of 22
-   wins", or for a constant pool "all games: all 50 boards have this value".
-   The population word is wins, games, or boards.
+1. The chosen pool's rank (plus its tail-aware percentage in the band, where
+   rows no longer print `%`), the card's largest text: "all games: 19th of
+   1,201 wins · 1.5%", "session: tied 3rd–5th of 56 games · 5%", "3BV 75: 4th
+   of 22 wins · 14%", or for a constant pool "all games: all 50 won boards
+   have this value · 50%". In distributions view, where each row already prints
+   `%`, the card keeps the rank alone. The population word is wins, games, or
+   won boards.
 2. In the band only, the pool's games on the measurement's axis, drawn as
    the distributions view's strips are (Strips and example boards, below).
    A distributions row already shows its strip, so its card does not draw
@@ -240,7 +268,7 @@ bars, and their colors all come from that pool's games with these board
 settings (same size, mines, mode, generator), up to this game (or now when
 viewing an older win in High scores). Wins-only measurements count matching
 wins, action measurements matching wins and losses, and board traits matching
-boards (or all boards when a board-match pool is picked). Time-window pools
+won boards (or all won boards when a board-match pool is picked). Time-window pools
 (including session) draw on the all-games axis and bins, so switching windows
 shows where the window sits in overall play; a game past that range pins the
 axis end. Board-match pools draw on their own axis and bins, so a narrow
@@ -390,10 +418,13 @@ that agani.", and "remove topline "your games" which is pointless". Now:
 - Distributions view: one group per side, with no pool title line of its own
   (the former "both" option and two-group layout were removed on 2026-11-23).
   Its column heads are the pool name ("all games", "session", "past week",
-  "3BV 75", "no-mark", "no-mark session", "3BV 75 · no-mark", etc.) over the
-  measurement names, "value", empty over the strips, and "%".
-- The band: both sides use the same column heads — the pool name over the
-  measurement names, "value", and "%".
+  "3BV 75", "no-mark", "no-mark session", "3BV 75 · no-mark" on performance;
+  "won boards", "session wins", "past week · wins", "no-mark wins", "no-mark
+  session wins" on board traits) over the measurement names, "value", empty
+  over the strips, and "%".
+- The band: performance column heads are the pool name and "value"; board
+  traits column heads are the won-boards pool name, "value", and "rank". Both
+  sides read their percentiles on the shared middle bar.
 
 ### Strips and example boards (creator 2026-10-20)
 
@@ -475,21 +506,36 @@ clear"): each your-perf and board-trait chart heading carries a chip, "this
 standing color; its tooltip is the card's rank ("all games: 19th of 1,201
 wins", or the chosen pool).
 Hovering or focusing a game-data row outlines the charts that plot the same
-measurement. A game summary perf row's hover also spotlights that
-measurement's line and event marks in the live perf charts, and hovering
-one of those lines or legend entries rings the row (creator request
-2026-10-26; [Measurement catalog](measurement-catalog.md), "Hover link").
+measurement. Hovering or focusing a board-match scoped performance row (such as
+`time · 3BV 62` or `click rate · 3BV 62`) also rings the paired `board traits`
+row (`3BV`) across the bar, and hovering or focusing a `board traits` row rings
+every matching board-scoped performance row on the left (creator 2026-11-24). A
+game summary perf row's hover also spotlights that measurement's line and event
+marks in the live perf charts, and hovering one of those lines or legend
+entries rings the row (creator request 2026-10-26;
+[Measurement catalog](measurement-catalog.md), "Hover link").
 
 The user intends game data to supersede many other result elements. Label
 wording and placement beside the board were settled on 2026-09-23 (above).
 Which elements it replaces is deferred ("later"); BACKLOG.md "Game data as
 the primary result surface" tracks it.
 
-Autozoom includes every visible point plus 5% of the occupied range (minimum
-2 percentage points), rounded outward to 10% ticks and bounded to 0–100%.
-An occupied region ending at 43% therefore ends at 50%, never a clipping 40%.
-All visible deciles are labeled. Green, white, and red retain their
-absolute rank meaning when zooming; a 40% endpoint does not become red.
+Autozoom works in the bar's logit space: it pads the visible points' logit
+range by 5% (minimum 0.35 logit units) and snaps outward to nice percentage
+milestones (`0, 0.01, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 25, 30, 40, 50,
+60, 70, 75, 80, 90, 95, 98, 99, 99.5, 99.8, 99.9, 99.95, 99.99, 100`), bounded
+to 0–100%. Milestone labels are placed in priority order (`1st` and `last` at
+the ends, then decades, quartiles, and finer zoomed steps), omitting any tick
+that would collide with a higher-priority label. Green, white, and red retain
+their absolute rank meaning when zooming; a 40% endpoint does not become red.
+
+Tail-aware percentage formatting (creator 2026-11-24): everywhere a Game Data
+percentage is printed (band hover cards, distributions `%` column, chart chips,
+and accessible labels), `0%` is reserved strictly for 1st (`percentile === 0`)
+and `100%` strictly for last (`percentile === 100`). Values strictly inside
+`(0, 1)` and `(99, 100)` keep one significant tail digit (`0.4%` for 2nd of
+241, `0.02%` for 2nd of 5,001, `99.6%` for 240th of 241) so strong near-record
+ranks never round down to `0%`.
 
 "show values" (formerly "show actual value") is a saved checkbox in the
 options row. It immediately toggles the value column. Values are this
@@ -578,13 +624,16 @@ generator. Historical comparisons end at the selected game (or now when
 viewing an older win in High scores).
 
 Right-side markers rank **board values themselves**, not solve times within
-matched-trait pools. Background is measured completed boards in the same
-category through this game's finish, including measured losses: the chosen
-time window when a time window or session is picked, or all games when all
-games or a board-match pool is picked. Preferred
-ends (creator decision 2026-09-23): higher 0–1 share, zero count, max
-number, largest island, and zero-opening coverage; lower 3BV,
-ZiNi, HZiNi, 3BV spread, and island count. A preferred board opens a lot
+matched-trait pools. Background is **won boards** in the same category through
+this game's finish (creator decision 2026-11-24: *"we still want the same thing
+as now on the 'board traits' area, and it still should focus on the board's
+traits (not the players's speed) but i mean we also here want to know how that
+trait (e.g. a specific board 3bv number) ranks within all won boards, by the
+order defined for that trait"*; until 2026-11-24 losses were included): the
+chosen time window when a time window or session is picked, or all won boards
+when all games or a board-match pool is picked. Preferred ends (creator
+decision 2026-09-23): higher 0–1 share, zero count, max number, largest island,
+and zero-opening coverage; lower 3BV, ZiNi, HZiNi, 3BV spread, and island count. A preferred board opens a lot
 from zeros, needs fewer benchmark clicks, and keeps its mines in one dense
 clump that can show a high number. These are declared preferences, not
 claims about a trait's causal difficulty.
