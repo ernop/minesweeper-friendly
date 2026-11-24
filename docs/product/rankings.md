@@ -163,7 +163,10 @@ default". Built the same day.
   "board traits" stacked beside a two-column "performance measurements"
   list, collapsing to one column on narrow viewports so every choice fits
   without scrolling on desktop): one box per column, with definitions on
-  hover where present and clickable labels for plain column names. The list
+  hover where present and clickable labels for plain column names.
+  Right-clicking any optional column header offers `hide <column>` in place
+  (keeping `columns` synced if open, and resetting sort to time if the
+  sorted column is hidden). The list
   changes with each box, and the choice is remembered for every list.
 - Sorting: a column's header sorts by it. The first click puts the best
   first: the fastest time, the newest date, the youngest age, and for a

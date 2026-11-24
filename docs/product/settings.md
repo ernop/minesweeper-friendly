@@ -95,6 +95,27 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   partially played board, mini left-panel cards, stand-in result
   cards — that reacted live to every switch. Removed to keep the page
   super simple; the record stays because the idea may return.
+- Global vs. local split (creator decision 2026-11-24, Option S1: "regartding
+  the ideal from-scratch loation, yes, please do that. So, S1. go for it, all
+  of them."):
+  - **Global play & account** (`settings.html`): daily limits, Guardian Angel,
+    board look and glyph sizes (`numberDisplay`, `numberSize`, `flagStyle`,
+    `flagSize`, `flagIntensity`, `mineStyle`, `mineSize`), after-game report
+    level (`reportScope`), preferences backup, and archive folder.
+  - **Local view composition** (directly on the game page): which rows show in
+    Game Data (`gameDataMetrics`, `gameDataBoardTraits`, `gameDataScopedRows`,
+    `gameDataSwitchCost`), which lines/tracks show in live perf charts
+    (`duringGameRows`), which columns show in full score lists
+    (`scoreListColumns`), and which lower result sections/tables/charts show
+    (`shownThings` and `collapseDuplicateCharts`). Every surface supports
+    right-click → `hide` / `remove` directly on individual rows, columns,
+    tables, charts, or section headings (Shift+right-click reaches the
+    browser's native menu), plus a local `configure` / `columns` control to
+    bring hidden items back. The 25 result-section switches (`RESULT_SECTION_GROUPS`)
+    moved off `settings.html` into a local `<dialog id="results-config">` opened
+    from the compact `configure` buttons on `rankings` and `This board`, the
+    always-reachable `configure results` button in `#settings-row`, or any
+    result section's right-click menu. Changes apply live to the shown result.
 - Switches render under group headings naming where they act — gameplay /
   after a game, with a "left panel" group until the panel's removal on
   2026-10-20 — driven by the schema's `group` field
@@ -105,15 +126,11 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   the column between them — never below the name where it could look like
   another list item. The schema's full description remains a plain
   tooltip. A multi-option setting such as `reportScope` puts one radio
-  group to the right of its name. The result-section switches (every
-  shown-things switch plus duplicate-tablechart grouping; motion charts too
-  until 2026-10-20)
-  form compact option grids (as many columns of at least 260px as fit) under
-  four subheadings named for what they control, in result order: This game,
-  Tables, This board, Charts (2026-09-26). The game's Overlays & display
-  panel showed the same groups until 2026-10-21, when the creator had the
-  copy removed: each option has one place
-  ([UI doctrine](ui-doctrine.md)). The layout
+  group to the right of its name. (From 2026-09-26 to 2026-11-24 `settings.html`
+  also held the four compact `RESULT_SECTION_GROUPS` option grids under
+  `after a game`; those moved to the game page's local `configure results`
+  dialog on 2026-11-24 so `settings.html` holds global play/look/report/account
+  settings only and every setting still has one place.) The layout
   collapses to one section column on narrow screens while retaining the
   name/control relationship. Width (2026-09-23 sweep): the body spans the
   window less 48px (28px on narrow screens), and the title and return
@@ -137,8 +154,11 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   link retired with the demo world the same day. The game page has no
   hover-only controls: the floating "hide ×" chip that appeared over a
   hovered result section (added earlier on 2026-08-23) was removed the
-  same day — hiding things is the settings page's job, not something the
-  pointer stumbles into. The remaining one-click precedent stands: the
+  same day — the pointer never stumbles into hiding controls on hover.
+  Instead, explicit right-click menus (added 2026-11-24, Option S1) offer
+  `hide`/`remove` on individual rows, columns, tables, charts, and section
+  heads without injecting hover chrome; Shift+right-click opens the browser's
+  native menu. The remaining one-click precedent stands: the
   details column's width, set by dragging its own edge. The session
   section's own selectors and the stats panel's drag edge, the other two,
   left with the panel on 2026-10-20 ([Session stats](session-stats.md)).

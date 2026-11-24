@@ -2449,7 +2449,7 @@ body.settings-page .return-to-game {
   flex-wrap: wrap;
   gap: 4px 12px;
 }
-.result-chart-section-head:has(.stat-section-toggle[aria-expanded="false"]) > .avg-mode-select { display: none; }
+.stat-section-head-closed > .avg-mode-select { display: none; }
 
 .result-chart-section-items {
   display: flex;
@@ -4336,6 +4336,95 @@ body.vigilance-running #self-check-header {
 .score-list-table tbody tr:hover > td { background: #e3edf6; }
 .score-list-table tbody tr.me > td { background: var(--this-game); font-weight: bold; }
 .score-list-table tbody tr:focus-visible { outline: 2px solid #000000; outline-offset: -2px; }
+
+/*-------CONTEXT MENU AND LOCAL RESULTS CONFIGURE (Option S1)-------*/
+
+.ui-context-menu {
+  position: fixed;
+  z-index: 10000;
+  min-width: 140px;
+  padding: 3px 0;
+  border: 1px solid #8aa0b5;
+  border-radius: 5px;
+  background: #ffffff;
+  color: #000000;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+  font: 13px Arial, Helvetica, sans-serif;
+}
+.ui-context-menu-item {
+  display: block;
+  width: 100%;
+  padding: 5px 12px;
+  border: 0;
+  background: transparent;
+  color: #000000;
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ui-context-menu-item:hover,
+.ui-context-menu-item:focus-visible {
+  background: #e3edf6;
+  outline: none;
+}
+
+.result-section-configure {
+  padding: 1px 6px;
+  font-size: 11px;
+  line-height: 1.2;
+}
+/* Plain class instead of :has() so Firefox skips :has() invalidation on every
+   .stat-section-head inserted during the post-win frame. */
+.stat-section-head-closed > .result-section-configure {
+  display: none;
+}
+
+#results-config {
+  box-sizing: border-box;
+  max-width: min(820px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  padding: 14px 16px 16px;
+  border: 1px solid #b9c8d2;
+  border-radius: 10px;
+  color: #000000;
+  background: #ffffff;
+  font: 13px Arial, Helvetica, sans-serif;
+  overflow: hidden;
+}
+#results-config[open] { display: flex; flex-direction: column; }
+#results-config::backdrop { background: rgba(20, 34, 44, 0.45); }
+.results-config-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+}
+#results-config-title { margin: 0; font-size: 20px; }
+.results-config-note { font-size: 12px; }
+#results-config-close { margin-left: auto; }
+#results-config-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: 12px 24px;
+  min-height: 0;
+  margin-top: 12px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+.results-config-column { display: flex; flex-direction: column; gap: 14px; }
+.results-config-group h3 { margin: 0 0 6px; font-size: 14px; }
+.results-config-group ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; }
+.results-config-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  cursor: pointer;
+}
+@media (max-width: 720px) {
+  #results-config-groups { grid-template-columns: 1fr; }
+}
 
 /* The error bar (page-errors.js): fixed to the window's foot, so showing it
    never moves the page; white on dark red, one line per distinct error. */

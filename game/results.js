@@ -581,6 +581,12 @@ function createResultSectionCollector(context) {
       const head = resultOpenerHead('h3', spec.id, spec.label, items);
       head.classList.add('result-chart-section-head');
       if (spec.chartMode) head.append(chartModeSelect(spec.chartMode));
+      if (spec.id === 'boardTables') head.append(resultsConfigureButton());
+      if (spec.id === 'perfCharts' || spec.id === 'boardCharts') {
+        attachResultHideMenu(head, 'shownThings.averageCharts');
+      } else if (spec.id === 'relationships') {
+        attachResultHideMenu(head, 'shownThings.relationshipCharts');
+      }
       section.appendChild(head);
     }
     section.appendChild(items);
@@ -765,8 +771,10 @@ function panelToggle(panelKey, title, body, help, onBeforeToggle) {
   body.id = 'panel-body-' + ++panelBodyCount;
   toggle.setAttribute('aria-controls', body.id);
   const show = () => {
-    toggle.setAttribute('aria-expanded', String(settings.panels[panelKey]));
-    body.hidden = !settings.panels[panelKey];
+    const open = settings.panels[panelKey];
+    toggle.setAttribute('aria-expanded', String(open));
+    body.hidden = !open;
+    toggle.closest('.stat-section-head')?.classList.toggle('stat-section-head-closed', !open);
   };
   toggle.addEventListener('click', () => {
     const next = !settings.panels[panelKey];
@@ -809,6 +817,7 @@ function resultOpenerHead(level, panelKey, title, body, help, onBeforeToggle) {
   heading.className = 'stat-section-title';
   heading.append(panelToggle(panelKey, title, body, help, onBeforeToggle));
   head.append(heading);
+  head.classList.toggle('stat-section-head-closed', !settings.panels[panelKey]);
   return head;
 }
 
@@ -964,7 +973,102 @@ function buildGameStats(record) {
     grid.append(labelCell, valueCell);
   }
   resultTableOpener(table, 'gameStats', 'this game').append(grid);
+  attachResultHideMenu(table, 'shownThings.gameStats');
   return table;
+}
+
+//-------LOCAL RESULT SECTIONS CONFIGURATION (<dialog id="results-config">)-------
+
+// View composition for the result sections lives directly on the game page
+// (Option S1, creator 2026-11-24), driven by RESULT_SECTION_GROUPS from
+// settings-core.js so there is one schema source of truth and zero overlap
+// with settings.html.
+const resultsConfigDialog = document.getElementById('results-config');
+const resultsConfigGroups = document.getElementById('results-config-groups');
+const resultsConfigBtn = document.getElementById('results-config-btn');
+
+function renderResultsConfig() {
+  const columns = [document.createElement('div'), document.createElement('div')];
+  for (const col of columns) col.className = 'results-config-column';
+  // Balance the 4 groups across 2 columns: This game + Tables (13) beside
+  // This board + Charts (12) so all 25 switches fit without scrolling on desktop.
+  for (const [groupLabel, paths] of RESULT_SECTION_GROUPS) {
+    const group = document.createElement('section');
+    group.className = 'results-config-group';
+    const heading = document.createElement('h3');
+    heading.textContent = groupLabel;
+    const list = document.createElement('ul');
+    for (const entry of paths.map(resultSectionSwitch)) {
+      const item = document.createElement('li');
+      const label = document.createElement('label');
+      label.className = 'results-config-item';
+      label.title = entry.describe;
+      label.dataset.setting = entry.path;
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.checked = resultSectionShown(entry);
+      box.addEventListener('change', () => {
+        setResultSectionShown(entry, box.checked);
+        saveSettings();
+        if (renderedResult !== null) {
+          renderResult(renderedResult.record, renderedResult.modeRecords, renderedResult.options);
+        }
+      });
+      label.append(box, entry.label);
+      item.appendChild(label);
+      list.appendChild(item);
+    }
+    group.append(heading, list);
+    columns[groupLabel === 'This game' || groupLabel === 'Tables' ? 0 : 1].appendChild(group);
+  }
+  resultsConfigGroups.replaceChildren(...columns);
+}
+
+function openResultsConfig() {
+  if (!resultsConfigDialog) return;
+  hideChartHelpTip();
+  closeContextMenu();
+  renderResultsConfig();
+  if (!resultsConfigDialog.open) resultsConfigDialog.showModal();
+}
+
+function hideResultSection(path) {
+  const entry = resultSectionSwitch(path);
+  setResultSectionShown(entry, false);
+  saveSettings();
+  if (renderedResult !== null) {
+    renderResult(renderedResult.record, renderedResult.modeRecords, renderedResult.options);
+  }
+}
+
+function attachResultHideMenu(element, path) {
+  const entry = resultSectionSwitch(path);
+  element.addEventListener('contextmenu', (event) => {
+    openContextMenu(event, [
+      { label: 'hide ' + entry.label, action: () => hideResultSection(path) },
+      { label: 'configure results\u2026', action: () => openResultsConfig() },
+    ]);
+  });
+}
+
+function resultsConfigureButton() {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'ui-button result-section-configure';
+  btn.textContent = 'configure';
+  btn.setAttribute('aria-haspopup', 'dialog');
+  btn.addEventListener('click', openResultsConfig);
+  return btn;
+}
+
+if (resultsConfigBtn) resultsConfigBtn.addEventListener('click', openResultsConfig);
+if (resultsConfigDialog) {
+  document.getElementById('results-config-close').addEventListener('click', () => resultsConfigDialog.close());
+  resultsConfigDialog.addEventListener('keydown', (event) => event.stopPropagation());
+  resultsConfigDialog.addEventListener('close', () => {
+    hideChartHelpTip();
+    closeContextMenu();
+  });
 }
 
 function renderResult(record, modeRecords, options = {}) {
@@ -978,6 +1082,7 @@ async function renderResultAsync(record, modeRecords, options = {}) {
   const isCurrent = () => revision === resultViewRevision;
   resultRanks.setAttribute('aria-busy', 'true');
   if (chartHelpOwner && [resultStats, resultRanks].some((el) => el.contains(chartHelpOwner))) hideChartHelpTip();
+  closeContextMenu();
   requestBoardMetrics(record);
   const metricStatus = boardMetricStatusBox(record);
   renderedResult = { record, modeRecords, options, metricStatus };

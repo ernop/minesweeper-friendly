@@ -65,26 +65,35 @@ Spec: [docs/product/settings.md](../product/settings.md). Index: [AGENTS.md](../
   `buildSliderRow`: the value beside the name, a range input, and a notch
   and number scale positioned by `--at`, inset by half the thumb. `input`
   updates RAM and the demos; `change` saves.
-  `buildResultSections` renders `RESULT_SECTION_GROUPS` where the
-  `shownThings` entry (control `result-sections`) sits: one subheading and
-  compact auto-fill option grid of at least 260px columns per group,
-  collapsing responsively. Boolean fields with control `result-section`
-  (`collapseDuplicateCharts`) render only inside
-  those groups, and `tests/report-settings-test.js` checks that every switch
-  is in exactly one group. Only the settings page renders them (the game
-  page's `renderReviewDisplay` copy and `buildReportScopeControl` went on
-  2026-10-21): `tests/settings-one-place-test.js` fails when game-page code
-  (the `game/` files, `preferences-game.js`, `index.html`) writes any field
-  whose schema control is not `none`, or names `RESULT_SECTION_GROUPS`,
-  `REPORT_SCOPE_CHOICES`, or `setResultSectionShown`. A change just saves; the static
-  note beside the page title explains the absent save button. No hover
-  behavior at all — no hover-injected or
-  hover-swapped text, ever (two note mechanisms were removed for this on
-  2026-08-23). The game page has no region tagging and no hover
-  controls: the `#region-hide-chip` mechanism (hover a result section,
-  click "hide ×" to switch it off) and the `tagSettingRegion` markers
-  feeding it were removed later on 2026-08-23 — hiding things is the
-  settings page's job (see [Personal settings](../product/settings.md)).
+  `RESULT_SECTION_GROUPS` (`shownThings.*` and `collapseDuplicateCharts`,
+  all schema `control: 'none'` since 2026-11-24 Option S1) now renders only
+  on the game page in `<dialog id="results-config">` (`renderResultsConfig` /
+  `openResultsConfig` in `game/results.js`), opened from the compact
+  `configure` buttons beside `rankings` and `This board`, the
+  `#results-config-btn` ("configure results") button in `#settings-row`, or
+  any result section's right-click menu. `settings-page.js` renders only
+  global settings (`control !== 'none'`: `guardianAngel`, board look/sizes,
+  and `reportScope`, alongside Daily limits, Preferences backup, and
+  Archive). `tests/report-settings-test.js` checks that every result-section
+  switch is in exactly one group and has schema `control: 'none'`;
+  `tests/settings-one-place-test.js` enforces strict separation both ways —
+  game-page code never writes any field shown on `settings.html` or renders
+  `REPORT_SCOPE_CHOICES`, and `settings-page.js` never renders
+  `RESULT_SECTION_GROUPS`, `SHOWN_THINGS_OPTIONS`, or `setResultSectionShown`.
+  Shared explicit right-click menus live in `openContextMenu` /
+  `closeContextMenu` (`game/charts.js`), mounting inside `event.target.closest('dialog') || document.body`
+  so modal `<dialog>` inertness never blocks clicks or focus, and bypassing
+  when `event.shiftKey` is held. Right-click → hide/remove is wired on Game
+  Data band/distribution rows and switch cost (`game/game-data-chart.js`),
+  live perf chart legend entries and title (`game/during-game-chart.js`),
+  full score-list optional column headers (`game/score-list.js`), and lower
+  result tables, charts, backfill box, and section headings (`game/results.js`,
+  `game/rankings.js`, `game/result-ranks.js`, `game/charts.js`,
+  `board-metrics-ui.js`). A change just saves; the static note beside the
+  page title explains the absent save button. No hover behavior at all — no
+  hover-injected or hover-swapped text, ever (two note mechanisms were
+  removed for this on 2026-08-23), and no hover-only hide chips (`#region-hide-chip`
+  retired 2026-08-23).
   `numberDisplay` (digits / letters / dots, drawn in `updateCell` via
   `paintCellGlyph`) repaints in place on settings import
   (`repaintRevealedCells`). The raw scatter block is gated by

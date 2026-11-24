@@ -213,6 +213,96 @@ function chartHelpButton(help, label, place) {
   return wrap;
 }
 
+// Shared right-click menu for hiding rows, columns, tables, and sections in
+// place (Option S1, creator 2026-11-24). Shift+right-click bypasses it so
+// the browser's own context menu stays reachable. Mounted inside the owning
+// <dialog> when one is open so modal inertness never blocks clicks or focus.
+let uiContextMenuEl = null;
+let uiContextMenuCleanup = null;
+
+function closeContextMenu() {
+  if (uiContextMenuCleanup !== null) {
+    uiContextMenuCleanup();
+    uiContextMenuCleanup = null;
+  }
+  if (uiContextMenuEl !== null) {
+    uiContextMenuEl.remove();
+    uiContextMenuEl = null;
+  }
+}
+
+function openContextMenu(event, items) {
+  if (event.shiftKey || !items.length) return;
+  event.preventDefault();
+  event.stopPropagation();
+  hideChartHelpTip();
+  if (typeof hideDuringGameHover === 'function') hideDuringGameHover();
+  closeContextMenu();
+  const menu = document.createElement('div');
+  menu.className = 'ui-context-menu';
+  menu.setAttribute('role', 'menu');
+  const buttons = items.map((item) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ui-context-menu-item';
+    btn.setAttribute('role', 'menuitem');
+    btn.textContent = item.label;
+    btn.addEventListener('click', (clickEvent) => {
+      clickEvent.stopPropagation();
+      closeContextMenu();
+      item.action();
+    });
+    menu.appendChild(btn);
+    return btn;
+  });
+  const host = event.target instanceof Element ? (event.target.closest('dialog') || document.body) : document.body;
+  host.appendChild(menu);
+  uiContextMenuEl = menu;
+  const width = menu.offsetWidth;
+  const height = menu.offsetHeight;
+  menu.style.left = Math.max(4, Math.min(event.clientX, window.innerWidth - width - 6)) + 'px';
+  menu.style.top = Math.max(4, Math.min(event.clientY, window.innerHeight - height - 6)) + 'px';
+  const onPointerDown = (e) => {
+    if (!menu.contains(e.target)) closeContextMenu();
+  };
+  const onKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      closeContextMenu();
+      return;
+    }
+    const at = buttons.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      buttons[(at + 1 + buttons.length) % buttons.length].focus();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      buttons[(at - 1 + buttons.length) % buttons.length].focus();
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      buttons[0].focus();
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      buttons[buttons.length - 1].focus();
+    }
+  };
+  const onDismiss = () => closeContextMenu();
+  window.addEventListener('pointerdown', onPointerDown, true);
+  window.addEventListener('keydown', onKeyDown, true);
+  window.addEventListener('scroll', onDismiss, true);
+  window.addEventListener('resize', onDismiss);
+  window.addEventListener('blur', onDismiss);
+  uiContextMenuCleanup = () => {
+    window.removeEventListener('pointerdown', onPointerDown, true);
+    window.removeEventListener('keydown', onKeyDown, true);
+    window.removeEventListener('scroll', onDismiss, true);
+    window.removeEventListener('resize', onDismiss);
+    window.removeEventListener('blur', onDismiss);
+  };
+  buttons[0].focus();
+}
+
 // Small inline-SVG scatter plot: every win is a dot colored by its age unit
 // (the same palette as rank-list ages, so time trends are scannable) and
 // faded within that color by how deep into the unit it sits (a 6-day-old
@@ -671,6 +761,7 @@ function buildAverageScatter(spec, model, gameDataRows) {
   const chart = buildScatter(points, currentIndex < 0 ? null : points[currentIndex], (p) => p.x, (p) => p.y,
     spec.label, yLabel, '', (p) => ageInfo(referenceMs, p.endedAt),
     { ...opts, ...(opts.trendLines ? { trendLines: Promise.resolve(opts.trendLines) } : {}) });
+  if (spec.setting) attachResultHideMenu(chart, 'shownThings.' + spec.setting);
   if (spec.measurementId === undefined) return chart;
   chart.dataset.measurement = spec.measurementId;
   const row = gameDataRows.find((r) => r.metricId === spec.measurementId && !r.scoped);

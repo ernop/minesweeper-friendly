@@ -6,8 +6,7 @@
 // this module to load, validate, default, migrate, clone, and save the same
 // flat settings object in IndexedDB userdata['settings']. Preferences have
 // their own JSON export/import; game history never reads or writes them.
-// Control 'none' means the editor lives on the game page, not a second store;
-// control 'result-section' means the switch renders in RESULT_SECTION_GROUPS.
+// Control 'none' means the editor lives on the game page, not a second store.
 // Choices and bounds live here; generator definitions come from the shared
 // generators.js registry, loaded before this module on both pages.
 
@@ -106,9 +105,9 @@ const SHOWN_THINGS_OPTIONS = [
 ];
 
 // The result-section switches, grouped under what they control and ordered
-// as the result shows it; only the settings page renders them. 'shownThings.x'
-// is a shownThings key; a bare name is a boolean setting with control
-// 'result-section'.
+// as the result shows it; rendered on the game page's local results
+// configure dialog (Option S1, creator 2026-11-24). 'shownThings.x' is a
+// shownThings key; a bare name is a top-level boolean setting.
 const RESULT_SECTION_GROUPS = [
   ['This game', ['shownThings.gameStats', 'shownThings.duringGame', 'shownThings.boardPercentiles']],
   ['Tables', ['shownThings.sessionSummary', 'shownThings.sessionEndings', 'shownThings.recentPlacements',
@@ -541,7 +540,7 @@ const SETTINGS_SCHEMA = [
     group: 'after-game',
     label: 'collapse duplicate tablecharts',
     describe: 'when several time windows hold the exact same wins (e.g. every win this week happened today), show only the most specific chart in both the tablecharts and ranks-won summary (lifetime and past week always render); off = every window always renders its own chart',
-    control: 'result-section',
+    control: 'none',
   },
   {
     field: 'reportScope',
@@ -670,8 +669,8 @@ const SETTINGS_SCHEMA = [
     mergeDefaults: true,
     group: 'after-game',
     label: 'shown things',
-    describe: 'which result sections appear after a game or in the score viewer',
-    control: 'result-sections',
+    describe: 'which result sections and tables appear on the game page; hidden via right-click or toggled in configure results',
+    control: 'none',
   },
   {
     field: 'playMode',

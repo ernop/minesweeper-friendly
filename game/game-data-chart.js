@@ -119,6 +119,7 @@ function gameDataSideTitle({ side, panel, title: text }, toggled) {
     toggle.setAttribute('aria-expanded', String(settings.panels[panel]));
     toggled();
   });
+  attachResultHideMenu(toggle, 'shownThings.boardPercentiles');
   title.append(toggle);
   return title;
 }
@@ -481,7 +482,7 @@ function fillGameDataCard(tip, row, withStrip) {
 // the whole band scales to fit its box. Each side's name-column head names
 // the pool it compared against (perf uses the chosen pool; board traits use
 // all games whenever a board-match pool is picked).
-function buildGameDataBand(rows, valuesShown, titles) {
+function buildGameDataBand(rows, valuesShown, titles, onHideRow) {
   const element = document.createElement('div');
   element.className = 'game-data-band';
   let stacked = false;
@@ -526,6 +527,17 @@ function buildGameDataBand(rows, valuesShown, titles) {
     wrap.addEventListener('mouseleave', () => linkMeasurements([], 'gameData', null));
     button.addEventListener('focus', () => linkMeasurements([row.metricId], 'gameData', crossLink));
     button.addEventListener('blur', () => linkMeasurements([], 'gameData', null));
+    if (onHideRow) {
+      wrap.addEventListener('contextmenu', (event) => {
+        openContextMenu(event, [{
+          label: (row.scoped ? 'remove ' : 'hide ') + row.name,
+          action: () => {
+            linkMeasurements([], 'gameData', null);
+            onHideRow(row);
+          },
+        }]);
+      });
+    }
     return wrap;
   }
   function headCell(className, text, scope) {
@@ -758,7 +770,7 @@ function buildGameDataBand(rows, valuesShown, titles) {
 // gives them the tallest height that fits its box, and only below the
 // shortest strip does it shrink the text. Each side's name-column head names
 // the pool it compared against.
-function buildGameDataDistributions(rows, titles) {
+function buildGameDataDistributions(rows, titles, onHideRow) {
   const element = document.createElement('div');
   element.className = 'game-data-distributions';
   const strips = [];
@@ -801,6 +813,17 @@ function buildGameDataDistributions(rows, titles) {
       wrap.addEventListener('mouseleave', () => linkMeasurements([], 'gameData', null));
       button.addEventListener('focus', () => linkMeasurements([row.metricId], 'gameData', crossLink));
       button.addEventListener('blur', () => linkMeasurements([], 'gameData', null));
+      if (onHideRow) {
+        wrap.addEventListener('contextmenu', (event) => {
+          openContextMenu(event, [{
+            label: (row.scoped ? 'remove ' : 'hide ') + row.name,
+            action: () => {
+              linkMeasurements([], 'gameData', null);
+              onHideRow(row);
+            },
+          }]);
+        });
+      }
       section.appendChild(wrap);
     }
     return { side, title: titles[side], section };
@@ -1297,15 +1320,37 @@ function buildBoardTimeRankProfile(record, records, referenceMs) {
           fitted.layout();
           scheduleBoardLayout();
         })]));
+        const hideRow = (row) => {
+          if (row.scoped) {
+            settings.gameDataScopedRows = settings.gameDataScopedRows.filter(
+              (entry) => !(entry.metric === row.metricId && entry.pool === row.scope));
+          } else if (row.side === 'performance') {
+            settings.gameDataMetrics = { ...settings.gameDataMetrics, [row.metricId]: false };
+          } else {
+            settings.gameDataBoardTraits = { ...settings.gameDataBoardTraits, [row.metricId]: false };
+          }
+          rows = null;
+          saveSettings();
+          render();
+        };
         fitted = settings.gameDataDistributions
-          ? buildGameDataDistributions(rows, titles)
-          : buildGameDataBand(rows, settings.gameDataShowValues, titles);
+          ? buildGameDataDistributions(rows, titles, hideRow)
+          : buildGameDataBand(rows, settings.gameDataShowValues, titles, hideRow);
         syncOpen();
         section.appendChild(fitted.element);
         profile.appendChild(section);
         observeFit(fitted);
       }
-      if (settings.gameDataSwitchCost) profile.appendChild(buildSwitchCostLine(record));
+      if (settings.gameDataSwitchCost) {
+        const switchCostLine = buildSwitchCostLine(record);
+        switchCostLine.addEventListener('contextmenu', (event) => {
+          openContextMenu(event, [{
+            label: 'hide switch cost',
+            action: () => { settings.gameDataSwitchCost = false; saveSettings(); render(); },
+          }]);
+        });
+        profile.appendChild(switchCostLine);
+      }
       // Every chart option in one small row at the bottom, out of the data's way.
       const footer = document.createElement('div');
       footer.className = 'game-data-controls';

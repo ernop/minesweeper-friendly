@@ -71,6 +71,9 @@ const { chromium } = require(process.argv[2]);
   console.log('Presets are whole choices; other modes play on the custom board');
   await page.goto('http://127.0.0.1:8099/settings.html');
   await page.waitForFunction(()=>settings !== null);
+  assert.equal(await page.locator('[data-setting="guardianAngel"]').count(), 1, 'global gameplay setting stays on settings.html');
+  assert.equal(await page.locator('[data-setting="reportScope"]').count(), 1, 'global reportScope stays on settings.html');
+  assert.equal(await page.locator('.setting-option').count(), 0, 'result-section switches live on the game page, not settings.html');
   await page.evaluate(()=>importPreferences(JSON.stringify({pathView:'progress',replayOverlays:{moves:false,mines:false,probs:true,pointless:true,purposeful:true,movement:true},gameDataSwitchCost:true,trialSpeedBucketMs:375,resultView:'scores'})));
   const prefs=await page.evaluate(()=>JSON.parse(exportPreferences()));
   // Wait for the navigation itself: evaluated on the settings page, the name is undefined.

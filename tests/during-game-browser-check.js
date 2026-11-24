@@ -651,6 +651,14 @@ const shotDir = process.argv[4] || null;
     assert.deepEqual([phoneAfter.step, phoneAfter.saved], [phoneStep, phoneStep], 'at the moment clicked');
     assert.equal(phoneAfter.card, false, 'the card closes with it');
     if (shotDir) await page.screenshot({ path: shotDir + '/during-game-390.png' });
+    // Option S1: right-clicking a live perf chart legend entry hides that row.
+    const firstLegend = page.locator('.during-game-legend-item').first();
+    const hiddenRowId = await firstLegend.getAttribute('data-row');
+    await firstLegend.click({ button: 'right' });
+    assert((await page.locator('.ui-context-menu-item').textContent()).startsWith('hide '), 'live perf legend context menu offers hide');
+    await page.locator('.ui-context-menu-item').click();
+    await page.waitForFunction((id) => settings.duringGameRows[id] === false
+      && document.querySelector('.during-game-legend-item[data-row="' + id + '"]') === null, hiddenRowId);
     assert.deepEqual(errors, []);
     console.log('live perf charts: details-column placement and toggle, charts and tracks on one axis with each legend under its part, the moves available in whole counts, the card naming the line under the pointer, y labels in the focused or lone line\u2019s values, the board showing the hovered moment in the player\u2019s style and back on leaving, a click keeping it, legend picks, game data rows and lines linked with one value, log and linear scales, configure, averaging, restore, loss, middle width, and phone width passed');
   } finally { await browser.close(); }

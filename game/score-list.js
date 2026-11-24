@@ -186,6 +186,14 @@ function renderScoreListTable(tabStop) {
       attachHelpTip(button, column.help);
     }
     button.addEventListener('click', () => sortScoreListBy(column));
+    if (column.id !== 'time') {
+      head.addEventListener('contextmenu', (event) => {
+        openContextMenu(event, [{
+          label: 'hide ' + column.name,
+          action: () => showScoreListColumn(column, false),
+        }]);
+      });
+    }
     head.appendChild(button);
     headRow.appendChild(head);
   });
@@ -368,6 +376,8 @@ function showScoreListColumn(column, shown) {
     scoreListColumns: { ...settings.scoreListColumns, [column.id]: shown },
     ...(!shown && settings.scoreListSort.column === column.id ? { scoreListSort: { column: 'time', ascending: true } } : {}),
   });
+  const box = scoreListChoices.querySelector('input[data-column="' + column.id + '"]');
+  if (box !== null) box.checked = shown;
   const { scrollTop, scrollLeft } = scoreListScroll;
   renderScoreListTable(scoreRowTabStop());
   scoreListScroll.scrollTop = scrollTop;
@@ -382,6 +392,7 @@ document.getElementById('score-list-close').addEventListener('click', () => scor
 scoreListDialog.addEventListener('close', () => {
   scoreListOpenRequest++;
   hideChartHelpTip();
+  closeContextMenu();
 });
 // The page's own keys (the space bar's new game, the replay's arrows) stay
 // with the page while the window is open.

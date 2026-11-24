@@ -24,7 +24,9 @@ function rankTablesGroup(lists) {
   const body = document.createElement('div');
   body.className = 'rank-tables-body';
   body.append(...lists);
-  group.append(resultOpenerHead('h3', 'rankTables', 'rankings', body), body);
+  const head = resultOpenerHead('h3', 'rankTables', 'rankings', body);
+  head.append(resultsConfigureButton());
+  group.append(head, body);
   return group;
 }
 
@@ -97,24 +99,32 @@ async function renderRanks(record, modeRecords, options = {}, sections, isCurren
 
   // A table of games opens its full list, where old games open.
   const listsOpen = oldGamesOpen();
-  const timeTable = (table) => buildRankList(table.label, table.count, table.index, 'rank-grid', (i) => {
-    const row = table.rows[i - table.start];
-    const age = relativeAge(referenceMs, row.endedAt);
-    const cells = [['rank-cell', String(i + 1)],
-      ['time-cell' + (isMarkless(row) ? ' markless-time' : ''), (row.timeMs / 1000).toFixed(3) + 's']];
-    if (i === table.index) cells.push(['age-just-cell age-u-s', 'this']);
-    else cells.push(['age-num-cell age-u-' + age.unit, formatAgeCount(age)],
-      ['age-unit-cell age-u-' + age.unit, age.unit]);
-    return cells;
-  }, table.help, listsOpen && table.count > 0
-    ? () => openScoreList({ table: table.id, referenceMs, noMark: Boolean(options.noMarkTimeLabel) }) : undefined);
-  const streakTable = (table) => buildRankList(table.label, table.count, table.index, 'rank-grid', (i) => {
-    const seg = table.rows[i - table.start], age = relativeAge(referenceMs, seg.end);
-    const cells = [['rank-cell', String(i + 1)], ['time-cell', seg.len + (seg.len === 1 ? ' win' : ' wins')]];
-    if (i === table.index) cells.push(['age-just-cell age-u-s', 'this']);
-    else cells.push(['age-num-cell age-u-' + age.unit, formatAgeCount(age)], ['age-unit-cell age-u-' + age.unit, age.unit]);
-    return cells;
-  });
+  const timeTable = (table) => {
+    const el = buildRankList(table.label, table.count, table.index, 'rank-grid', (i) => {
+      const row = table.rows[i - table.start];
+      const age = relativeAge(referenceMs, row.endedAt);
+      const cells = [['rank-cell', String(i + 1)],
+        ['time-cell' + (isMarkless(row) ? ' markless-time' : ''), (row.timeMs / 1000).toFixed(3) + 's']];
+      if (i === table.index) cells.push(['age-just-cell age-u-s', 'this']);
+      else cells.push(['age-num-cell age-u-' + age.unit, formatAgeCount(age)],
+        ['age-unit-cell age-u-' + age.unit, age.unit]);
+      return cells;
+    }, table.help, listsOpen && table.count > 0
+      ? () => openScoreList({ table: table.id, referenceMs, noMark: Boolean(options.noMarkTimeLabel) }) : undefined);
+    if (table.setting) attachResultHideMenu(el, 'shownThings.' + table.setting);
+    return el;
+  };
+  const streakTable = (table) => {
+    const el = buildRankList(table.label, table.count, table.index, 'rank-grid', (i) => {
+      const seg = table.rows[i - table.start], age = relativeAge(referenceMs, seg.end);
+      const cells = [['rank-cell', String(i + 1)], ['time-cell', seg.len + (seg.len === 1 ? ' win' : ' wins')]];
+      if (i === table.index) cells.push(['age-just-cell age-u-s', 'this']);
+      else cells.push(['age-num-cell age-u-' + age.unit, formatAgeCount(age)], ['age-unit-cell age-u-' + age.unit, age.unit]);
+      return cells;
+    });
+    if (table.setting) attachResultHideMenu(el, 'shownThings.' + table.setting);
+    return el;
+  };
   // Builds one node per item, yielding to input between them; a result no
   // longer current builds nothing more.
   const buildEach = async (items, build) => {

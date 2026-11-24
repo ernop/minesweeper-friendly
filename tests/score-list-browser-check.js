@@ -240,7 +240,22 @@ function seedHistory() {
       'no-mark wins leave flagRate blank: ' + JSON.stringify(alignCheck));
     await page.locator('#score-list-choices input[data-column="misclickRate"]').uncheck();
     await page.locator('#score-list-choices input[data-column="flagRate"]').uncheck();
-    await page.locator('#score-list-choices input[data-column="efficiency"]').uncheck();
+    // Right-clicking an optional column header hides it in place (Option S1);
+    // Esc closes only the context menu while keeping the list dialog open, and
+    // right-clicking the permanent time column opens no menu.
+    await page.locator('#score-list .score-list-sort[data-column="time"]').click({ button: 'right' });
+    assert.equal(await page.locator('#score-list .ui-context-menu').count(), 0,
+      'time column cannot be hidden via context menu');
+    await page.locator('#score-list .score-list-sort[data-column="efficiency"]').click({ button: 'right' });
+    assert.equal(await page.locator('#score-list .ui-context-menu-item').textContent(), 'hide efficiency');
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('#score-list .ui-context-menu').count(), 0, 'Esc dismisses the context menu');
+    assert.equal(await page.evaluate(() => document.getElementById('score-list').open), true,
+      'Esc on the context menu keeps the score-list dialog open');
+    await page.locator('#score-list .score-list-sort[data-column="efficiency"]').click({ button: 'right' });
+    await page.locator('#score-list .ui-context-menu-item').click();
+    assert.equal(await page.locator('#score-list-choices input[data-column="efficiency"]').isChecked(), false,
+      'hiding a column via right-click syncs the columns chooser');
     await page.locator('#score-list-choices input[data-column="bvPerSecond"]').uncheck();
     assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#score-list-scroll thead th')]
       .map((th) => th.textContent.replace(/[\u25b2\u25bc]/, ''))), ['#', 'time (s)', 'date', 'age', '3BV', 'zeros']);

@@ -56,12 +56,14 @@ that appears or disappears ever moves it:
   mouse-dynamics measurements of the game on the board, live during play
   while open and final after it.
 - **Settings row and footer, page foot.** The rest of what you configure
-  for every game: the page's one session picker (today by default, shared
-  by every session comparison on the page), and the board display: Zoom,
-  "position" (opens the board position editor), and the pixel ratio, which
-  moves with the browser zoom. Every setting kept for all games, such as
-  which result sections show, is on the settings page. The footer links the
-  self-check, training, and problems pages.
+  on the game page: the page's one session picker (today by default, shared
+  by every session comparison on the page), the board display (Zoom,
+  "position" to open the board position editor, and the pixel ratio, which
+  moves with the browser zoom), and "configure results" (which opens the
+  local result-section chooser; individual rows, columns, tables, and charts
+  also hide via right-click). Global play, board look, after-game report
+  level, daily limits, preferences backup, and archive live on the settings
+  page. The footer links the self-check, training, and problems pages.
 
 **Daily limits** (top of the settings page): play time, games, games per
 level, and a stop time, each per play day from 4:00 to 4:00. A reached
@@ -310,8 +312,10 @@ gap.
 
 The home-page score buttons open the same full result view for Beginner,
 Intermediate, or Expert without requiring a new game; historical views have
-no "this" marker. The settings page's "shown things" group (the
-"settings" button top-right leads there) controls each result section. The
+no "this" marker. Individual tables, charts, Game Data rows, live perf lines,
+and score-list columns can be hidden in place by right-clicking them, and
+brought back from each section's "configure" / "columns" button or
+"configure results" at the page foot. The
 last-1-minute list, largest-island items, and near-near-streak list start
 hidden.
 

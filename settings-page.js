@@ -682,45 +682,9 @@ function buildChoiceRow(s) {
   return row;
 }
 
-// The result-section groups, each a compact option grid under its own
-// subheading.
-function buildResultSections() {
-  const groups = document.createDocumentFragment();
-  for (const [groupLabel, paths] of RESULT_SECTION_GROUPS) {
-    const subgroup = document.createElement('section');
-    subgroup.className = 'settings-subgroup';
-    const heading = document.createElement('h3');
-    heading.className = 'settings-subheading';
-    heading.textContent = groupLabel;
-    const options = document.createElement('div');
-    options.className = 'setting-options-grid';
-    for (const entry of paths.map(resultSectionSwitch)) {
-      const row = document.createElement('label');
-      row.className = 'setting-option';
-      row.dataset.setting = entry.path;
-      const name = document.createElement('span');
-      name.className = 'setting-name';
-      name.textContent = entry.label;
-      name.title = entry.describe;
-      const box = document.createElement('input');
-      box.type = 'checkbox';
-      box.checked = resultSectionShown(entry);
-      box.addEventListener('change', () => {
-        setResultSectionShown(entry, box.checked);
-        saveSettings();
-      });
-      row.append(name, box);
-      options.appendChild(row);
-    }
-    subgroup.append(heading, options);
-    groups.appendChild(subgroup);
-  }
-  return groups;
-}
-
 // Each schema group becomes one panel with a stable heading column and a
-// control body. Control-'none' entries remain editable where they live;
-// control-'result-section' entries render inside the result sections.
+// control body. Control-'none' entries live directly on the game page
+// (including local view composition such as result sections and charts).
 function buildSettingsColumn() {
   const column = document.getElementById('settings-column');
   const transfer = document.getElementById('preferences-transfer');
@@ -738,11 +702,7 @@ function buildSettingsColumn() {
     const body = document.createElement('div');
     body.className = 'settings-group-body';
     for (const s of SETTINGS_SCHEMA) {
-      if (s.group !== groupId || s.control === 'none' || s.control === 'result-section') continue;
-      if (s.control === 'result-sections') {
-        body.appendChild(buildResultSections());
-        continue;
-      }
+      if (s.group !== groupId || s.control === 'none') continue;
       if (s.control === 'choice') {
         body.appendChild(buildChoiceRow(s));
         continue;

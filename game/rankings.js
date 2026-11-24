@@ -658,6 +658,7 @@ function buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRe
     ] : []),
   ]);
   box.dataset.sessionScopeView = '';
+  attachResultHideMenu(box, 'shownThings.recentPlacements');
   box.addEventListener('session-scope-change', () => box.replaceWith(
     buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRecord, noMarkTimeLabel)));
 
@@ -1035,6 +1036,7 @@ function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = f
       'The likely-misclick rows count losses whose fatal click was most likely a slip. They are already counted above, so they never add to the total.',
     ] : []),
   ]);
+  attachResultHideMenu(box, 'shownThings.sessionSummary');
   const rows = sessionSummaryRows(sessionHistory, from, to, Object.values(DIFFICULTIES).map(boardKeyOf));
   if (rows.length === 0) {
     const none = document.createElement('div');
@@ -1102,8 +1104,10 @@ function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = f
     // narrowed to no-mark games counts finished games alone.
     const abandoned = sessionHistory === history
       ? sessionAbandonedCounts(playSpans.values(), typeKey, playSpanKeyOf, from, to, Date.now()) : null;
-    body.appendChild(buildSessionSummaryResults(rows.find((row) => row.key === typeKey), typeLabel, boardRecord,
-      lifetimeRecords, abandoned !== null && abandoned.recordedFrom !== null ? abandoned : null));
+    const endings = buildSessionSummaryResults(rows.find((row) => row.key === typeKey), typeLabel, boardRecord,
+      lifetimeRecords, abandoned !== null && abandoned.recordedFrom !== null ? abandoned : null);
+    attachResultHideMenu(endings, 'shownThings.sessionEndings');
+    body.appendChild(endings);
   }
   return box;
 }
@@ -1318,10 +1322,10 @@ function resultRankPlan(record, records, options, preferences, referenceMs) {
   const wins = records.filter((r) => r.outcome === 'win');
   const boardRecord = options.boardRecord || record;
   // `id` finds the table's wins again for its full list (scoreListOf).
-  const table = (id, label, list, help) => {
+  const table = (id, label, list, help, setting) => {
     const index = options.historyView ? -1 : list.indexOf(record);
     const [start, end] = windowBounds(index, list.length);
-    return { id, label, count: list.length, index, start, rows: list.slice(start, end), help };
+    return { id, label, count: list.length, index, start, rows: list.slice(start, end), help, setting };
   };
   let candidates = rankColumns(referenceMs)
     .filter((column) => preferences.shownThings.lastOneMinute || column.label !== 'past 1 min')
@@ -1333,12 +1337,13 @@ function resultRankPlan(record, records, options, preferences, referenceMs) {
   const timeTables = preferences.shownThings.timeTables
     ? candidates.map((c) => table(c.id, noMarkRankLabel(c.label, options.noMarkTimeLabel), c.wins,
       c.help || (options.noMarkTimeLabel && c.id === 'lifetime'
-        ? ['Wins with no flags placed, on this same board, mode, and generator.'] : undefined))) : [];
+        ? ['Wins with no flags placed, on this same board, mode, and generator.'] : undefined),
+      c.label === 'past 1 min' ? 'lastOneMinute' : 'timeTables')) : [];
   const boardTables = [];
   for (const c of boardMetricCandidates([boardRecord], wins)) {
     if (preferences.shownThings[c.setting]) {
       boardTables.push(table(c.id, noMarkRankLabel(c.label, options.noMarkTimeLabel),
-        c.wins.slice().sort(compareRankedWins), c.help(boardRecord)));
+        c.wins.slice().sort(compareRankedWins), c.help(boardRecord), c.setting));
     }
   }
   if (preferences.shownThings.boardShapeTables) {
@@ -1350,7 +1355,8 @@ function resultRankPlan(record, records, options, preferences, referenceMs) {
       shapes = shapes.filter((c) => kept.has(c));
     }
     for (const c of shapes) boardTables.push(table(c.id, noMarkRankLabel(c.label, options.noMarkTimeLabel),
-      c.wins.slice().sort(compareRankedWins), c.help?.(boardRecord)));
+      c.wins.slice().sort(compareRankedWins), c.help?.(boardRecord),
+      c.measurementId === 'largestIsland' ? 'largestIsland' : 'boardShapeTables'));
   }
   const runs = streakRuns(records);
   const streakTables = [];
@@ -1361,7 +1367,7 @@ function resultRankPlan(record, records, options, preferences, referenceMs) {
     const index = options.historyView || options.reviewList !== undefined ? -1 : list.findIndex((seg) => seg.current);
     const [start, end] = windowBounds(index, list.length);
     streakTables.push({ label: noMarkRankLabel(label, options.noMarkTimeLabel),
-      count: list.length, index, start, rows: list.slice(start, end) });
+      count: list.length, index, start, rows: list.slice(start, end), setting });
   }
   return { timeTables, boardTables, streakTables };
 }

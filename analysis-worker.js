@@ -1,15 +1,15 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261124-score-list-flags',
-  'game/evaluation.js?v=20261124-score-list-flags',
-  'game-data.js?v=20261124-score-list-flags', 'game/metric-definitions.js?v=20261124-score-list-flags',
+  'game/trace-metrics.js?v=20261124-settings-s1',
+  'game/evaluation.js?v=20261124-settings-s1',
+  'game-data.js?v=20261124-settings-s1', 'game/metric-definitions.js?v=20261124-settings-s1',
   'board-shape.js?v=20261020-no-left-panel', 'zini.js?v=20261020-no-left-panel', 'board-metrics.js?v=20261020-no-left-panel',
-  'game/rankings.js?v=20261124-score-list-flags',
-  'game/charts.js?v=20261124-score-list-flags', 'game/game-data-chart.js?v=20261124-score-list-flags',
+  'game/rankings.js?v=20261124-settings-s1',
+  'game/charts.js?v=20261124-settings-s1', 'game/game-data-chart.js?v=20261124-settings-s1',
   'guardian-angel.js?v=20261123-guardian-angel-2', 'odds.js?v=20261123-guardian-angel-2', 'board-icons.js?v=20261105-glyph-sizes',
-  'game/replay-model.js?v=20261124-score-list-flags',
-  'during-game.js?v=20261124-score-list-flags');
+  'game/replay-model.js?v=20261124-settings-s1',
+  'during-game.js?v=20261124-settings-s1');
 
 let config;
 

@@ -219,6 +219,7 @@ function boardMetricStatusBox(record) {
   const box = document.createElement('div');
   box.className = 'board-metric-status';
   fillBoardMetricStatus(box, record);
+  attachResultHideMenu(box, 'shownThings.boardMetricFacts');
   return box;
 }
 

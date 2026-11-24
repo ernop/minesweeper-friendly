@@ -22,8 +22,9 @@ function check(name, condition) {
 }
 
 const onSettingsPage = SETTINGS_SCHEMA.filter((s) => s.control !== 'none').map((s) => s.field);
-check('the settings page shows the report choice and every result-section switch',
-  ['reportScope', 'shownThings', 'collapseDuplicateCharts'].every((field) => onSettingsPage.includes(field)));
+check('the settings page holds global play, board look, and report scope, not local view composition',
+  onSettingsPage.includes('reportScope') && onSettingsPage.includes('guardianAngel')
+    && !onSettingsPage.includes('shownThings') && !onSettingsPage.includes('collapseDuplicateCharts'));
 for (const field of onSettingsPage) {
   const writes = [
     new RegExp('settings\\.' + field + '(\\.\\w+|\\[[^\\]]+\\])?\\s*=(?!=)'),
@@ -33,10 +34,13 @@ for (const field of onSettingsPage) {
   check('the game page never changes ' + field + ', which the settings page shows',
     writes.every((pattern) => !pattern.test(gamePage)));
 }
-check('the game page renders no copy of the report choice or the result-section switches',
-  !/\b(RESULT_SECTION_GROUPS|REPORT_SCOPE_CHOICES|setResultSectionShown)\b/.test(gamePage));
-check('the settings page renders the result-section groups',
-  read('settings-page.js').includes('for (const [groupLabel, paths] of RESULT_SECTION_GROUPS)'));
+check('the game page renders no copy of the report choice',
+  !/\bREPORT_SCOPE_CHOICES\b/.test(gamePage));
+const settingsPage = read('settings-page.js');
+check('the settings page renders no copy of the game page\'s local result-section switches',
+  !/\b(RESULT_SECTION_GROUPS|SHOWN_THINGS_OPTIONS|setResultSectionShown)\b/.test(settingsPage));
+check('the game page renders the local result-section groups',
+  gamePage.includes('for (const [groupLabel, paths] of RESULT_SECTION_GROUPS)'));
 {
   const transportStart = html.indexOf('<div id="replay-controls"');
   const transport = html.slice(transportStart, html.indexOf('id="board-position-drag-surface"', transportStart));

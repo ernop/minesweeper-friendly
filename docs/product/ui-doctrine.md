@@ -271,19 +271,21 @@ because they apply app-wide, not just where each was first stated.
   the board instead of hiding behind a popover.)
 - Each option in one place (creator 2026-10-21: "rectify the duplication
   and problematic "double settings location" issue where some settinsg are
-  within "settings" while others are in "overlays & display""). A setting
-  the player keeps for every game (the after-game report choice, which
-  result sections show, the board's look, guardian angel) is shown and
-  changed only on the settings page; no other surface carries a copy. A
-  surface's own view choices stay on that surface and are not repeated on
-  the settings page: the replay's board overlays and mouse path as toggles
-  under its transport, each chart's averaging, scale, configure, and pool
-  switches on the chart. From 2026-09-26 until this decision the
-  game's panel, then named Overlays & display, repeated the settings page's
-  report choice and result-section switches from one shared definition,
-  and the trial review repeated the report choice.
-  `tests/settings-one-place-test.js` fails when game-page code changes a
-  setting the settings page shows.
+  within "settings" while others are in "overlays & display""; refined
+  2026-11-24 under Option S1 into a clean global vs. local split). Global
+  play, board look, after-game report level (`reportScope`), daily limits,
+  preferences backup, and archive live only on the settings page (`settings.html`);
+  no other surface carries a copy. Every surface's local view composition
+  lives directly on the game page and is not repeated on `settings.html`:
+  the replay's board overlays and mouse path under its transport, each
+  chart's averaging/scale/configure/pool controls on the chart, full
+  score-list columns in the list window, lower result sections/tables/charts
+  in the game page's local `configure results` dialog, and explicit
+  right-click → `hide`/`remove` menus on rows, columns, tables, charts, and
+  section heads (never hover-injected chrome). `tests/settings-one-place-test.js`
+  enforces both directions: game-page code never changes a setting shown on
+  `settings.html`, and `settings.html` never renders the game page's local
+  result-section switches.
 - Defaults show nothing extra (creator 2026-10-20: "beg, int, exp are
   "all-in-one settings choosers". when a user choose a mode besides those
   from the dropdown they shoudl only then be presetned with the variant and

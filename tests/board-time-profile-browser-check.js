@@ -855,6 +855,61 @@ const { chromium } = require(process.argv[2]);
     assert.deepEqual(await page.locator('#result-ranks .stat-section-toggle').evaluateAll((toggles) =>
       toggles.map((toggle) => toggle.getAttribute('aria-expanded'))), resultOpeners.map(() => 'false'),
       'the next result opens with them closed');
+    // Option S1: right-click hides Game Data rows (base, scoped, board trait)
+    // and lower result tables in place; the local configure results dialog
+    // restores hidden sections live without leaving the game page.
+    await page.evaluate(async () => {
+      settings.panels.boardTables = true;
+      settings.gameDataScopedRows = [{ metric: 'time', pool: 'board:zeroCount' }];
+      saveSettings();
+      profileFixture.current.actionEvaluations = [];
+      await renderResult(profileFixture.current, profileFixture.wins);
+      resultsBox.hidden = false;
+    });
+    await bandReady();
+    await profile.locator('.game-data-row[data-side="performance"][data-measurement="clickRate"]:not([data-scoped])').click({ button: 'right' });
+    assert.equal(await page.locator('.ui-context-menu-item').textContent(), 'hide click rate');
+    await page.locator('.ui-context-menu-item').click();
+    await bandReady();
+    assert.equal(await page.evaluate(() => settings.gameDataMetrics.clickRate), false, 'right-click hides base perf row');
+    await profile.locator('.game-data-row[data-scoped="true"]').first().click({ button: 'right' });
+    assert((await page.locator('.ui-context-menu-item').textContent()).startsWith('remove '), 'scoped row menu says remove');
+    await page.locator('.ui-context-menu-item').click();
+    await bandReady();
+    assert.deepEqual(await page.evaluate(() => settings.gameDataScopedRows), [], 'right-click removes scoped row');
+    await profile.locator('.game-data-row[data-side="board"][data-measurement="bv3"]').click({ button: 'right' });
+    assert.equal(await page.locator('.ui-context-menu-item').textContent(), 'hide 3BV');
+    await page.locator('.ui-context-menu-item').click();
+    await bandReady();
+    assert.equal(await page.evaluate(() => settings.gameDataBoardTraits.bv3), false, 'right-click hides board trait row');
+    await page.locator('.result-chart-section-boardTables .rank-list').filter({ hasText: /^3BV \d/ }).first().click({ button: 'right' });
+    assert.deepEqual(await page.locator('.ui-context-menu-item').allTextContents(),
+      ['hide same-3BV tablechart', 'configure results\u2026']);
+    await page.locator('.ui-context-menu-item').first().click();
+    await page.waitForFunction(() => settings.shownThings.exact3BV === false
+      && !resultRanks.hasAttribute('aria-busy')
+      && [...document.querySelectorAll('.result-chart-section-boardTables .rank-list h4')].every((h) => !/^3BV \d/.test(h.textContent)));
+    await page.locator('#results-config-btn').click();
+    assert.equal(await page.evaluate(() => document.getElementById('results-config').open), true, 'configure results dialog opens');
+    const cfgOverflow = await page.evaluate(() => {
+      const box = document.getElementById('results-config-groups');
+      return { x: box.scrollWidth - box.clientWidth, y: box.scrollHeight - box.clientHeight };
+    });
+    assert(cfgOverflow.x <= 0 && cfgOverflow.y <= 0, 'results-config fits without scrollbars on desktop: ' + JSON.stringify(cfgOverflow));
+    await page.locator('#results-config [data-setting="shownThings.exact3BV"] input').check();
+    await page.waitForFunction(() => settings.shownThings.exact3BV === true
+      && !resultRanks.hasAttribute('aria-busy')
+      && [...document.querySelectorAll('.result-chart-section-boardTables .rank-list h4')].some((h) => /^3BV \d/.test(h.textContent)));
+    await page.locator('#results-config-close').click();
+    await page.evaluate(async () => {
+      renderedResult = null;
+      settings.panels.boardTables = false;
+      settings.gameDataMetrics.clickRate = true;
+      settings.gameDataBoardTraits.bv3 = true;
+      saveSettings();
+      await drawProfileFixture();
+    });
+    await bandReady();
     await profile.getByLabel('show values', { exact: true }).uncheck();
     await poolPicker.selectOption('board:bv3');
     await page.evaluate(() => {

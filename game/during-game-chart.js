@@ -557,7 +557,7 @@ function duringGameRowName(spec) {
 // Draws `view` into `charts` and wires the legends, the hover, and the
 // replay link. `picks` holds each legend's picked rows (duringGamePicksFor).
 // Returns the layout, which redraws at the charts' width.
-function renderDuringGameCharts(charts, view, { raw, relativeScale, picks }) {
+function renderDuringGameCharts(charts, view, { raw, relativeScale, picks, onHideRow }) {
   hideDuringGameHover();
   duringGameSpotlight = null;
   charts.replaceChildren();
@@ -634,6 +634,17 @@ function renderDuringGameCharts(charts, view, { raw, relativeScale, picks }) {
       if (axis !== null) drawPart(part);
       pointFocus(member);
     });
+    if (onHideRow) {
+      entry.addEventListener('contextmenu', (event) => {
+        openContextMenu(event, [{
+          label: 'hide ' + member.spec.name,
+          action: () => {
+            pointFocus(null);
+            onHideRow(member.row.id);
+          },
+        }]);
+      });
+    }
     member.entry = entry;
     return entry;
   };
@@ -881,7 +892,8 @@ function renderDuringGameCharts(charts, view, { raw, relativeScale, picks }) {
 const DURING_GAME_TITLE = 'live perf charts';
 
 function buildDuringGameBlock(record, isCurrent) {
-  const { section: host, body: sectionBody } = buildStatSection('duringGame', DURING_GAME_TITLE);
+  const { section: host, body: sectionBody, toggle } = buildStatSection('duringGame', DURING_GAME_TITLE);
+  attachResultHideMenu(toggle, 'shownThings.duringGame');
   host.classList.add('during-game');
   const body = document.createElement('div');
   body.className = 'during-game-body';
@@ -911,7 +923,11 @@ function buildDuringGameBlock(record, isCurrent) {
     charts.className = 'during-game-charts';
     body.replaceChildren(charts);
     layout = renderDuringGameCharts(charts, drawn.view, { raw: drawn.averagingId === 'raw',
-      relativeScale: settings.duringGameRelativeScale, picks });
+      relativeScale: settings.duringGameRelativeScale, picks,
+      onHideRow: (rowId) => {
+        updateSettings({ duringGameRows: { ...settings.duringGameRows, [rowId]: false } });
+        refresh();
+      } });
     layout();
   }
 

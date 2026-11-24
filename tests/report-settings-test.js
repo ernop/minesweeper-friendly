@@ -63,16 +63,19 @@ check('unknown scope rejected', validReportScope('everything-ish') === false);
   const paths = RESULT_SECTION_GROUPS.flatMap(([, groupPaths]) => groupPaths);
   const expected = [
     ...SHOWN_THINGS_OPTIONS.map(([key]) => 'shownThings.' + key),
-    ...SETTINGS_SCHEMA.filter((s) => s.control === 'result-section').map((s) => s.field),
+    'collapseDuplicateCharts',
   ];
   check('every result-section switch is in exactly one group',
     paths.length === new Set(paths).size
       && JSON.stringify(paths.slice().sort()) === JSON.stringify(expected.sort()));
   check('every grouped switch has a name and a description',
     paths.map(resultSectionSwitch).every((entry) => entry.label && entry.describe));
-  check('grouped settings are booleans',
-    SETTINGS_SCHEMA.filter((s) => s.control === 'result-section')
-      .every((s) => typeof s.default === 'boolean'));
+  check('grouped result-section settings are local to the game page (not rendered on settings.html)',
+    paths.map(resultSectionSwitch).every((entry) =>
+      SETTINGS_SCHEMA.find((s) => s.field === entry.field).control === 'none'));
+  check('top-level grouped settings are booleans',
+    paths.map(resultSectionSwitch).filter((entry) => entry.key === null).every((entry) =>
+      typeof SETTINGS_SCHEMA.find((s) => s.field === entry.field).default === 'boolean'));
 }
 
 console.log(`report-settings: all ${checks} checks passed`);

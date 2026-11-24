@@ -110,6 +110,15 @@ open.
   what it explains (anywhere on the page): where it fits neither below
   nor above, it opens beside it. Before, a tall tip could cover its own
   label, which then lost the pointer to it and flickered.
+- Local view configuration (added 2026-11-24, Option S1): individual tables,
+  board-trait charts, section heads, Game Data rows, live perf chart legend
+  entries, and score-list column headers support right-click → `hide` /
+  `remove` in place (Shift+right-click reaches the browser menu). Compact
+  `configure` buttons beside the `rankings` and `This board` titles, plus an
+  always-reachable `configure results` button in `#settings-row` at the page
+  foot, open the local Result sections dialog (`<dialog id="results-config">`)
+  to toggle any section, table, or chart back on live without leaving the
+  game page.
 
 The score viewer deliberately omits post-game action analysis, during the
 game, and motion diagnostics. Its reference record is explicitly the latest win, named alongside
