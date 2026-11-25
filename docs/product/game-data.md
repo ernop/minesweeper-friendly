@@ -63,14 +63,18 @@ distinction ACTUALLY. that way we reduce the complexity."):
   board traits):
   - **`game summary perf`** (left): name and value (2 columns; heads: the pool
     name, `"value"`). On a scoped performance row whose base measurement is
-    also shown, the value cell shows its compact rank order in that pool
-    (`1st / 29`, ties `2–3 / 29`, constant `all 29`) instead of repeating the
-    measured value shown on the base row; if the base row is hidden, the scoped
-    row keeps the measured value.
+    also shown, the value cell shows its compact competition rank order in that
+    pool (`1st / 29`, ties `2nd / 29 (tie)`, constant `all 29`) instead of
+    repeating the measured value shown on the base row; if the base row is
+    hidden, the scoped row keeps the measured value.
   - **`board traits`** (right): name, value, and rank (3 columns; heads:
     `"won boards"` / `"session wins"` / `"<window> · wins"`, `"value"`,
     `"rank"`). The value cell holds the board's measured trait (`62`) and the
-    rank cell holds its compact rank order among won boards (`152–164 / 412`).
+    rank cell holds its farthest-up competition rank among won boards
+    (`152nd / 412 (tie)`, untied `130th / 854`, constant `all 50` — revised
+    2026-11-25 to remove tie ranges while keeping the midpoint dot on the bar
+    and the full exact tie span on hover, with `(tie)` trailing outward on the
+    far edge away from the bar).
   - Both side `%` columns are removed from the band view: the non-linear middle
     bar carries the standing scale and its labels (`1st`, `0.1%`, `1%`, `5%`,
     `10%`, `25%`, `50%`, `75%`, `90%`, `95%`, `99%`, `99.9%`, `last`), and each
@@ -80,8 +84,9 @@ distinction ACTUALLY. that way we reduce the complexity."):
     and "lifetime") and dropped the unplotted one when narrow; from 2026-11-23
     to 2026-11-24 each side carried one percentage column.
 - Labels are black and uncolored. Names, values, ranks, and bar labels are all
-  regular weight; values and ranks are one size larger than names,
-  right-aligned in tabular digits, so the measured values and ranks stay the
+  regular weight; values and ranks are one size larger than names in tabular
+  digits (values right-aligned, board-trait ranks left-aligned so trailing
+  `(tie)` sits on the outer edge), so the measured values and ranks stay the
   most legible text. Every row is one line.
 - The bar carries the color and standing scale: green (better) through white to
   red (worse) at each percentile's true standing color, plotted on a symmetric
@@ -129,8 +134,9 @@ distinction ACTUALLY. that way we reduce the complexity."):
   time given the zeros count, time given this islands count etc."*).
   - Each scoped row is named `<measurement> · <pool>` (for example `time ·
     3BV 12`, `time · zeros 33`, `time · islands 4`, `time · past week`,
-    `click rate · 3BV 12`), shows its compact rank order (`1st / 29`, ties
-    `2–3 / 29`, constant `all 29`) in the value column whenever its base
+    `click rate · 3BV 12`), shows its compact competition rank order
+    (`1st / 29`, ties `2nd / 29 (tie)`, constant `all 29`) in the value column
+    whenever its base
     measurement row is also shown (or keeps this game's measured value when the
     base row is hidden — creator 2026-11-24, Option 1A), plots its own dot on
     the band, opens a hover card for its own pool (`3BV 12: 35th of 94 wins ·

@@ -144,6 +144,16 @@ function gameDataCell(className, text) {
   return cell;
 }
 
+function gameDataRankCell(className, text) {
+  const cell = gameDataCell(className, '');
+  if (text.endsWith(' (tie)')) {
+    cell.append(text.slice(0, -6), gameDataCell('game-data-tie', ' (tie)'));
+  } else {
+    cell.textContent = text;
+  }
+  return cell;
+}
+
 function gameDataPercentText(row) {
   return GameData.formatPercentile(row.percentile);
 }
@@ -530,10 +540,10 @@ function buildGameDataBand(rows, valuesShown, titles, onHideRow) {
     const button = wrap.querySelector('button');
     button.replaceChildren(...(row.side === 'performance'
       ? [gameDataCell('game-data-name', row.name),
-        gameDataCell('game-data-value', gameDataDisplayValue(row, basePerfMetrics))]
+        gameDataRankCell('game-data-value', gameDataDisplayValue(row, basePerfMetrics))]
       : [gameDataCell('game-data-name', row.name),
         gameDataCell('game-data-value', row.valueText),
-        gameDataCell('game-data-rank', row.compactRankText)]));
+        gameDataRankCell('game-data-rank', row.compactRankText)]));
     button.setAttribute('aria-label', row.name + ' ' + row.valueText + ': '
       + gameDataPoolLabel(row.scope, row.poolLabel) + ' ' + gameDataPercentText(row));
     const crossLink = gameDataCrossLink(row);

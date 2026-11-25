@@ -2762,11 +2762,12 @@ body.settings-page .return-to-game {
    outline. */
 .game-data-row > .chart-help-label:focus-visible { outline: 1px solid #000000; }
 .game-data-name { text-align: left; }
+.game-data-rank { text-align: left; font-variant-numeric: tabular-nums; }
 .game-data-value,
-.game-data-rank,
 .game-data-pct { text-align: right; font-variant-numeric: tabular-nums; }
 .game-data-row .game-data-value,
 .game-data-row .game-data-rank { font-size: 1.0833em; }
+.game-data-tie { font-size: 0.77em; }
 .game-data-values-hidden .game-data-value { display: none; }
 .game-data-bar {
   position: absolute;

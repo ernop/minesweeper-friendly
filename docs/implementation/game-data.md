@@ -61,7 +61,8 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   best 0%; 50 for constant non-time values), `definition` (the catalog
   `help`, undefined for a self-evident measurement), `standingText` ("19th of
   1,201 wins", "tied 3rd–5th of 56 games", "all 50 won boards have this
-  value"), and `compactRankText` ("1st / 29", "2–3 / 29", "all 50").
+  value"), and `compactRankText` ("1st / 29", "2nd / 29 (tie)", "all 50" —
+  farthest-up competition ordinal with trailing `(tie)` on ties, 2026-11-25).
   `GameData.formatPercentile(percentile)` formats tail-aware percentages
   (2026-11-24: `0%` strictly for `0`, `100%` strictly for `100`, one
   significant tail digit inside `(0, 1)` and `(99, 100)`, rounded integer in
@@ -117,7 +118,8 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
   `gameDataDisplayValue` so scoped rows show `compactRankText` when their base
   measurement is also shown, else `valueText`) under `[poolLabel, "value"]`;
   board-trait rows hold `.game-data-name`, `.game-data-value`, and
-  `.game-data-rank` (`compactRankText`) under `[won-boards pool label, "value",
+  `.game-data-rank` (`compactRankText`, left-aligned with trailing `(tie)`
+  rendered smaller in `.game-data-tie`) under `[won-boards pool label, "value",
   "rank"]`. Side titles (`titles`, one per side with rows) come from
   `gameDataSideTitle`: a `.game-data-side-title` holding a
   `.stat-section-toggle` that flips `settings.panels.gamePerformance` or

@@ -461,7 +461,7 @@ const GameData = (() => {
       : place + ' of ' + count(total) + ' ' + counted;
     const compactRankText = allEqual
       ? 'all ' + count(total)
-      : (tiedOthers > 0 ? count(better + 1) + '–' + count(better + equal) : ordinalOf(rank)) + ' / ' + count(total);
+      : ordinalOf(better + 1) + ' / ' + count(total) + (tiedOthers > 0 ? ' (tie)' : '');
     return { id: spec.id + '.' + scope, metricId: spec.id, scope, name: spec.name,
       value, valueText: spec.format(value), higher: spec.higher, side: 'performance',
       rank, firstRank: better + 1, lastRank: better + 1 + tiedOthers, better, tiedOthers,

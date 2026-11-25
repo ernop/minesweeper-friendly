@@ -56,7 +56,18 @@ assert.equal(row('fastclickGap.session').percentile, 50, 'all-equal timing has n
 assert.equal(row('time.all').standingText, '3rd of 4 wins');
 assert.equal(row('time.all').compactRankText, '3rd / 4');
 assert.equal(row('misclickRate.session').standingText, 'tied 1st–2nd of 3 games');
-assert.equal(row('misclickRate.session').compactRankText, '1–2 / 3');
+assert.equal(row('misclickRate.session').compactRankText, '1st / 3 (tie)');
+const midTarget = { ...current, endedAt: now, boardChangingClicks: 19, noOpClicks: 1 };
+const midTieRows = GameData.rows(midTarget, [
+  { ...current, endedAt: now - 180000, boardChangingClicks: 20, noOpClicks: 0 },
+  { ...current, endedAt: now - 120000, boardChangingClicks: 19, noOpClicks: 1 },
+  { ...current, endedAt: now - 60000, boardChangingClicks: 18, noOpClicks: 2 },
+  midTarget,
+], { ...allMetrics, gameDataMetrics: { ...none, boardChangingClickShare: true } }, board);
+assert.equal(midTieRows.find((r) => r.id === 'boardChangingClickShare.all').compactRankText, '2nd / 4 (tie)',
+  'tied ranks use farthest-up competition place with trailing (tie)');
+assert.equal(midTieRows.find((r) => r.id === 'boardChangingClickShare.all').standingText, 'tied 2nd–3rd of 4 games',
+  'hover card standing keeps full exact tie span');
 assert.deepEqual([row('misclickRate.session').better, row('misclickRate.session').tiedOthers], [0, 1]);
 assert.equal(row('fastclickGap.session').standingText, 'both games have this value');
 assert.equal(row('fastclickGap.session').compactRankText, 'all 2');

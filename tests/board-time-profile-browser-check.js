@@ -120,7 +120,7 @@ const { chromium } = require(process.argv[2]);
     assert.deepEqual(await profile.locator('.game-data-row button').evaluateAll((buttons) =>
       [...new Set(buttons.map((button) => getComputedStyle(button).cursor))]), ['default'], 'never the help cursor');
     assert.equal(await profile.locator('.game-data-row[data-measurement="bv3"] .game-data-value').textContent(), '75');
-    assert.equal(await profile.locator('.game-data-row[data-measurement="bv3"] .game-data-rank').textContent(), '3–24 / 24');
+    assert.equal(await profile.locator('.game-data-row[data-measurement="bv3"] .game-data-rank').textContent(), '3rd / 24 (tie)');
     assert.equal(await profile.locator('.game-data-row[data-measurement="zeroOpeningCoverage"] .game-data-name').textContent(),
       'zero-opening coverage');
     assert.equal(await profile.locator('.game-data-row[data-measurement="zeroOpeningCoverage"] .game-data-value').textContent(), '69%');
@@ -188,7 +188,7 @@ const { chromium } = require(process.argv[2]);
       // Below the narrowest plan a band shrinks as a whole rather than
       // scrolling, shortening names, or hiding values.
       assert.equal(layout.overflow, false, width + 'px nothing in game data scrolls');
-      assert.equal(layout.scale < 1, width <= 320, width + 'px only narrow widths scale the band: ' + layout.scale);
+      assert.equal(layout.scale < 1, layout.width < 340, width + 'px only narrow boxes scale the band: ' + JSON.stringify([layout.width, layout.scale]));
       assert.equal(layout.nameWeight, '400');
       assert.equal(layout.valueWeight, '400', 'numbers are never bold');
       assert.deepEqual(layout.numberWeights, ['400'], 'ranks and bar labels are never bold');
