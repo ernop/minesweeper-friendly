@@ -273,7 +273,7 @@ assertEq('middle placement wording is shared by the recent summary',
   assertEq('won and lost head the tree; a family shows only when one of its kinds occurred',
     lines.map((line) => line.depth + ' ' + line.label).join(' | '),
     '1 won | 2 no avoidable risk | 3 without guessing | 1 lost | 2 opened a proven mine'
-      + ' | 3 counting single numbers proved it | 2 not judged');
+      + ' | 3 counting single numbers | 2 not judged');
   assertEq('a family sums every kind beneath it',
     lines.find((line) => line.label === 'opened a proven mine').kinds.join(),
     'mine-counting,mine-overlap,mine-whole-board,mine-safe,mine-forced');
@@ -282,6 +282,17 @@ assertEq('middle placement wording is shared by the recent summary',
   assertEq('a session without losses still shows the lost row',
     sessionResultLines([{ results: { 'win-guess-early': 1 } }]).map((line) => line.label).join(' | '),
     'won | riskier guess than necessary | in the opening | lost');
+  const groups = sessionResultGroups(row.results, { ...row.results, 'win-guess-early': 1 }, {
+    session: 2,
+    lifetime: 3,
+    sessionKinds: { 'abandoned-restarted-opening': 1, 'abandoned-page-closed': 1 },
+    lifetimeKinds: { 'abandoned-restarted-opening': 2, 'abandoned-page-closed': 1 },
+  });
+  assertEq('sessionResultGroups returns won, lost, and abandoned outcomes',
+    groups.map((g) => g.id + ':' + g.session + '/' + g.lifetime).join(' '), 'won:1/2 lost:3/3 abandoned:2/3');
+  assertEq('abandoned subdivides into restarted -> in the opening and page closed in play',
+    groups[2].families.map((f) => f.label + ':' + f.session + (f.leaf ? '(leaf)' : '[' + f.leaves.map((l) => l.label + '=' + l.session).join(',') + ']')).join(' | '),
+    'restarted:1[in the opening=1] | page closed in play:1(leaf)');
 }
 
 // The session results tree holds every result kind exactly once: every win
@@ -310,34 +321,50 @@ assertEq('middle placement wording is shared by the recent summary',
     'session results tree has no row for result kind guess-early');
 }
 
-// Abandoned boards (creator request 2026-10-20): the type's spans that left
-// play by a restart, a trial's end, or a page closed in play, counted from
-// when spans began recording how boards left play.
+// Abandoned boards (creator request 2026-10-20; subdivided 2026-11-25): the
+// type's spans that left play by a restart (split by opening progress when
+// safeRevealed was recorded), a trial's end, or a page closed in play,
+// counted from when spans began recording how boards left play.
 {
   vm.runInThisContext(fs.readFileSync(path.join(repo, 'play-limits.js'), 'utf8'));
   const keyOf = (span) => span.width + 'x' + span.height + '/' + span.mines + '@' + span.playMode;
-  const span = (startedAt, ending, endedAt, lastSeenAt = endedAt, board = [9, 9, 10]) => ({
+  const span = (startedAt, ending, endedAt, lastSeenAt = endedAt, board = [9, 9, 10], safeRevealed) => ({
     startedAt, lastSeenAt, endedAt, width: board[0], height: board[1], mines: board[2], playMode: 'standard',
-    ...(ending === undefined ? {} : { ending }) });
+    ...(ending === undefined ? {} : { ending }),
+    ...(safeRevealed === undefined ? {} : { safeRevealed }) });
   const now = 1000000;
   const spans = [
     span(100, undefined, 150),
-    span(200, 'restarted', 250),
+    span(200, 'restarted', 250, 250, [9, 9, 10], 2),
     span(300, 'finished', 350),
     span(400, 'restarted', 450),
     span(500, 'trial-ended', 550),
     span(600, null, null, 650),
-    span(700, 'restarted', 750, 750, [30, 16, 99]),
+    span(700, 'restarted', 750, 750, [30, 16, 99], 10),
     span(800, null, null, now - 1000),
     span(900, 'restarted', 2000),
   ];
-  assertEq('restarted, cut off by a trial, and closed in play count; finished, another type, a board still in play, '
-    + 'one after the game shown, and one from before endings were recorded do not',
+  assertEq('restarted, cut off by a trial, and closed in play count and subdivide by kind; finished, another type, '
+    + 'a board still in play, one after the game shown, and one from before endings were recorded do not',
   JSON.stringify(sessionAbandonedCounts(spans, '9x9/10@standard', keyOf, 400, 1000, now)),
-  '{"session":3,"lifetime":4,"recordedFrom":200}');
+  '{"session":3,"lifetime":4,"sessionKinds":{"abandoned-restarted":1,"abandoned-trial-ended":1,"abandoned-page-closed":1},'
+    + '"lifetimeKinds":{"abandoned-restarted-opening":1,"abandoned-restarted":1,"abandoned-trial-ended":1,"abandoned-page-closed":1},"recordedFrom":200}');
   assertEq('before any span records its ending, nothing counts and no start is known',
     JSON.stringify(sessionAbandonedCounts([span(100, undefined, 150)], '9x9/10@standard', keyOf, 0, 1000, now)),
-    '{"session":0,"lifetime":0,"recordedFrom":null}');
+    '{"session":0,"lifetime":0,"sessionKinds":{},"lifetimeKinds":{},"recordedFrom":null}');
+  const byKey = sessionAbandonedByKey(spans, keyOf, 400, 1000, now);
+  const rowsWithAb = sessionSummaryRows(
+    { '9x9/10@standard': [{ endedAt: 500, outcome: 'win', timeMs: 4000, actionEvaluations: [] }] },
+    400, 1000, ['9x9/10', '16x16/40', '30x16/99'], byKey);
+  assertEq('sessionSummaryRows includes abandoned counts and abandoned-only board types',
+    rowsWithAb.map((r) => r.key + ':' + r.games + '+' + r.abandoned + '=' + r.started).join(' '),
+    '9x9/10@standard:1+3=4 30x16/99@standard:0+1=1');
+  const skippedNoMark = sessionSummaryRows(
+    { '9x9/10@standard': [{ endedAt: 500, outcome: 'win', timeMs: 4000, flagsPlaced: 0, actionEvaluations: [] }] },
+    400, 1000, ['9x9/10', '16x16/40', '30x16/99'], { ...byKey, skipKeys: new Set(['9x9/10@standard']) });
+  assertEq('a narrowed no-mark key skips abandoned while other keys keep theirs',
+    skippedNoMark.map((r) => r.key + ':' + r.abandoned + '/' + r.started).join(' '),
+    '9x9/10@standard:null/1 30x16/99@standard:1/1');
 }
 
 const HOUR = 3600e3;

@@ -288,15 +288,12 @@ const { chromium } = require(process.argv[2]);
       for (let i = 1; i < flow.rows.length; i++) {
         assert(Math.abs(flow.rows[i].top - flow.rows[i - 1].bottom) < 1, 'gap between summary rows');
       }
-      assert(flow.tables.some((r) => r.left >= flow.summary.right
-        && r.top > flow.summary.top + 40 && r.bottom <= flow.summary.bottom),
-        width + 'px: later table rows should use the space beside the summary');
       for (const table of flow.tables) {
-        assert(table.top >= flow.summary.bottom || table.left >= flow.summary.right,
-          'table overlaps summary');
+        assert(table.top >= flow.summary.bottom - 1,
+          width + 'px: rank tables sit below the overview band without overlapping summary');
       }
       assert(flow.nextSection.top >= Math.max(flow.summary.bottom, ...flow.tables.map((r) => r.bottom)),
-        'next section overlaps flowing tables');
+        'next section overlaps tables');
       await page.screenshot({ path: '/tmp/ranks-won-ordered-' + width + '.png', fullPage: true });
     }
     // Session summary: games, wins, and win rate per board type in the one
@@ -340,26 +337,46 @@ const { chromium } = require(process.argv[2]);
       await collector.stream(resultRanks);
       const read = () => {
         const box = resultRanks.querySelector('.session-summary');
-        const main = box.querySelector('.session-summary-grid:not(.session-summary-results)');
+        const main = box.querySelector('.session-summary-grid');
         const results = box.querySelector('.session-summary-results');
+        const table = results.querySelector('.session-results-table');
+        const cellSummary = (td) => ({
+          text: td.textContent,
+          rowSpan: td.rowSpan,
+          colSpan: td.colSpan,
+        });
         return {
           heading: box.querySelector('h4').textContent,
           rows: [...main.querySelectorAll('.session-summary-row, .session-summary-total')]
             .map((row) => [...row.children].map((cell) => cell.textContent)),
           head: [...main.querySelectorAll('.session-summary-head > span')].map((cell) => cell.textContent),
           thisColor: box.querySelector('.session-summary-current') && getComputedStyle(box.querySelector('.session-summary-current')).backgroundColor,
-          rowHeights: [...box.querySelectorAll('.session-summary-row > span:first-child')].map((cell) => cell.getBoundingClientRect().height),
-          results: [...results.querySelectorAll('.rank-row')].map((row) => [...row.children].map((cell) => cell.textContent)),
-          ruled: [...results.querySelectorAll('.session-summary-group-first')].map((row) => row.firstChild.textContent),
-          indents: [...results.querySelectorAll('.session-summary-row')].map((row) => getComputedStyle(row.firstChild).paddingLeft),
-          bold: [...results.querySelectorAll('.session-summary-row')]
-            .filter((row) => Number(getComputedStyle(row.firstChild).fontWeight) >= 700).map((row) => row.firstChild.textContent),
+          rowHeights: [...main.querySelectorAll('.session-summary-row > span:first-child')].map((cell) => cell.getBoundingClientRect().height),
+          root: results.querySelector('.session-results-root')?.textContent ?? null,
+          stripCounts: [1, 2, 3].map((n) => results.querySelectorAll('.session-strip-l' + n + ' > .session-strip-seg').length),
+          stripThisColor: results.querySelector('.session-strip-seg.is-this')
+            && getComputedStyle(results.querySelector('.session-strip-seg.is-this')).backgroundColor,
+          tableHead: table ? [...table.querySelectorAll('thead th')].map((th) => th.textContent) : [],
+          tableRows: table ? [...table.querySelectorAll('tbody tr')].map((tr) => [...tr.children].map(cellSummary)) : [],
+          tableFoot: table ? [...table.querySelectorAll('tfoot td')].map((td) => td.textContent) : [],
+          bars: table ? table.querySelectorAll('.session-bar-track').length : 0,
+          lifeTicks: table ? table.querySelectorAll('.session-bar-life').length : 0,
+          overlaysHead: results.querySelector('.session-overlays-head')?.textContent ?? null,
+          overlays: [...results.querySelectorAll('.session-overlay-row')].map((row) => ({
+            text: row.querySelector('.session-leaf-text').textContent,
+            isThis: row.classList.contains('me'),
+            nums: row.querySelector('.session-overlay-nums').textContent,
+          })),
           resultsWithinSummary: results.getBoundingClientRect().right <= box.getBoundingClientRect().right + 1,
-          marked: [...results.querySelectorAll('.rank-row.me')].map((row) => row.firstChild.textContent),
-          markedCells: [...results.querySelectorAll('.rank-row.me > span')].map((cell) => {
+          markedLeaves: [...results.querySelectorAll('.session-results-table tr.me .session-leaf-label')]
+            .map((label) => [label.querySelector('.session-leaf-text').textContent,
+              label.querySelector('.recent-current-label')?.textContent ?? null]),
+          markedCells: [...results.querySelectorAll('.session-results-table tr.me td.leaf-cell')].map((cell) => {
             const style = getComputedStyle(cell);
             return [style.backgroundColor, style.color, Number(style.fontWeight) >= 700];
           }),
+          unmarkedAncestors: [...results.querySelectorAll('.session-results-table tr.me td:not(.leaf-cell)')].map((cell) =>
+            getComputedStyle(cell).backgroundColor),
         };
       };
       const hour = read();
@@ -376,20 +393,21 @@ const { chromium } = require(process.argv[2]);
         '9x9/10@standard+pink-noise(alpha=1,scale=12,contrast=2,stretch=0)':
           savedHistory['16x16/40@standard+pink-noise(alpha=1,scale=12,contrast=2,stretch=0)'] };
       resultRanks.replaceChildren(buildSessionSummary(current, now));
-      const sameSize = read().results;
+      const sameSize = read().tableRows;
       resultRanks.replaceChildren(buildSessionSummary(
         history['9x9/10@standard+pink-noise(alpha=1,scale=12,contrast=2,stretch=0)'][0], now, false));
-      const generatorType = read().results;
+      const generatorType = read();
       history = savedHistory;
-      // Abandoned boards: a Beginner restart in the hour, a Beginner board
-      // whose page closed in play 3 hours ago, and an Expert restart.
-      const spanOf = (minutesAgo, board, ending) => ({ startedAt: now - minutesAgo * 60000,
+      // Abandoned boards: a Beginner opening restart in the hour, a Beginner
+      // board whose page closed in play 3 hours ago, and an Expert restart.
+      const spanOf = (minutesAgo, board, ending, safeRevealed) => ({ startedAt: now - minutesAgo * 60000,
         lastSeenAt: now - minutesAgo * 60000 + 5000, endedAt: ending === null ? null : now - minutesAgo * 60000 + 5000,
-        width: board[0], height: board[1], mines: board[2], playMode: 'standard', ending });
-      for (const span of [spanOf(180, [9, 9, 10], null), spanOf(29, [9, 9, 10], 'restarted'),
+        width: board[0], height: board[1], mines: board[2], playMode: 'standard', ending,
+        ...(safeRevealed === undefined ? {} : { safeRevealed }) });
+      for (const span of [spanOf(180, [9, 9, 10], null), spanOf(29, [9, 9, 10], 'restarted', 3),
         spanOf(25, [30, 16, 99], 'restarted')]) playSpans.set(span.startedAt, span);
       resultRanks.replaceChildren(buildSessionSummary(current, now));
-      const abandoned = { results: read().results };
+      const abandoned = read();
       playSpans.clear();
       const oldCustom = game(60 * 24 * 40, 'win', 90000);
       history = { ...savedHistory, '20x20/60@standard': [oldCustom] };
@@ -402,8 +420,11 @@ const { chromium } = require(process.argv[2]);
       const short = read();
       history = { '9x9/10@standard': history['9x9/10@standard'] };
       resultRanks.replaceChildren(buildSessionSummary(current, now));
-      const plain = [...resultRanks.querySelectorAll('.session-summary-head, .session-summary-row')]
-        .map((row) => [...row.children].map((cell) => cell.textContent));
+      const plain = {
+        head: [...resultRanks.querySelectorAll('.session-summary-head > span')].map((cell) => cell.textContent),
+        rows: [...resultRanks.querySelectorAll('.session-summary-row')].map((row) => [...row.children].map((cell) => cell.textContent)),
+        tableRows: read().tableRows,
+      };
       return { hour, afterLoss, outsideWindow, expert, sameSize, generatorType, abandoned, noSizeGames, short, plain };
     });
     assert.equal(sessionSummary.hour.heading, 'session', 'only the picker names the window');
@@ -418,92 +439,148 @@ const { chromium } = require(process.argv[2]);
     ], 'the default mode goes unnamed; a generator has its own aligned column; means average the session’s wins');
     assert.equal(sessionSummary.hour.thisColor, THIS_GAME);
     assert(sessionSummary.hour.rowHeights.every((height) => height < 20), 'summary rows stay one line');
-    const levels = ['how it ended', 'worst offense', 'type'];
-    assert.deepEqual(sessionSummary.hour.results, [
-      ['result', 'Beginner games', ...levels, 'lifetime'],
-      ['won', '2', '67%', '', '', '75%'],
-      ['no avoidable risk', '1', '', '33%', '', '25%'],
-      ['without guessing', '1', '', '', '33%', '25%'],
-      ['riskier guess than necessary', '1', '', '33%', '', '25%'],
-      ['after the opening this', '1', '', '', '33%', '25%'],
-      ['lost', '1', '33%', '', '', '25%'],
-      ['not judged', '1', '', '33%', '', '25%'],
-    ], 'only the shown game’s board type; each share of all its games stands in its level’s column, and lifetime is the '
-      + 'row’s share of all 4 Beginner games, the unmeasured win from 40 days ago included');
-    assert.deepEqual(sessionSummary.hour.marked, ['after the opening this'],
-      'the game shown is marked on its leaf alone, since the indentation shows its branch');
-    assert.deepEqual(sessionSummary.hour.markedCells, Array(6).fill([THIS_GAME, 'rgb(0, 0, 0)', true]),
-      'a this-game row is bold black on the this-game light blue across its cells');
-    assert.deepEqual(sessionSummary.afterLoss.marked, ['not judged this'],
-      'after a loss the tree marks the loss, not the latest win the summary is built for');
+    const tableHead = ['how it ended', 'offense / reason', 'type', 'games', 'session', 'lifetime'];
+    assert.equal(sessionSummary.hour.root, 'Beginner — 3 games');
+    assert.deepEqual(sessionSummary.hour.tableHead, tableHead);
+    assert.deepEqual(sessionSummary.hour.stripCounts, [2, 3, 3],
+      '3-band strip aligns outcomes, offenses, and leaves across 100%');
+    assert.equal(sessionSummary.hour.stripThisColor, THIS_GAME, 'only this game’s leaf segment wears the this-game light blue');
+    assert.deepEqual(sessionSummary.hour.tableRows, [
+      [
+        { text: 'won2 · 67% (life 75%)', rowSpan: 2, colSpan: 1 },
+        { text: 'no avoidable risk1 · 33% (life 25%)', rowSpan: 1, colSpan: 1 },
+        { text: 'without guessing', rowSpan: 1, colSpan: 1 },
+        { text: '1', rowSpan: 1, colSpan: 1 },
+        { text: '33%', rowSpan: 1, colSpan: 1 },
+        { text: '25%', rowSpan: 1, colSpan: 1 },
+      ],
+      [
+        { text: 'riskier guess than necessary1 · 33% (life 25%)', rowSpan: 1, colSpan: 1 },
+        { text: 'after the openingthis', rowSpan: 1, colSpan: 1 },
+        { text: '1', rowSpan: 1, colSpan: 1 },
+        { text: '33%', rowSpan: 1, colSpan: 1 },
+        { text: '25%', rowSpan: 1, colSpan: 1 },
+      ],
+      [
+        { text: 'lost1 · 33% (life 25%)', rowSpan: 1, colSpan: 1 },
+        { text: 'not judged', rowSpan: 1, colSpan: 2 },
+        { text: '1', rowSpan: 1, colSpan: 1 },
+        { text: '33%', rowSpan: 1, colSpan: 1 },
+        { text: '25%', rowSpan: 1, colSpan: 1 },
+      ],
+    ], 'Option A spanning partition grid: one row per leaf, parent cells span vertically, shallow leaves span across columns 2-3');
+    assert.deepEqual(sessionSummary.hour.tableFoot, ['total', '3', '100%', ''],
+      'footer sums leaves to 100% and leaves lifetime blank because zero-session rows are omitted');
+    assert.equal(sessionSummary.hour.bars, 3);
+    assert.equal(sessionSummary.hour.lifeTicks, 3);
+    assert.deepEqual(sessionSummary.hour.markedLeaves, [['after the opening', 'this']],
+      'the game shown is marked on its leaf with separated "this"');
+    assert.deepEqual(sessionSummary.hour.markedCells, Array(4).fill([THIS_GAME, 'rgb(0, 0, 0)', true]),
+      'this-game leaf cells are bold black on the this-game light blue');
+    assert(sessionSummary.hour.unmarkedAncestors.every((bg) => bg !== THIS_GAME),
+      'spanned ancestor cells stay unmarked');
+    assert.deepEqual(sessionSummary.afterLoss.markedLeaves, [['not judged', 'this']],
+      'after a loss the breakdown marks the loss, not the latest win the summary is built for');
     assert.equal(sessionSummary.afterLoss.rows[0][6], '2nd of 3', 'the best-time chip still marks only a win just finished');
-    assert.deepEqual(sessionSummary.outsideWindow.marked, [], 'a game outside the session has no row to mark');
-    assert.deepEqual(sessionSummary.hour.ruled, ['lost'], 'a rule starts the lost branch');
-    assert.deepEqual(sessionSummary.hour.indents, ['4px', '18px', '32px', '18px', '32px', '4px', '18px'],
-      'depth shows as indentation');
-    assert.deepEqual(sessionSummary.hour.bold, ['won', 'after the opening this', 'lost'],
-      'won and lost head their branches; the this-game row is bold too');
-    assert.equal(sessionSummary.hour.swatches, undefined);
-    assert(sessionSummary.hour.resultsWithinSummary, 'the results grid stays inside the summary');
-    assert.deepEqual(sessionSummary.expert.results, [
-      ['result', 'Expert games', ...levels, 'lifetime'],
-      ['won', '0', '0%', '', '', '0%'],
-      ['lost', '2', '100%', '', '', '100%'],
-      ['opened a proven mine', '1', '', '50%', '', '50%'],
-      ['counting single numbers proved it this', '1', '', '', '50%', '50%'],
-      ['not judged', '1', '', '50%', '', '50%'],
-      ['of these losses, likely misclick: left click on a proven mine under a second after a chord beside it lacked flags this',
-        '1', '', '50%', '', '50%'],
-    ], 'another size’s tree holds only its own games, misclick rows included');
-    assert.deepEqual(sessionSummary.expert.marked, ['counting single numbers proved it this',
-      'of these losses, likely misclick: left click on a proven mine under a second after a chord beside it lacked flags this'],
-    'a likely-misclick loss is marked on its leaf and on the misclick row that recounts it');
-    assert.deepEqual(sessionSummary.expert.ruled, ['lost',
-      'of these losses, likely misclick: left click on a proven mine under a second after a chord beside it lacked flags this'],
-    'a rule starts the lost branch and another the misclick rows');
-    assert.deepEqual(sessionSummary.expert.indents, ['4px', '4px', '18px', '32px', '18px', '18px'],
-      'misclick rows sit at the second level');
-    assert.deepEqual(sessionSummary.sameSize, sessionSummary.hour.results,
-      'a generator’s games on the same size are another board type, left out of the Standard tree in the session and in lifetime');
-    assert.deepEqual(sessionSummary.generatorType, [
-      ['result', 'Beginner · Pink noise (spectral exponent 1, feature size 12, contrast 2, stretch 0) games', ...levels, 'lifetime'],
-      ['won', '1', '100%', '', '', '100%'],
-      ['guesses not measured this', '1', '', '100%', '', '100%'],
-      ['lost', '0', '0%', '', '', '0%'],
-    ], 'a generator’s tree holds its own games and names its variant');
-    assert.deepEqual(sessionSummary.abandoned.results, [
-      ['result', 'Beginner games', ...levels, 'lifetime'],
-      ['won', '2', '50%', '', '', '50%'],
-      ['no avoidable risk', '1', '', '25%', '', '17%'],
-      ['without guessing', '1', '', '', '25%', '17%'],
-      ['riskier guess than necessary', '1', '', '25%', '', '17%'],
-      ['after the opening this', '1', '', '', '25%', '17%'],
-      ['lost', '1', '25%', '', '', '17%'],
-      ['not judged', '1', '', '25%', '', '17%'],
-      ['abandoned', '1', '25%', '', '', '33%'],
-    ], 'abandoned boards of the type count beside won and lost: the restart in the hour in the session, the closed page '
-      + 'in lifetime too, the Expert restart in neither; the row carries no recorded-since note');
+    assert.deepEqual(sessionSummary.outsideWindow.markedLeaves, [], 'a game outside the session has no row to mark');
+    assert(sessionSummary.hour.resultsWithinSummary, 'the breakdown stays inside the summary');
+    assert.equal(sessionSummary.expert.root, 'Expert — 2 games');
+    assert.deepEqual(sessionSummary.expert.tableRows, [
+      [
+        { text: 'won', rowSpan: 1, colSpan: 3 },
+        { text: '0', rowSpan: 1, colSpan: 1 },
+        { text: '0%', rowSpan: 1, colSpan: 1 },
+        { text: '0%', rowSpan: 1, colSpan: 1 },
+      ],
+      [
+        { text: 'lost2 · 100% (life 100%)', rowSpan: 2, colSpan: 1 },
+        { text: 'opened a proven mine1 · 50% (life 50%)', rowSpan: 1, colSpan: 1 },
+        { text: 'counting single numbersthis', rowSpan: 1, colSpan: 1 },
+        { text: '1', rowSpan: 1, colSpan: 1 },
+        { text: '50%', rowSpan: 1, colSpan: 1 },
+        { text: '50%', rowSpan: 1, colSpan: 1 },
+      ],
+      [
+        { text: 'not judged', rowSpan: 1, colSpan: 2 },
+        { text: '1', rowSpan: 1, colSpan: 1 },
+        { text: '50%', rowSpan: 1, colSpan: 1 },
+        { text: '50%', rowSpan: 1, colSpan: 1 },
+      ],
+    ], 'another board type’s partition holds only its own games; zero-count won spans columns 1-3');
+    assert.equal(sessionSummary.expert.overlaysHead, 'likely misclicks (subset of the 2 losses, already counted above)',
+      'likely misclicks sit detached below the partition');
+    assert.deepEqual(sessionSummary.expert.overlays, [{
+      text: 'left-clicked proven mine under 1s after a short-of-flags chord beside it',
+      isThis: true,
+      nums: '1 (50% of losses · 50% of games · lifetime 50%)',
+    }], 'a likely-misclick loss is marked in the detached overlay block with both loss and game denominators');
+    assert.deepEqual(sessionSummary.sameSize, sessionSummary.hour.tableRows,
+      'a generator’s games on the same size are another board type, left out of the Standard breakdown');
+    assert.equal(sessionSummary.generatorType.root,
+      'Beginner · Pink noise (spectral exponent 1, feature size 12, contrast 2, stretch 0) — 1 game');
+    assert.deepEqual(sessionSummary.generatorType.tableRows, [
+      [
+        { text: 'won1 · 100% (life 100%)', rowSpan: 1, colSpan: 1 },
+        { text: 'guesses not measuredthis', rowSpan: 1, colSpan: 2 },
+        { text: '1', rowSpan: 1, colSpan: 1 },
+        { text: '100%', rowSpan: 1, colSpan: 1 },
+        { text: '100%', rowSpan: 1, colSpan: 1 },
+      ],
+      [
+        { text: 'lost', rowSpan: 1, colSpan: 3 },
+        { text: '0', rowSpan: 1, colSpan: 1 },
+        { text: '0%', rowSpan: 1, colSpan: 1 },
+        { text: '0%', rowSpan: 1, colSpan: 1 },
+      ],
+    ], 'a generator’s breakdown holds its own games and names its variant');
+    // Abandoned boards align the top table ("started", "abandoned", matching win rate)
+    // and subdivide abandoned inside the breakdown.
+    assert.deepEqual(sessionSummary.abandoned.head,
+      ['board type', 'started', 'wins', 'abandoned', 'win rate', 'best', 'lifetime rank', 'mean time', 'mean 3BV/s', 'mean IOE']);
+    assert.deepEqual(sessionSummary.abandoned.rows, [
+      ['Beginner', '', '4', '2', '1', '50%', '4.100s', '2nd this of 3', '4.300s', '2.331', '0.833'],
+      ['Intermediate', 'Pink noise (spectral exponent 1, feature size 12, contrast 2, stretch 0)', '1', '1', '0', '100%', '21.000s', '1st of 1',
+        '21.000s', '0.476', ''],
+      ['Expert', '', '3', '0', '1', '0%', '', '', '', '', ''],
+      ['all', '', '8', '3', '2', '38%', '', '', '', '', ''],
+    ], 'when abandoned boards exist, the top table counts started games and matches the breakdown win rate');
+    assert.equal(sessionSummary.abandoned.root, 'Beginner — 4 games started');
+    assert.deepEqual(sessionSummary.abandoned.tableRows.at(-1), [
+      { text: 'abandoned1 · 25% (life 33%)', rowSpan: 1, colSpan: 1 },
+      { text: 'restarted1 · 25% (life 17%)', rowSpan: 1, colSpan: 1 },
+      { text: 'in the opening', rowSpan: 1, colSpan: 1 },
+      { text: '1', rowSpan: 1, colSpan: 1 },
+      { text: '25%', rowSpan: 1, colSpan: 1 },
+      { text: '17%', rowSpan: 1, colSpan: 1 },
+    ], 'abandoned subdivides into restarted -> in the opening with truthful lifetime shares');
     assert.equal(sessionSummary.noSizeGames, 'no Custom 20x20-60 games in session',
-      'a size without session games says so in place of its tree');
-    assert.deepEqual(sessionSummary.short.results, [
-      ['result', 'Beginner games', ...levels, 'lifetime'],
-      ['won', '1', '100%', '', '', '75%'],
-      ['riskier guess than necessary', '1', '', '100%', '', '25%'],
-      ['after the opening this', '1', '', '', '100%', '25%'],
-      ['lost', '0', '0%', '', '', '25%'],
-    ], 'a session without losses still breaks down its results and shows lost at zero, beside its lifetime share');
+      'a size without session games says so in place of its breakdown');
+    assert.deepEqual(sessionSummary.short.tableRows, [
+      [
+        { text: 'won1 · 100% (life 75%)', rowSpan: 1, colSpan: 1 },
+        { text: 'riskier guess than necessary1 · 100% (life 25%)', rowSpan: 1, colSpan: 1 },
+        { text: 'after the openingthis', rowSpan: 1, colSpan: 1 },
+        { text: '1', rowSpan: 1, colSpan: 1 },
+        { text: '100%', rowSpan: 1, colSpan: 1 },
+        { text: '25%', rowSpan: 1, colSpan: 1 },
+      ],
+      [
+        { text: 'lost', rowSpan: 1, colSpan: 3 },
+        { text: '0', rowSpan: 1, colSpan: 1 },
+        { text: '0%', rowSpan: 1, colSpan: 1 },
+        { text: '25%', rowSpan: 1, colSpan: 1 },
+      ],
+    ], 'a session without losses still breaks down its results and shows lost at zero beside its lifetime share');
     assert.deepEqual(sessionSummary.short.rows, [
       ['Beginner', '', '1', '1', '100%', '4.100s', '2nd this of 3', '4.100s', '2.439', '0.833'],
       ['Intermediate', 'Pink noise (spectral exponent 1, feature size 12, contrast 2, stretch 0)', '1', '1', '100%', '21.000s', '1st of 1',
         '21.000s', '0.476', ''],
       ['all', '', '2', '2', '100%', '', '', '', '', ''],
     ]);
-    assert.deepEqual(sessionSummary.plain, [['board type', 'games', 'wins', 'win rate', 'best', 'lifetime rank', 'mean time', 'mean 3BV/s', 'mean IOE'],
+    assert.deepEqual(sessionSummary.plain.head, ['board type', 'games', 'wins', 'win rate', 'best', 'lifetime rank', 'mean time', 'mean 3BV/s', 'mean IOE']);
+    assert.deepEqual(sessionSummary.plain.rows, [
       ['Beginner', '1', '1', '100%', '4.100s', '2nd this of 3', '4.100s', '2.439', '0.833'],
-      ['result', 'Beginner games', ...levels, 'lifetime'], ['won', '1', '100%', '', '', '75%'],
-      ['riskier guess than necessary', '1', '', '100%', '', '25%'], ['after the opening this', '1', '', '', '100%', '25%'],
-      ['lost', '0', '0%', '', '', '25%']],
-    'without a variant to name, the board stands alone in its column');
+    ], 'without a variant to name, the board stands alone in its column');
     assert.deepEqual(errors, []);
     console.log('Rank highlights: this-game rows, standing chips, session summary, percentage bands, full/compact tables, low/last/only results, history view, conditional board comparisons, stable numeric family ordering, contiguous summary rows, surrounding table flow, day-of-month headings, and three viewport widths passed.');
   } finally {

@@ -45,12 +45,15 @@ coherent and beautifully integrated way!"
   Restarted (abandoned) boards count, both their time and as a game, so
   restarting is never a way around a limit. Play in every open tab adds up.
   Play before a limit was set still counts toward it that day.
-- **How each board left play** (2026-10-20). Each board's play span also
-  records its generator and how it left play: finished (won or lost),
-  restarted (another board started before it ended), or cut off by its
-  trial's end; a span whose page closed in play keeps no ending and stops
-  being touched. The [session results](rankings.md) count abandoned boards
-  from these; the limits do not use them.
+- **How each board left play** (2026-10-20; opening progress added 2026-11-25).
+  Each board's play span also records its generator, how it left play —
+  finished (won or lost), restarted (another board started before it ended),
+  or cut off by its trial's end; a span whose page closed in play keeps no
+  ending and stops being touched — and (since 2026-11-25) `safeRevealed`, the
+  count of safe squares open at each save and at its end. The
+  [session results](rankings.md) count abandoned boards and split restarts by
+  opening progress (under a tenth of safe squares open) from these; the limits
+  do not use them.
 - **When a limit is reached.** The board in play always finishes: stopping
   it would destroy a game the player is in the middle of. What follows is
   the penalty (below). Once the day is closed, no new board can start until

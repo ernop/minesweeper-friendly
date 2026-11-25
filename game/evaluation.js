@@ -569,8 +569,8 @@ function wrongButtonEvidenceOf(evaluation, ledger) {
 // The likely-misclick reasons in display order, worded for the session
 // summary's rows.
 const LIKELY_MISCLICK_REASON_LABELS = {
-  'wrong-flag': 'adjacent wrong flag placed under a second before',
-  'wrong-button': 'left click on a proven mine under a second after a chord beside it lacked flags',
+  'wrong-flag': 'adjacent wrong flag placed under 1s before',
+  'wrong-button': 'left-clicked proven mine under 1s after a short-of-flags chord beside it',
 };
 
 // The likely-misclick overlay: inferred slips, any number per loss, never a

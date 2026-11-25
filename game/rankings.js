@@ -747,21 +747,36 @@ function buildRecentPlacements(record, modeRecords, referenceMs, markReferenceRe
 //-------SESSION SUMMARY: COMPUTATION (pure; tests extract this span)-------
 
 // The session summary (docs/product/rankings.md "Session summary"): for each
-// board type played in the session window, its games and wins, the
-// session's best time with that time's rank among the type's wins so far,
-// and the session's mean of each SESSION_SUMMARY_MEANS measurement over the
-// wins that measured it (`means[id]`: {value, measured}, null without one).
-// `records` are the session's games of that type; `results` counts them per
-// sessionResultKind, so they sum to `games`; `likelyMisclicks` counts losses
-// per likely-misclick reason, which overlap the result kinds. A board type is
-// one history key (board, play mode, and generator). Rows follow
-// difficultyKeys (board keys in difficulty order), then other keys.
+// board type played in the session window, its games started (finished plus
+// abandoned when abandoned tracking is active), finished games, abandoned
+// boards, wins, the session's best time with that time's rank among the type's
+// wins so far, and the session's mean of each SESSION_SUMMARY_MEANS
+// measurement over the wins that measured it (`means[id]`: {value, measured},
+// null without one). `records` are the session's finished games of that type;
+// `results` counts them per sessionResultKind, so they sum to `games`;
+// `likelyMisclicks` counts losses per likely-misclick reason, which overlap
+// the result kinds. A board type is one history key (board, play mode, and
+// generator). Rows follow difficultyKeys (board keys in difficulty order),
+// then other keys. `abandonedSummary` (from sessionAbandonedByKey, optional)
+// adds abandoned counts and abandoned-only types; keys in
+// `abandonedSummary.skipKeys` (a narrowed no-mark key) keep `abandoned: null`.
 const SESSION_SUMMARY_MEANS = ['time', 'bvPerSecond', 'ioe'];
-function sessionSummaryRows(historyByKey, from, to, difficultyKeys) {
+function sessionSummaryRows(historyByKey, from, to, difficultyKeys, abandonedSummary = null) {
+  const trackAbandoned = abandonedSummary !== null && abandonedSummary.recordedFrom !== null;
+  const skipKeys = trackAbandoned && abandonedSummary.skipKeys ? abandonedSummary.skipKeys : null;
+  const keys = new Set(Object.keys(historyByKey));
+  if (trackAbandoned) {
+    for (const [key, entry] of Object.entries(abandonedSummary.byKey)) {
+      if (entry.session > 0 && !(skipKeys && skipKeys.has(key))) keys.add(key);
+    }
+  }
   const rows = [];
-  for (const [key, records] of Object.entries(historyByKey)) {
+  for (const key of keys) {
+    const records = historyByKey[key] || [];
     const session = records.filter((r) => r.endedAt >= from && r.endedAt <= to);
-    if (session.length === 0) continue;
+    const abandoned = !trackAbandoned || (skipKeys && skipKeys.has(key))
+      ? null : (abandonedSummary.byKey[key] ? abandonedSummary.byKey[key].session : 0);
+    if (session.length === 0 && !(abandoned > 0)) continue;
     const { results, likelyMisclicks } = sessionResultCounts(session);
     const wins = session.filter((r) => r.outcome === 'win').sort(compareRankedWins);
     let best = null;
@@ -775,8 +790,18 @@ function sessionSummaryRows(historyByKey, from, to, difficultyKeys) {
       const values = wins.map((r) => spec.value(r)).filter(Number.isFinite);
       return [id, values.length ? { value: values.reduce((sum, v) => sum + v, 0) / values.length, measured: values.length } : null];
     }));
-    rows.push({ key, records: session, latest: session[session.length - 1], games: session.length, wins: wins.length,
-      best, means, results, likelyMisclicks, noMark: records.every((r) => isMarkless(r)) });
+    const latest = session.length > 0 ? session[session.length - 1] : null;
+    const generator = latest !== null ? latest.generator
+      : (abandonedSummary.byKey[key] ? abandonedSummary.byKey[key].generator : undefined);
+    rows.push({
+      key, records: session, latest, generator,
+      games: session.length,
+      abandoned,
+      started: session.length + (abandoned === null ? 0 : abandoned),
+      wins: wins.length,
+      best, means, results, likelyMisclicks,
+      noMark: records.length > 0 && records.every((r) => isMarkless(r)),
+    });
   }
   const order = (key) => {
     const index = difficultyKeys.indexOf(key.split('@')[0]);
@@ -790,72 +815,87 @@ function sessionSummaryRows(historyByKey, from, to, difficultyKeys) {
 // down by the variety and type of worst offenses against perfect play").
 // Under won and lost, each family is a game's worst offense, least to worst,
 // then the measurement gaps; its leaves are the sessionResultKind kinds it
-// holds.
+// holds. Leaf wording omits phrases already stated by the parent level.
 const SESSION_RESULT_TREE = [
-  { label: 'won', children: [
-    { label: 'no avoidable risk', children: [
+  { id: 'won', label: 'won', children: [
+    { label: 'no avoidable risk', shade: 0, children: [
       { kind: 'win-no-guess', label: 'without guessing' },
       { kind: 'win-guess-min-best', label: 'each guess the best one-move choice' },
       { kind: 'win-guess-min', label: 'not each guess the best one-move choice' },
       { kind: 'win-guess-min-unrated', label: 'one-move choices not measured' },
     ] },
-    { label: 'riskier guess than necessary', children: [
+    { label: 'riskier guess than necessary', shade: 1, children: [
       { kind: 'win-guess-early', label: 'in the opening' },
       { kind: 'win-guess-higher', label: 'after the opening' },
     ] },
-    { kind: 'win-guess-safe', label: 'guessed while a safe move was available' },
-    { kind: 'win-unmeasured', label: 'guesses not measured' },
+    { kind: 'win-guess-safe', label: 'guessed past a safe square', shade: 2 },
+    { kind: 'win-unmeasured', label: 'guesses not measured', shade: 3 },
   ] },
-  { label: 'lost', children: [
-    { label: 'no avoidable risk', children: [
-      { kind: 'guess-early-min', label: 'lowest-risk forced guess in the opening' },
+  { id: 'lost', label: 'lost', children: [
+    { label: 'no avoidable risk', shade: 0, children: [
+      { kind: 'guess-early-min', label: 'forced guess in the opening' },
       { kind: 'guess-min-best',
-        label: 'lowest-risk forced guess after the opening, each guess the best one-move choice' },
+        label: 'forced guess after opening, best one-move choice' },
       { kind: 'guess-min',
-        label: 'lowest-risk forced guess after the opening, not each guess the best one-move choice' },
+        label: 'forced guess after opening, not best one-move choice' },
       { kind: 'guess-min-unrated',
-        label: 'lowest-risk forced guess after the opening, one-move choices not measured' },
+        label: 'forced guess after opening, one-move choices not measured' },
     ] },
-    { label: 'riskier guess than necessary', children: [
+    { label: 'riskier guess than necessary', shade: 1, children: [
       { kind: 'guess-early-higher', label: 'in the opening' },
       { kind: 'guess-higher-near',
-        label: 'after the opening, a lowest-risk square within 2 squares' },
+        label: 'after opening, lowest-risk within 2 squares' },
       { kind: 'guess-higher-far',
-        label: 'after the opening, every lowest-risk square 3 or more squares away' },
-      { kind: 'guess-higher', label: 'after the opening, distance not measured' },
+        label: 'after opening, lowest-risk 3+ squares away' },
+      { kind: 'guess-higher', label: 'after opening, distance not measured' },
       { kind: 'survived-guess-higher', label: 'survived it, died later' },
     ] },
-    { label: 'guessed while a safe move was available', children: [
-      { kind: 'guess-safe-counting', label: 'counting single numbers proved a square safe' },
-      { kind: 'guess-safe-overlap', label: 'comparing overlapping numbers proved a square safe' },
-      { kind: 'guess-safe-whole-board',
-        label: 'only whole-board reasoning proved a square safe' },
+    { label: 'guessed past a safe square', shade: 2, children: [
+      { kind: 'guess-safe-counting', label: 'counting single numbers' },
+      { kind: 'guess-safe-overlap', label: 'comparing overlapping numbers' },
+      { kind: 'guess-safe-whole-board', label: 'only whole-board reasoning' },
       { kind: 'guess-safe-guardian-angel', label: 'Guardian Angel guaranteed a safe entry' },
       { kind: 'guess-safe', label: 'proof not graded' },
       { kind: 'proof-safe', label: 'Proof-or-die rule death' },
       { kind: 'survived-guess-safe', label: 'survived it, died later' },
     ] },
-    { kind: 'flag-wrong', label: 'wrong flag made a mine look safe' },
-    { label: 'opened a proven mine', children: [
-      { kind: 'mine-counting', label: 'counting single numbers proved it' },
-      { kind: 'mine-overlap', label: 'comparing overlapping numbers proved it' },
-      { kind: 'mine-whole-board', label: 'only whole-board reasoning proved it' },
-      { kind: 'mine-safe', label: 'proof not graded, a safe move was available' },
-      { kind: 'mine-forced', label: 'proof not graded, a guess was required' },
+    { kind: 'flag-wrong', label: 'wrong flag made a mine look safe', shade: 3 },
+    { label: 'opened a proven mine', shade: 4, children: [
+      { kind: 'mine-counting', label: 'counting single numbers' },
+      { kind: 'mine-overlap', label: 'comparing overlapping numbers' },
+      { kind: 'mine-whole-board', label: 'only whole-board reasoning' },
+      { kind: 'mine-safe', label: 'proof not graded, safe move available' },
+      { kind: 'mine-forced', label: 'proof not graded, guess required' },
     ] },
-    { kind: 'proof-forced', label: 'Proof-or-die rule death with no proven-safe move available' },
-    { label: 'risk not measured', children: [
+    { kind: 'proof-forced', label: 'Proof-or-die rule death with no proven-safe move available', shade: 0 },
+    { label: 'risk not measured', shade: 0, children: [
       { kind: 'guess-early-unmeasured', label: 'forced guess in the opening' },
       { kind: 'guess-unmeasured', label: 'forced guess after the opening' },
     ] },
-    { label: 'judged before loss types', children: Object.entries(DEATH_KIND_LABELS)
+    { label: 'judged before loss types', shade: 0, children: Object.entries(DEATH_KIND_LABELS)
       .map(([kind, label]) => ({ kind, label })) },
-    { kind: 'other', label: 'not judged' },
+    { kind: 'other', label: 'not judged', shade: 0 },
   ] },
 ];
-// Each tree level's name, which heads that level's share column. The first
-// level also holds abandoned, which is no record's kind (sessionAbandonedCounts).
-const SESSION_RESULT_LEVELS = ['how it ended', 'worst offense', 'type'];
+// Abandoned boards form the third Level-1 outcome when play spans record how
+// boards left play; kept beside SESSION_RESULT_TREE so record-kind coverage
+// tests stay strictly about finished-game records.
+const ABANDONED_RESULT_TREE = {
+  id: 'abandoned',
+  label: 'abandoned',
+  children: [
+    { label: 'restarted', shade: 0, children: [
+      { kind: 'abandoned-restarted-opening', label: 'in the opening' },
+      { kind: 'abandoned-restarted-after', label: 'after the opening' },
+      { kind: 'abandoned-restarted', label: 'stage not recorded' },
+    ] },
+    { kind: 'abandoned-page-closed', label: 'page closed in play', shade: 1 },
+    { kind: 'abandoned-trial-ended', label: 'cut off by trial end', shade: 2 },
+  ],
+};
+// Each tree level's name, heading that level's column in the spanning
+// partition table (Option A, 2026-11-25).
+const SESSION_RESULT_LEVELS = ['how it ended', 'offense / reason', 'type'];
 
 // A game's places in the tree: its result kind, which names its one leaf, and
 // for a loss the likely-misclick reasons whose rows recount it. Kept per
@@ -900,6 +940,10 @@ function sessionResultCounts(records) {
   return { results, likelyMisclicks };
 }
 
+function resultNodeKinds(node) {
+  return node.children ? node.children.flatMap(resultNodeKinds) : [node.kind];
+}
+
 // The tree's rows in display order: { depth (1 for won and lost), label,
 // kinds (the result kinds the row sums), leaf }. Won and lost
 // always show; a deeper row shows when one of its kinds occurred. A counted
@@ -907,38 +951,131 @@ function sessionResultCounts(records) {
 function sessionResultLines(rows) {
   const occurred = new Set(rows.flatMap((row) => Object.keys(row.results)));
   const lines = [];
-  const kindsOf = (node) => (node.children ? node.children.flatMap(kindsOf) : [node.kind]);
   const visit = (node, depth) => {
-    const kinds = kindsOf(node);
+    const kinds = resultNodeKinds(node);
     if (depth > 1 && !kinds.some((kind) => occurred.has(kind))) return;
     lines.push({ depth, label: node.label, kinds, leaf: !node.children });
     if (node.children) node.children.forEach((child) => visit(child, depth + 1));
   };
   SESSION_RESULT_TREE.forEach((node) => visit(node, 1));
-  const treeKinds = new Set(SESSION_RESULT_TREE.flatMap(kindsOf));
+  const treeKinds = new Set(SESSION_RESULT_TREE.flatMap(resultNodeKinds));
   const missing = [...occurred].filter((kind) => !treeKinds.has(kind));
   if (missing.length > 0) throw new Error('session results tree has no row for result kind ' + missing.join(', '));
   return lines;
 }
 
-// Abandoned boards of one board type (creator request 2026-10-20): play spans
-// (play-limits.js) of `typeKey` abandoned within the session window [from,
-// to], and up to `to` over the lifetime. `keyOf` gives a span's history key.
-// recordedFrom is when spans began recording how boards left play: the
-// earliest start among spans with an ending field, or null before any.
-function sessionAbandonedCounts(spans, typeKey, keyOf, from, to, nowMs) {
+// Hierarchical partition groups for the Option A spanning grid and 3-band
+// proportional strip. Returns one entry per Level-1 outcome (won, lost, and
+// abandoned when tracked), each carrying its session/lifetime totals and its
+// occurred Level-2 families and Level-3 leaves. Throws on any unmapped kind.
+function sessionResultGroups(finishedResults, lifetimeResults, abandoned) {
+  const treeKinds = new Set(SESSION_RESULT_TREE.flatMap(resultNodeKinds));
+  for (const counts of [finishedResults, lifetimeResults]) {
+    const missing = Object.keys(counts).filter((kind) => !treeKinds.has(kind));
+    if (missing.length > 0) throw new Error('session results tree has no row for result kind ' + missing.join(', '));
+  }
+  if (abandoned !== null) {
+    const abKinds = new Set(resultNodeKinds(ABANDONED_RESULT_TREE));
+    for (const counts of [abandoned.sessionKinds, abandoned.lifetimeKinds]) {
+      const missing = Object.keys(counts).filter((kind) => !abKinds.has(kind));
+      if (missing.length > 0) throw new Error('abandoned results tree has no row for kind ' + missing.join(', '));
+    }
+  }
+  const sumKinds = (counts, kinds) => kinds.reduce((sum, kind) => sum + (counts[kind] || 0), 0);
+  const buildOutcome = (root, sessionCounts, lifetimeCounts) => {
+    const rootKinds = resultNodeKinds(root);
+    const session = sumKinds(sessionCounts, rootKinds);
+    const lifetime = sumKinds(lifetimeCounts, rootKinds);
+    const families = [];
+    for (const family of root.children) {
+      const fKinds = resultNodeKinds(family);
+      const fSession = sumKinds(sessionCounts, fKinds);
+      if (fSession === 0) continue;
+      const fLifetime = sumKinds(lifetimeCounts, fKinds);
+      if (!family.children) {
+        families.push({
+          label: family.label,
+          shade: family.shade,
+          session: fSession,
+          lifetime: fLifetime,
+          kinds: fKinds,
+          leaf: true,
+          leaves: [{ kind: family.kind, label: null, session: fSession, lifetime: fLifetime }],
+        });
+      } else {
+        const leaves = [];
+        for (const leaf of family.children) {
+          const lSession = sessionCounts[leaf.kind] || 0;
+          if (lSession === 0) continue;
+          leaves.push({
+            kind: leaf.kind,
+            label: leaf.label,
+            session: lSession,
+            lifetime: lifetimeCounts[leaf.kind] || 0,
+          });
+        }
+        families.push({
+          label: family.label,
+          shade: family.shade,
+          session: fSession,
+          lifetime: fLifetime,
+          kinds: fKinds,
+          leaf: false,
+          leaves,
+        });
+      }
+    }
+    return { id: root.id, label: root.label, session, lifetime, families };
+  };
+  const outcomes = SESSION_RESULT_TREE.map((root) => buildOutcome(root, finishedResults, lifetimeResults));
+  if (abandoned !== null) {
+    outcomes.push(buildOutcome(ABANDONED_RESULT_TREE, abandoned.sessionKinds, abandoned.lifetimeKinds));
+  }
+  return outcomes;
+}
+
+// Abandoned boards across every board type in one pass (play-limits.js):
+// restarted (split by opening progress when safeRevealed was recorded),
+// cut off by trial end, or page closed in play. recordedFrom is the earliest
+// start among spans with an ending field, or null before any.
+function sessionAbandonedByKey(spans, keyOf, from, to, nowMs) {
   let recordedFrom = null;
-  let session = 0;
-  let lifetime = 0;
+  const byKey = {};
   for (const span of spans) {
     if (!Object.hasOwn(span, 'ending')) continue;
     if (recordedFrom === null || span.startedAt < recordedFrom) recordedFrom = span.startedAt;
     const abandonedAt = playSpanAbandonedAt(span, nowMs);
-    if (abandonedAt === null || abandonedAt > to || keyOf(span) !== typeKey) continue;
-    lifetime++;
-    if (abandonedAt >= from) session++;
+    if (abandonedAt === null || abandonedAt > to) continue;
+    const key = keyOf(span);
+    const kind = playSpanAbandonedKind(span, nowMs);
+    let entry = byKey[key];
+    if (entry === undefined) {
+      entry = { session: 0, lifetime: 0, sessionKinds: {}, lifetimeKinds: {}, generator: span.generator };
+      byKey[key] = entry;
+    }
+    entry.lifetime++;
+    entry.lifetimeKinds[kind] = (entry.lifetimeKinds[kind] || 0) + 1;
+    if (abandonedAt >= from) {
+      entry.session++;
+      entry.sessionKinds[kind] = (entry.sessionKinds[kind] || 0) + 1;
+      if (span.generator !== undefined) entry.generator = span.generator;
+    }
   }
-  return { session, lifetime, recordedFrom };
+  return { recordedFrom, byKey };
+}
+
+// Abandoned boards of one board type (creator request 2026-10-20), now also
+// carrying per-kind breakdowns for the spanning partition tree.
+function sessionAbandonedCounts(spans, typeKey, keyOf, from, to, nowMs) {
+  const { recordedFrom, byKey } = sessionAbandonedByKey(spans, keyOf, from, to, nowMs);
+  const entry = byKey[typeKey];
+  return {
+    session: entry ? entry.session : 0,
+    lifetime: entry ? entry.lifetime : 0,
+    sessionKinds: entry ? entry.sessionKinds : {},
+    lifetimeKinds: entry ? entry.lifetimeKinds : {},
+    recordedFrom,
+  };
 }
 
 //-------SESSION SUMMARY: DISPLAY-------
@@ -1017,24 +1154,30 @@ function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = f
   const typeKey = Object.keys(sessionHistory).find((key) => sessionHistory[key].includes(record));
   const typeParts = sessionSummaryTypeParts(typeKey, record.generator, sessionHistory[typeKey].every(isMarkless));
   const typeLabel = typeParts.variant === '' ? typeParts.board : typeParts.board + ' · ' + typeParts.variant;
+  const nowMs = Date.now();
+  const abandonedAll = sessionAbandonedByKey(playSpans.values(), playSpanKeyOf, from, to, nowMs);
+  // Whether an abandoned board had a flag is not recorded, so a narrowed
+  // no-mark key counts finished no-mark games alone.
+  const abandonedForRows = abandonedAll.recordedFrom === null ? null
+    : { ...abandonedAll, skipKeys: sessionHistory === history ? null : new Set([typeKey]) };
   const body = resultTableOpener(box, 'sessionSummary', 'session', [
-    'Games, wins, and win rate for every board type played in the session (' + choice.label
-      + ', the one page-wide session chosen in the settings row at the foot of the page). A board type is one size, mine count, mode, and generator; the mode is named only when it is not Standard, the generator only when it is not the default.',
+    'Games started, wins, and win rate for every board type played in the session (' + choice.label
+      + ', the one page-wide session chosen in the settings row at the foot of the page). A board type is one size, mine count, mode, and generator; the mode is named only when it is not Standard, the generator only when it is not the default. When abandoned boards are recorded, started includes abandoned boards and win rate is wins divided by started; an abandoned column appears whenever any row has one.',
     'Best is the session’s fastest win of that type. Its lifetime rank compares it with every win of that type so far; among equal times the earlier finish ranks first.',
-    'A row marked no-mark counts only games with no flags placed. Its best time’s lifetime rank is among that board type’s no-mark wins.',
+    'A row marked no-mark counts only finished games with no flags placed, since whether an abandoned board had a flag is not recorded. Its best time’s lifetime rank is among that board type’s no-mark wins.',
     'Mean time, mean 3BV/s, and mean IOE average the session’s wins of that type, each over the wins that measured it, as game data defines them; for the board just played they are the session baseline for its time, 3BV/s, and IOE.',
     ...(settings.shownThings.sessionEndings ? [
-      'Results cover the session’s ' + typeLabel + ' games alone, the board type of the game shown. They split into won, lost, and abandoned; won and lost then split by each game’s worst offense against perfect play, least to worst, then by type.',
-      'Every share is of all those games and stands in its level’s column: how it ended, worst offense, or type. The shares under a row add up to that row’s share, give or take rounding.',
-      'Lifetime is the same row’s share of every ' + typeLabel + ' game you have played, up to the game shown, for comparison with the session.',
-      'Abandoned is a board that went into play and never finished: restarted, cut off by its trial’s end, or still in play when its page closed. Boards record how they left play since 2026-10-20, so earlier games include no abandoned ones; the row names the date when the lifetime reaches back before it. A no-mark summary has no abandoned row, since whether an abandoned board had a flag is not recorded.',
+      'The breakdown below covers the session’s ' + typeLabel + ' games alone, the board type of the game shown, reading left to right from outcome (won, lost, abandoned) through worst offense or abandonment reason to specific type.',
+      'The proportional strip above the table shows the exact same three levels across 100% of games started. Every row in the table is one leaf, so the games and session columns sum to 100%, with each gauge carrying a vertical reference marker at that leaf’s lifetime share.',
+      'Lifetime is each row’s share of every ' + typeLabel + ' game you have played up to the game shown, for comparison with the session. Categories with zero games in this session are omitted below the top level.',
+      'Abandoned is a board that went into play and never finished: restarted (split by whether under a tenth of safe squares were open when saved), cut off by its trial’s end, or still in play when its page closed. Boards record how they left play since 2026-10-20 and opening progress since 2026-11-25.',
       'A guess is a click on a square that might hold a mine, after the first click; its risk is the risk under the active rules, so a guess Guardian Angel made safe risked nothing. A guess is riskier than necessary when another square had a lower risk. Its one-move life is its chance of surviving it and then the safest next square, over every number it could show; the best one-move choice has the highest. Games saved before 2026-11-02 have no exact one-move lives, so their lowest-risk guesses show as one-move choices not measured. The opening lasts until a tenth of the board’s safe squares are open. A proof named is the easiest one that worked: counting single numbers, comparing overlapping numbers, or only whole-board reasoning.',
       'A loss files under its fatal click, unless the game survived a worse guess earlier: then it is “survived it, died later” under that guess. “Guesses not measured” is a win with no guess record: one from before guesses were measured, an Angelic game, or one from before 2026-11-02 whose odds were then too large to compute.',
-      'The likely-misclick rows count losses whose fatal click was most likely a slip. They are already counted above, so they never add to the total.',
+      'Likely misclicks sit below the partition because they recount losses already filed above, never adding to the total.',
     ] : []),
   ]);
   attachResultHideMenu(box, 'shownThings.sessionSummary');
-  const rows = sessionSummaryRows(sessionHistory, from, to, Object.values(DIFFICULTIES).map(boardKeyOf));
+  const rows = sessionSummaryRows(sessionHistory, from, to, Object.values(DIFFICULTIES).map(boardKeyOf), abandonedForRows);
   if (rows.length === 0) {
     const none = document.createElement('div');
     none.className = 'recent-placements-none';
@@ -1056,18 +1199,22 @@ function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = f
     node.append(...cells);
     grid.appendChild(node);
   };
-  const rate = (wins, games) => Math.round(100 * wins / games) + '%';
-  const parts = rows.map((row) => sessionSummaryTypeParts(row.key, row.latest.generator, row.noMark));
+  const rate = (wins, denom) => Math.round(100 * wins / denom) + '%';
+  const parts = rows.map((row) => sessionSummaryTypeParts(row.key, row.generator, row.noMark));
   const variants = parts.some((part) => part.variant !== '');
+  const tracksAbandoned = rows.some((row) => row.abandoned !== null);
+  const showAbandoned = rows.some((row) => row.abandoned !== null && row.abandoned > 0);
   const typeCells = (board, variant) => variants
     ? [cell('session-summary-type', board), cell('session-summary-type session-summary-variant', variant)]
     : [cell('session-summary-type', board)];
   const meanSpecs = SESSION_SUMMARY_MEANS.map((id) => GameData.metrics.find((m) => m.id === id));
-  grid.style.gridTemplateColumns = 'repeat(' + ((variants ? 7 : 6) + meanSpecs.length) + ', auto)';
+  const colCount = (variants ? 2 : 1) + (showAbandoned ? 6 : 5) + meanSpecs.length;
+  grid.style.gridTemplateColumns = 'repeat(' + colCount + ', auto)';
   const typeHead = cell('', 'board type');
   if (variants) typeHead.style.gridColumn = 'span 2';
-  line('session-summary-head', [typeHead, ...['games', 'wins', 'win rate', 'best', 'lifetime rank',
-    ...meanSpecs.map((spec) => 'mean ' + spec.name)].map((text) => cell('', text))]);
+  const heads = [tracksAbandoned ? 'started' : 'games', 'wins', ...(showAbandoned ? ['abandoned'] : []),
+    'win rate', 'best', 'lifetime rank', ...meanSpecs.map((spec) => 'mean ' + spec.name)];
+  line('session-summary-head', [typeHead, ...heads.map((text) => cell('', text))]);
   rows.forEach((row, index) => {
     const rank = cell('session-summary-rank-cell', '');
     let best = cell('session-summary-number', '');
@@ -1082,27 +1229,38 @@ function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = f
       best = cell('session-summary-number' + (isMarkless(row.best.record) ? ' markless-time' : ''),
         (row.best.record.timeMs / 1000).toFixed(3) + 's');
     }
-    line('session-summary-row', [...typeCells(parts[index].board, parts[index].variant),
-      cell('session-summary-number', String(row.games)), cell('session-summary-number', String(row.wins)),
-      cell('session-summary-number', rate(row.wins, row.games)), best, rank,
-      ...meanSpecs.map((spec) => cell('session-summary-number', row.means[spec.id] === null ? '' : spec.format(row.means[spec.id].value)))]);
+    line('session-summary-row', [
+      ...typeCells(parts[index].board, parts[index].variant),
+      cell('session-summary-number', String(row.started)),
+      cell('session-summary-number', String(row.wins)),
+      ...(showAbandoned ? [cell('session-summary-number', row.abandoned === null ? '' : String(row.abandoned))] : []),
+      cell('session-summary-number', rate(row.wins, row.started)),
+      best, rank,
+      ...meanSpecs.map((spec) => cell('session-summary-number', row.means[spec.id] === null ? '' : spec.format(row.means[spec.id].value))),
+    ]);
   });
   if (rows.length > 1) {
-    const games = rows.reduce((sum, row) => sum + row.games, 0);
+    const started = rows.reduce((sum, row) => sum + row.started, 0);
     const wins = rows.reduce((sum, row) => sum + row.wins, 0);
-    line('session-summary-total', [...typeCells('all', ''), cell('session-summary-number', String(games)),
-      cell('session-summary-number', String(wins)), cell('session-summary-number', rate(wins, games)), cell('', ''), cell('', ''),
-      ...meanSpecs.map(() => cell('', ''))]);
+    const abandonedTotal = rows.reduce((sum, row) => sum + (row.abandoned || 0), 0);
+    line('session-summary-total', [
+      ...typeCells('all', ''),
+      cell('session-summary-number', String(started)),
+      cell('session-summary-number', String(wins)),
+      ...(showAbandoned ? [cell('session-summary-number', String(abandonedTotal))] : []),
+      cell('session-summary-number', rate(wins, started)),
+      cell('', ''), cell('', ''),
+      ...meanSpecs.map(() => cell('', '')),
+    ]);
   }
   body.appendChild(grid);
   if (settings.shownThings.sessionEndings) {
     const lifetimeRecords = sessionHistory[typeKey].filter((r) => r.endedAt <= to);
-    // Whether an abandoned board had a flag is not recorded, so a tree
-    // narrowed to no-mark games counts finished games alone.
-    const abandoned = sessionHistory === history
-      ? sessionAbandonedCounts(playSpans.values(), typeKey, playSpanKeyOf, from, to, Date.now()) : null;
+    const entry = sessionHistory === history && abandonedAll.recordedFrom !== null
+      ? (abandonedAll.byKey[typeKey] || { session: 0, lifetime: 0, sessionKinds: {}, lifetimeKinds: {} })
+      : null;
     const endings = buildSessionSummaryResults(rows.find((row) => row.key === typeKey), typeLabel, boardRecord,
-      lifetimeRecords, abandoned !== null && abandoned.recordedFrom !== null ? abandoned : null);
+      lifetimeRecords, entry);
     attachResultHideMenu(endings, 'shownThings.sessionEndings');
     body.appendChild(endings);
   }
@@ -1110,88 +1268,291 @@ function buildSessionSummary(record, referenceMs, markCurrent = true, noMark = f
 }
 
 // The session results of the shown game's board type alone (creator request
-// 2026-10-20: one size, mines, mode, and generator), as one tree
-// (sessionResultLines): won, then lost under a rule, each split by worst
-// offense and then by type, indented by depth, then abandoned under a rule.
-// `typeRow` is that type's sessionSummaryRows row, undefined without a
-// finished game in the session. Every share is of all the type's games
-// started, abandoned included, and stands in its depth's column, so each
-// column reads one level and the shares under a row sum to that row's. The
-// last column is each row's share of every game of the type up to the game
-// shown: `lifetimeRecords` and the lifetime's abandoned boards. The
-// likely-misclick rows close the lost branch under a rule; they count losses
-// already filed above, so they never add to the total. When the tree counts
-// `thisGame`, its leaf and any misclick row recounting it are this-game rows;
-// the indentation above the leaf already shows its branch and family.
-// `abandoned` (sessionAbandonedCounts) is null when abandoned boards are not
-// counted: a no-mark summary, or no span has recorded an ending yet.
+// 2026-10-20; redesigned as Option A spanning partition grid + 3-band strip
+// 2026-11-25): one 100% partition of all games started, reading left to right
+// across outcome (won / lost / abandoned), worst offense or abandonment
+// reason, and specific type. Every table row is one leaf so right-hand counts
+// and session shares sum strictly to 100%; inline bullet gauges show each
+// leaf's session share beside a vertical marker at its lifetime share.
+// Likely-misclick overlays sit detached below the partition because they
+// recount losses already filed above.
 function buildSessionSummaryResults(typeRow, typeLabel, thisGame, lifetimeRecords, abandoned) {
   const sessionAbandoned = abandoned === null ? 0 : abandoned.session;
-  if (typeRow === undefined && sessionAbandoned === 0) {
+  const finished = typeRow === undefined ? { games: 0, records: [], results: {}, likelyMisclicks: {} } : typeRow;
+  if (finished.games === 0 && sessionAbandoned === 0) {
     const none = document.createElement('div');
     none.className = 'session-summary-results recent-placements-none';
     none.textContent = 'no ' + typeLabel + ' games in session';
     return none;
   }
-  const finished = typeRow === undefined ? { games: 0, records: [], results: {}, likelyMisclicks: {} } : typeRow;
   const games = finished.games + sessionAbandoned;
   const lifetimeGames = lifetimeRecords.length + (abandoned === null ? 0 : abandoned.lifetime);
   const lifetime = sessionResultCounts(lifetimeRecords);
-  const lines = sessionResultLines([finished]);
+  const outcomes = sessionResultGroups(finished.results, lifetime.results, abandoned);
+  const lostOutcome = outcomes.find((o) => o.id === 'lost');
   const reasons = Object.keys(LIKELY_MISCLICK_REASON_LABELS)
     .filter((reason) => finished.likelyMisclicks[reason] !== undefined);
   const thisResult = finished.records.includes(thisGame) ? sessionGameResult(thisGame) : null;
-  const grid = document.createElement('div');
-  grid.className = 'session-summary-grid session-summary-results';
-  grid.style.gridTemplateColumns = 'repeat(' + (3 + SESSION_RESULT_LEVELS.length) + ', auto)';
-  const cell = (className, text) => {
-    const node = document.createElement('span');
-    node.className = className;
-    node.textContent = text;
-    return node;
-  };
-  const line = (className, cells) => {
-    const node = document.createElement('div');
-    node.className = 'rank-row ' + className;
-    node.append(...cells);
-    grid.appendChild(node);
-  };
+
   // A share that rounds to 0% still names a game, so it reads "<1%".
   const shareText = (count, total) => {
     const percent = Math.round(100 * count / total);
     return count > 0 && percent === 0 ? '<1%' : percent + '%';
   };
-  const countCells = (depth, count, lifetimeCount) => [cell('session-summary-number', String(count)),
-    ...SESSION_RESULT_LEVELS.map((_, index) =>
-      cell('session-summary-number', index + 1 === depth ? shareText(count, games) : '')),
-    cell('session-summary-number session-summary-lifetime', shareText(lifetimeCount, lifetimeGames))];
-  line('session-summary-head', [cell('', 'result'), cell('', typeLabel + ' games'),
-    ...SESSION_RESULT_LEVELS.map((level) => cell('', level)), cell('session-summary-lifetime', 'lifetime')]);
-  // A this-game row (class `me`) is bold black on the this-game color and
-  // its label ends in "this".
-  const markThis = (label) => label.appendChild(cell('recent-current-label', ' this'));
-  const kindsCount = (counts, kinds) => kinds.reduce((sum, kind) => sum + (counts[kind] || 0), 0);
-  for (const entry of lines) {
-    const label = cell('session-summary-result', entry.label);
-    const isThis = thisResult !== null && entry.leaf && entry.kinds.includes(thisResult.kind);
-    if (isThis) markThis(label);
-    line('session-summary-row session-summary-depth-' + entry.depth
-      + (entry.depth === 1 && entry !== lines[0] ? ' session-summary-group-first' : '') + (isThis ? ' me' : ''),
-    [label, ...countCells(entry.depth, kindsCount(finished.results, entry.kinds), kindsCount(lifetime.results, entry.kinds))]);
-  }
-  reasons.forEach((reason, index) => {
-    const label = cell('session-summary-result', 'of these losses, likely misclick: ' + LIKELY_MISCLICK_REASON_LABELS[reason]);
-    const isThis = thisResult !== null && thisResult.likelyMisclicks.includes(reason);
-    if (isThis) markThis(label);
-    line('session-summary-row session-summary-depth-2' + (index === 0 ? ' session-summary-group-first' : '')
-      + (isThis ? ' me' : ''), [label, ...countCells(2, finished.likelyMisclicks[reason],
-      lifetime.likelyMisclicks[reason] || 0)]);
+  const exactPct = (count, total) => (total > 0 ? 100 * count / total : 0);
+  const el = (tag, className, text) => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+  const makeLeafLabel = (text, isThis) => {
+    const wrap = el('span', 'session-leaf-label');
+    wrap.appendChild(el('span', 'session-leaf-text', text));
+    if (isThis) wrap.appendChild(el('span', 'recent-current-label', 'this'));
+    return wrap;
+  };
+  const makeSpanStats = (className, count, lifeCount) => {
+    const stat = el('div', className);
+    stat.append(
+      el('strong', '', String(count)),
+      document.createTextNode(' \u00b7 '),
+      el('strong', '', shareText(count, games)),
+      document.createTextNode(' '),
+      el('span', 'session-life-inline', '(life ' + shareText(lifeCount, lifetimeGames) + ')'),
+    );
+    return stat;
+  };
+  const makeShareGauge = (outcomeId, count, lifeCount) => {
+    const wrap = el('span', 'session-share-cell');
+    const track = el('span', 'session-bar-track');
+    track.title = 'Session ' + shareText(count, games) + ', lifetime ' + shareText(lifeCount, lifetimeGames);
+    if (count > 0) {
+      const fill = el('span', 'session-bar-fill cat-' + outcomeId);
+      fill.style.width = exactPct(count, games) + '%';
+      track.appendChild(fill);
+    }
+    if (lifetimeGames > 0) {
+      const marker = el('span', 'session-bar-life');
+      marker.style.left = Math.min(100, exactPct(lifeCount, lifetimeGames)) + '%';
+      track.appendChild(marker);
+    }
+    wrap.append(track, el('span', 'session-bar-pct session-summary-number', shareText(count, games)));
+    return wrap;
+  };
+
+  const wrap = el('div', 'session-summary-results');
+
+  // Explicit root line naming the board type and exact 100% denominator.
+  wrap.appendChild(el('div', 'session-results-root',
+    typeLabel + ' \u2014 ' + games + (games === 1 ? ' game' : ' games') + (abandoned !== null ? ' started' : '')));
+
+  // Three-band 100% proportional strip aligned directly over the 3-level table.
+  const strip = el('div', 'session-results-strip');
+  const band1 = el('div', 'session-strip-band session-strip-l1');
+  const band2 = el('div', 'session-strip-band session-strip-l2');
+  const band3 = el('div', 'session-strip-band session-strip-l3');
+  const rowsByKey = new Map();
+  const addRowKey = (key, tr) => {
+    let list = rowsByKey.get(key);
+    if (list === undefined) {
+      list = [];
+      rowsByKey.set(key, list);
+    }
+    list.push(tr);
+  };
+  const leafSegByKey = new Map();
+  const bindHover = (seg, key) => {
+    seg.addEventListener('mouseenter', () => {
+      seg.classList.add('is-hot');
+      const rows = rowsByKey.get(key);
+      if (rows) rows.forEach((tr) => tr.classList.add('is-hot'));
+    });
+    seg.addEventListener('mouseleave', () => {
+      seg.classList.remove('is-hot');
+      const rows = rowsByKey.get(key);
+      if (rows) rows.forEach((tr) => tr.classList.remove('is-hot'));
+    });
+  };
+
+  outcomes.forEach((outcome) => {
+    if (outcome.session === 0) return;
+    const oKey = 'o:' + outcome.id;
+    const pct1 = exactPct(outcome.session, games);
+    const labelMinPct = outcome.id === 'abandoned' ? 14 : 9;
+    const seg1 = el('div', 'session-strip-seg cat-' + outcome.id,
+      pct1 >= labelMinPct ? outcome.label + ' ' + shareText(outcome.session, games)
+        : pct1 >= 4 ? shareText(outcome.session, games) : '');
+    seg1.style.flex = outcome.session + ' 0 0%';
+    seg1.title = outcome.label + ' — ' + outcome.session + ' of ' + games
+      + ' (' + shareText(outcome.session, games) + ', lifetime ' + shareText(outcome.lifetime, lifetimeGames) + ')';
+    bindHover(seg1, oKey);
+    band1.appendChild(seg1);
+
+    outcome.families.forEach((family, fi) => {
+      const fKey = oKey + ':f' + fi;
+      const seg2 = el('div', 'session-strip-seg cat-' + outcome.id + '-s' + family.shade);
+      seg2.style.flex = family.session + ' 0 0%';
+      seg2.title = outcome.label + ' · ' + family.label + ' — ' + family.session + ' of ' + games
+        + ' (' + shareText(family.session, games) + ', lifetime ' + shareText(family.lifetime, lifetimeGames) + ')';
+      bindHover(seg2, fKey);
+      band2.appendChild(seg2);
+
+      family.leaves.forEach((leaf, li) => {
+        const lKey = fKey + ':l' + li;
+        const isThis = thisResult !== null && leaf.kind === thisResult.kind;
+        const seg3 = el('div', 'session-strip-seg cat-' + outcome.id + '-s' + family.shade + (isThis ? ' is-this' : ''));
+        seg3.style.flex = leaf.session + ' 0 0%';
+        seg3.title = outcome.label + ' · ' + family.label + (leaf.label ? ' · ' + leaf.label : '')
+          + ' — ' + leaf.session + ' of ' + games
+          + ' (' + shareText(leaf.session, games) + ', lifetime ' + shareText(leaf.lifetime, lifetimeGames) + ')';
+        bindHover(seg3, lKey);
+        leafSegByKey.set(lKey, seg3);
+        band3.appendChild(seg3);
+      });
+    });
   });
-  if (abandoned !== null) {
-    line('session-summary-row session-summary-depth-1 session-summary-group-first',
-      [cell('session-summary-result', 'abandoned'), ...countCells(1, abandoned.session, abandoned.lifetime)]);
+  strip.append(band1, band2, band3);
+  wrap.appendChild(strip);
+
+  // Left-to-right spanning partition table: one row per leaf.
+  const table = el('table', 'session-results-table');
+  const thead = document.createElement('thead');
+  const headTr = document.createElement('tr');
+  [...SESSION_RESULT_LEVELS, 'games', 'session', 'lifetime'].forEach((heading, idx) => {
+    headTr.appendChild(el('th', idx >= 3 ? 'num' : '', heading));
+  });
+  thead.appendChild(headTr);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  outcomes.forEach((outcome) => {
+    const oKey = 'o:' + outcome.id;
+    if (outcome.families.length === 0) {
+      const tr = el('tr', 'session-results-row l1-end');
+      const td1 = el('td', 'col-l1 cat-' + outcome.id + ' leaf-cell');
+      td1.colSpan = 3;
+      td1.appendChild(el('div', 'cell-head-l1', outcome.label));
+      const tdCount = el('td', 'col-num leaf-cell session-summary-number', '0');
+      const tdShare = el('td', 'col-num col-bar leaf-cell');
+      tdShare.appendChild(makeShareGauge(outcome.id, 0, outcome.lifetime));
+      const tdLife = el('td', 'col-num col-life leaf-cell', shareText(outcome.lifetime, lifetimeGames));
+      tr.append(td1, tdCount, tdShare, tdLife);
+      tbody.appendChild(tr);
+      return;
+    }
+
+    const totalLeaves = outcome.families.reduce((sum, family) => sum + family.leaves.length, 0);
+    let outcomeRow = 0;
+    outcome.families.forEach((family, fi) => {
+      const fKey = oKey + ':f' + fi;
+      family.leaves.forEach((leaf, li) => {
+        const lKey = fKey + ':l' + li;
+        outcomeRow++;
+        const isL1End = outcomeRow === totalLeaves;
+        const isL2End = li === family.leaves.length - 1;
+        const isThis = thisResult !== null && leaf.kind === thisResult.kind;
+        const tr = el('tr', 'session-results-row'
+          + (isL1End ? ' l1-end' : isL2End ? ' l2-end' : '')
+          + (isThis ? ' me' : ''));
+        addRowKey(oKey, tr);
+        addRowKey(fKey, tr);
+        addRowKey(lKey, tr);
+        tr.addEventListener('mouseenter', () => {
+          tr.classList.add('is-hot');
+          const seg = leafSegByKey.get(lKey);
+          if (seg) seg.classList.add('is-hot');
+        });
+        tr.addEventListener('mouseleave', () => {
+          tr.classList.remove('is-hot');
+          const seg = leafSegByKey.get(lKey);
+          if (seg) seg.classList.remove('is-hot');
+        });
+
+        if (outcomeRow === 1) {
+          const td1 = el('td', 'col-l1 cat-' + outcome.id);
+          td1.rowSpan = totalLeaves;
+          td1.append(
+            el('div', 'cell-head-l1', outcome.label),
+            makeSpanStats('cell-stat-l1', outcome.session, outcome.lifetime),
+          );
+          tr.appendChild(td1);
+        }
+        if (li === 0) {
+          const isLastFamily = fi === outcome.families.length - 1;
+          if (family.leaf) {
+            const td2 = el('td', 'col-l2 leaf-cell' + (isLastFamily ? ' g-end' : ''));
+            td2.colSpan = 2;
+            td2.appendChild(makeLeafLabel(family.label, isThis));
+            tr.appendChild(td2);
+          } else {
+            const td2 = el('td', 'col-l2' + (isLastFamily ? ' g-end' : ''));
+            td2.rowSpan = family.leaves.length;
+            td2.append(
+              el('div', 'cell-head-l2', family.label),
+              makeSpanStats('cell-stat-l2', family.session, family.lifetime),
+            );
+            tr.appendChild(td2);
+          }
+        }
+        if (!family.leaf) {
+          const td3 = el('td', 'col-l3 leaf-cell');
+          td3.appendChild(makeLeafLabel(leaf.label, isThis));
+          tr.appendChild(td3);
+        }
+        const tdCount = el('td', 'col-num leaf-cell session-summary-number', String(leaf.session));
+        const tdShare = el('td', 'col-num col-bar leaf-cell');
+        tdShare.appendChild(makeShareGauge(outcome.id, leaf.session, leaf.lifetime));
+        const tdLife = el('td', 'col-num col-life leaf-cell', shareText(leaf.lifetime, lifetimeGames));
+        tr.append(tdCount, tdShare, tdLife);
+        tbody.appendChild(tr);
+      });
+    });
+  });
+  table.appendChild(tbody);
+
+  const tfoot = document.createElement('tfoot');
+  const footTr = el('tr', 'session-results-total');
+  const footLabel = el('td', '', 'total');
+  footLabel.colSpan = 3;
+  footTr.append(
+    footLabel,
+    el('td', 'col-num session-summary-number', String(games)),
+    el('td', 'col-num session-summary-number', '100%'),
+    el('td', 'col-num', ''),
+  );
+  tfoot.appendChild(footTr);
+  table.appendChild(tfoot);
+  wrap.appendChild(table);
+
+  // Detached likely-misclick block: non-additive subset of losses, never in
+  // the partition's columns.
+  if (reasons.length > 0) {
+    const lostCount = lostOutcome.session;
+    const overlays = el('div', 'session-results-overlays');
+    overlays.appendChild(el('div', 'session-overlays-head',
+      'likely misclicks (subset of the ' + lostCount + (lostCount === 1 ? ' loss' : ' losses') + ', already counted above)'));
+    const denomWord = abandoned !== null ? 'started' : 'games';
+    for (const reason of reasons) {
+      const count = finished.likelyMisclicks[reason];
+      const lifeCount = lifetime.likelyMisclicks[reason] || 0;
+      const isThis = thisResult !== null && thisResult.likelyMisclicks.includes(reason);
+      const row = el('div', 'session-overlay-row' + (isThis ? ' me' : ''));
+      const label = el('span', 'session-overlay-label');
+      label.appendChild(makeLeafLabel(LIKELY_MISCLICK_REASON_LABELS[reason], isThis));
+      const nums = el('span', 'session-overlay-nums');
+      nums.append(
+        el('strong', 'session-summary-number', String(count)),
+        document.createTextNode(' (' + shareText(count, lostCount) + ' of losses \u00b7 '
+          + shareText(count, games) + ' of ' + denomWord + ' \u00b7 lifetime ' + shareText(lifeCount, lifetimeGames) + ')'),
+      );
+      row.append(label, nums);
+      overlays.appendChild(row);
+    }
+    wrap.appendChild(overlays);
   }
-  return grid;
+
+  return wrap;
 }
 
 //-------RANK LISTS (the 11-row ranked table)-------

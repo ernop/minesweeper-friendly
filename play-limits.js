@@ -134,12 +134,16 @@ function nextStopAtStart(minuteOfDay, nowMs) {
 // or the deal in modes that open the board themselves) to its end: won,
 // lost, restarted, or its tab closed. Stored per board in the playSpans
 // store: { startedAt, lastSeenAt, endedAt (null while in play), width,
-// height, mines, playMode, generator, ending }. generator is the board's
-// non-default generator, absent for the default, as on a game record.
-// ending is how the board left play: null while in play and when its page
-// closed in play, else one of PLAY_SPAN_ENDINGS. Spans saved before
-// 2026-10-20 have neither field.
+// height, mines, playMode, generator, ending, safeRevealed }. generator is
+// the board's non-default generator, absent for the default, as on a game
+// record. ending is how the board left play: null while in play and when its
+// page closed in play, else one of PLAY_SPAN_ENDINGS. Spans saved before
+// 2026-10-20 have neither field; safeRevealed (safe squares revealed at last
+// save/end) is recorded since 2026-11-25.
 const PLAY_SPAN_ENDINGS = ['finished', 'restarted', 'trial-ended'];
+// Matches EARLY_GAME_MAX_PROGRESS in game/evaluation.js (under a tenth of safe
+// squares open = in the opening).
+const PLAY_SPAN_OPENING_MAX_PROGRESS = 0.1;
 
 function playSpanLive(span, nowMs) {
   return nowMs - span.lastSeenAt <= PLAY_SPAN_LIVE_MS;
@@ -158,6 +162,22 @@ function playSpanAbandonedAt(span, nowMs) {
   if (span.ending === 'restarted' || span.ending === 'trial-ended') return span.endedAt;
   if (span.ending === null && !playSpanLive(span, nowMs)) return span.lastSeenAt;
   return null;
+}
+
+// How an abandoned span left play, or null when it is not abandoned. Restarts
+// with safeRevealed split by the opening threshold (under a tenth of safe
+// squares open); older restarts without safeRevealed stay 'abandoned-restarted'.
+function playSpanAbandonedKind(span, nowMs) {
+  if (playSpanAbandonedAt(span, nowMs) === null) return null;
+  if (span.ending === 'trial-ended') return 'abandoned-trial-ended';
+  if (span.ending === null) return 'abandoned-page-closed';
+  if (span.ending === 'restarted') {
+    if (!Number.isInteger(span.safeRevealed)) return 'abandoned-restarted';
+    const safeTotal = span.width * span.height - span.mines;
+    return safeTotal > 0 && span.safeRevealed / safeTotal < PLAY_SPAN_OPENING_MAX_PROGRESS
+      ? 'abandoned-restarted-opening' : 'abandoned-restarted-after';
+  }
+  throw new Error('unknown abandoned play span ending: ' + JSON.stringify(span.ending));
 }
 
 function playLevelOf(width, height, mines) {

@@ -215,7 +215,7 @@ Options:
   lines, but Back from any page abandons an unfinished board, and two open
   tabs still overwrite each other.
 
-## Game results as one tree per board type (creator request 2026-10-14; scope and abandoned built 2026-10-20, the rest proposed, awaiting review)
+## Game results as one tree per board type (creator request 2026-10-14; scope and abandoned built 2026-10-20; Option A spanning partition, aligned started top table, detached misclicks, and abandoned subdivisions built 2026-11-25)
 
 The creator asked to rethink the session's results table. In Beginner, show
 only Beginner, starting from all games started, then break them into finer
@@ -225,22 +225,26 @@ few moves had to guess, a "dumb" early death such as clicking beside a corner
 wins, since some wins follow no bad moves while others survive needless bad
 guesses. The request: "think very carefully and present me an ontology of
 wins / complete categorization system". Built today
-([Session summary](docs/product/rankings.md), "Session results"): one tree
-per session, then on 2026-10-15 only the shown game's board size, with one
-share column per level, every share of all that size's games (creator:
-"ONLY be about the currrne mode (only e.g. expert,not all 3 ypese)"; "each
-level of subsection shalal alsohave itsown percent too"; "10% (of
-absolute)"). Level 1 is won or
-lost; level 2 the game's worst offense against perfect play (no avoidable
-risk, a riskier guess than necessary, a guess past a safe move, a wrong
-flag, a proven mine, then the measurement gaps); level 3 its type
-([Game-end evaluation](docs/product/game-end-evaluation.md), "Session result
-kinds"). That tree already splits opening guess deaths by risk and files a
-loss under an earlier survived guess when that guess was worse than the
-fatal click (creator request the same evening: "1st split: wins/losses.
-then within each cat, break them down by the variety and type of worst
-offenses against perfect play"). The report still files every opening
-forced-guess death as one "early-game guess".
+([Session summary](docs/product/rankings.md), "Session results"): Option A
+left-to-right spanning partition grid (`how it ended` | `offense / reason` |
+`type` | `games` | `session` bullet bar + `%` | `lifetime`) beneath a 3-band
+100% proportional strip, with the top `session` table aligned to `started`
+games (including an `abandoned` column whenever nonzero), concise non-
+repetitive labels, detached `likely misclicks` below the partition, and
+`abandoned` split into `restarted` (`in the opening` / `after the opening` /
+`stage not recorded`), `page closed in play`, and `cut off by trial end`
+(play spans record `safeRevealed` since 2026-11-25). Level 2 remains worst
+offense against perfect play (`no avoidable risk`, `riskier guess than
+necessary`, `guessed past a safe square`, `wrong flag made a mine look safe`,
+`opened a proven mine`, then measurement gaps), keeping won and lost parallel
+while `in the opening` stays under `riskier guess` and `no avoidable risk`.
+The report still files every opening forced-guess death as one "early-game
+guess". Remaining follow-ups:
+- split `wrong flag made a mine look safe` into contradicted-by-numbers vs.
+  trusted-a-guessed-flag (dropping straight into Column 3 of Option A);
+- add proof tiers (`counting` / `overlap` / `whole-board`) for survived
+  `won → guessed past a safe square` (see "Loss-type follow-ons" below);
+- settle the rushed-click overlay and judgment-problem calibration below.
 
 Proposed, not decided:
 

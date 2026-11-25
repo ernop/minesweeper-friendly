@@ -33,16 +33,22 @@ Spec: [docs/product/play-limits.md](../product/play-limits.md). Index: [AGENTS.m
   2026-10-20, for the session results' abandoned boards);
   `persistPlaySpan` puts one span. A span is
   `{ startedAt, lastSeenAt, endedAt | null, width, height, mines, playMode,
-  generator?, ending }` (`generator` and `ending` since 2026-10-20;
-  `generator` only when not the default, as on a record; `ending` null in
-  play, else one of `PLAY_SPAN_ENDINGS`).
+  generator?, ending, safeRevealed? }` (`generator` and `ending` since
+  2026-10-20; `safeRevealed` since 2026-11-25, updated on begin, heartbeat,
+  pagehide, and end — never on gameplay clicks; `generator` only when not the
+  default, as on a record; `ending` null in play, else one of
+  `PLAY_SPAN_ENDINGS`).
   Play time derives from the timestamps (`playSpanPlayedMs`): an unfinished
   span seen within `PLAY_SPAN_LIVE_MS` (70 s, above a hidden tab's
   once-a-minute timer; `playSpanLive`) counts to now, an older one to
   `lastSeenAt`. `playSpanAbandonedAt(span, nowMs)` is `endedAt` for
   'restarted' and 'trial-ended', `lastSeenAt` for a null ending no longer
   live (its page closed in play), else null (finished, in play, or saved
-  before endings were recorded).
+  before endings were recorded). `playSpanAbandonedKind(span, nowMs)` classifies
+  abandoned spans into `'abandoned-restarted-opening'` (`safeRevealed / safeTotal < 0.1`,
+  matching `EARLY_GAME_MAX_PROGRESS`), `'abandoned-restarted-after'`,
+  `'abandoned-restarted'` (pre-2026-11-25 restarts without `safeRevealed`),
+  `'abandoned-page-closed'`, and `'abandoned-trial-ended'`.
 - Game page, `game/play-limits.js`: `playSpanBegin` (from `startTimer`)
   saves a span and rewrites it every `PLAY_SPAN_HEARTBEAT_MS` (5 s);
   `playSpanEnd(ending)` closes it, from `finish` ('finished'), the top of

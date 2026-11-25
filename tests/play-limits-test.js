@@ -19,7 +19,7 @@ vm.runInContext(settingsCore.slice(settingsCore.indexOf('const DIFFICULTIES'),
   settingsCore.indexOf('const PATH_VIEW_IDS')), context);
 vm.runInContext(fs.readFileSync(path.join(repo, 'play-limits.js'), 'utf8')
   + '\nthis.L = { PLAY_LIMIT_LOOSEN_MAX_PLAYED_MS, PLAY_SPAN_LIVE_MS, playDayStart, nextPlayDayStart,'
-  + ' playSpanPlayedMs, playSpanAbandonedAt, playDayUse, playLimitKind, playLimitReached, reachedPlayLimits,'
+  + ' playSpanPlayedMs, playSpanAbandonedAt, playSpanAbandonedKind, playDayUse, playLimitKind, playLimitReached, reachedPlayLimits,'
   + ' nextPlayLimitChange, playLimitLoosens, playLimitLoosenLock, playLimitsFrom,'
   + ' DEFAULT_PLAY_LIMIT_PENALTY, playLimitPenaltyFrom, playLimitNoFlagsAmount, playLimitClosingUse,'
   + ' playLimitStage, playDayStage, playLimitPenaltyLoosens, playLimitPenaltyLoosenLock,'
@@ -69,6 +69,18 @@ check('a board still in play is not abandoned', L.playSpanAbandonedAt({ ...live,
 check('a board whose page closed in play was abandoned at its last sighting',
   L.playSpanAbandonedAt({ ...dead, ending: null }, now), dead.lastSeenAt);
 check('a span from before endings were recorded tells nothing', L.playSpanAbandonedAt(dead, now), null);
+check('abandoned kind classifies restarts by opening progress (<10% safe squares open), trial cutoffs, and closed pages',
+  [
+    L.playSpanAbandonedKind(ended('finished'), now),
+    L.playSpanAbandonedKind({ ...live, ending: null }, now),
+    L.playSpanAbandonedKind({ ...ended('restarted'), safeRevealed: 7 }, now),   // 7/71 = 9.86% < 10%
+    L.playSpanAbandonedKind({ ...ended('restarted'), safeRevealed: 8 }, now),   // 8/71 = 11.27% >= 10%
+    L.playSpanAbandonedKind(ended('restarted'), now),                            // pre-2026-11-25
+    L.playSpanAbandonedKind(ended('trial-ended'), now),
+    L.playSpanAbandonedKind({ ...dead, ending: null }, now),
+  ],
+  [null, null, 'abandoned-restarted-opening', 'abandoned-restarted-after',
+    'abandoned-restarted', 'abandoned-trial-ended', 'abandoned-page-closed']);
 const use = L.playDayUse([
   span(at(2026, 10, 13, 3, 50), 600000),          // yesterday's play day
   span(at(2026, 10, 13, 9), 60000),               // Beginner
@@ -188,7 +200,11 @@ const body = (name) => {
   return js.slice(start, js.indexOf('\n}\n', start));
 };
 check('every board going into play opens a span', body('startTimer').includes('playSpanBegin();'), true);
-check('a span opens with no ending, which a closed page leaves', body('playSpanBegin').includes('ending: null'), true);
+check('a span opens with no ending and records safeRevealed',
+  body('playSpanBegin').includes('ending: null') && body('playSpanBegin').includes('safeRevealed: revealedCount'), true);
+check('span heartbeat and end record safeRevealed',
+  body('touchPlaySpan').includes('safeRevealed = revealedCount')
+    && body('playSpanEnd').includes('safeRevealed = revealedCount'), true);
 check('a finished board closes its span', body('finish').includes("playSpanEnd('finished');"), true);
 check('a restarted board closes its span', body('newGame').includes("playSpanEnd('restarted');"), true);
 check('an ended trial closes its span', body('endTrial').includes("playSpanEnd('trial-ended');"), true);

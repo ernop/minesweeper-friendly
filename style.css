@@ -3347,18 +3347,226 @@ body.settings-page .return-to-game {
 .session-summary-grid .session-summary-rank.session-summary-current { background: var(--this-game); }
 .session-summary-grid .recent-current-label { padding: 0; font-size: 10px; }
 .session-summary-total > span { border-top: 1px solid #000000; }
-/* Results under the summary: one tree for the shown game's board size, won
-   then lost under a rule, each split by worst offense and then by type.
-   Depth shows as indentation, and each depth's shares have their own
-   column; won and lost head their branches in bold. The last column is
-   the row's share of every game of the size, for comparison with the
-   session. Likely-misclick rows sit under another rule because they
-   recount losses already filed above. */
-.session-summary-results { margin-top: 6px; }
-.session-summary-depth-1 > .session-summary-result { font-weight: bold; }
-.session-summary-depth-2 > .session-summary-result { padding-left: 18px; }
-.session-summary-depth-3 > .session-summary-result { padding-left: 32px; }
-.session-summary-group-first > span { border-top: 1px solid #000000; }
+/* Results under the summary (Option A, 2026-11-25): one 100% partition of the
+   shown game's board type, with a 3-band proportional strip above a left-to-
+   right spanning table (outcome -> offense/reason -> specific type). Every
+   table row is one leaf so counts and session shares sum strictly to 100%;
+   inline bullet gauges compare session share with a black vertical lifetime
+   marker. Likely-misclick overlays sit detached below the partition. */
+.session-summary-results {
+  margin-top: 8px;
+  color: #000000;
+  font-variant-numeric: tabular-nums;
+}
+.session-results-root {
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+.session-results-strip {
+  border: 1px solid #000000;
+  margin-bottom: 6px;
+  background: #ffffff;
+}
+.session-strip-band {
+  display: flex;
+  width: 100%;
+  overflow: hidden;
+}
+.session-strip-l1 {
+  height: 16px;
+  border-bottom: 1px solid #000000;
+}
+.session-strip-l2 {
+  height: 10px;
+  border-bottom: 1px solid #000000;
+}
+.session-strip-l3 { height: 8px; }
+.session-strip-seg {
+  height: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+  color: #000000;
+  white-space: nowrap;
+  overflow: hidden;
+  box-shadow: inset -1px 0 0 #000000;
+}
+.session-strip-seg:last-child { box-shadow: none; }
+.session-strip-seg.is-hot { box-shadow: inset 0 0 0 2px #000000; }
+.session-strip-seg.cat-won { background: #c7e8d2; }
+.session-strip-seg.cat-lost { background: #f4c6c6; }
+.session-strip-seg.cat-abandoned { background: #dedede; }
+/* Severity-stepped Level-2/3 tints: best green deepest for clean wins;
+   palest red for no-avoidable-risk losses up to deepest red for proven mines. */
+.session-strip-seg.cat-won-s0 { background: #9bd8b1; }
+.session-strip-seg.cat-won-s1 { background: #bfe6cc; }
+.session-strip-seg.cat-won-s2 { background: #d9f1e1; }
+.session-strip-seg.cat-won-s3 { background: #eaf7ee; }
+.session-strip-seg.cat-lost-s0 { background: #fbe9e9; }
+.session-strip-seg.cat-lost-s1 { background: #f8d2d2; }
+.session-strip-seg.cat-lost-s2 { background: #f4baba; }
+.session-strip-seg.cat-lost-s3 { background: #ef9f9f; }
+.session-strip-seg.cat-lost-s4 { background: #e88484; }
+.session-strip-seg.cat-abandoned-s0 { background: #e6e6e6; }
+.session-strip-seg.cat-abandoned-s1 { background: #d4d4d4; }
+.session-strip-seg.cat-abandoned-s2 { background: #c2c2c2; }
+.session-strip-seg.is-this { background: var(--this-game); }
+
+.session-results-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-top: 1px solid #000000;
+  border-bottom: 1px solid #000000;
+  font-size: 12px;
+  line-height: 1.3;
+}
+.session-results-table th {
+  font-size: 11px;
+  font-weight: bold;
+  text-align: left;
+  padding: 2px 6px;
+  border-bottom: 1px solid #000000;
+  white-space: nowrap;
+}
+.session-results-table th.num { text-align: right; }
+.session-results-table td {
+  padding: 3px 6px;
+  vertical-align: top;
+  border-bottom: 1px solid #d4d4d4;
+  color: #000000;
+}
+.session-results-table td.col-l1 {
+  border-right: 1px solid #000000;
+  border-bottom: 1px solid #000000;
+  white-space: nowrap;
+}
+.session-results-table td.col-l1.cat-won { border-left: 4px solid #1e9e4f; }
+.session-results-table td.col-l1.cat-lost { border-left: 4px solid #c94a4a; }
+.session-results-table td.col-l1.cat-abandoned { border-left: 4px solid #777777; }
+.session-results-table td.col-l2 {
+  border-right: 1px solid #999999;
+  border-bottom: 1px solid #999999;
+}
+.session-results-table td.col-l2.leaf-cell { border-right: none; }
+.session-results-table td.leaf-cell { vertical-align: middle; }
+.session-results-table td.col-l2.g-end,
+.session-results-table tr.l1-end td.col-l3,
+.session-results-table tr.l1-end td.col-num {
+  border-bottom: 1px solid #000000;
+}
+.session-results-table tr.l2-end td.col-l3,
+.session-results-table tr.l2-end td.col-num {
+  border-bottom: 1px solid #999999;
+}
+.session-results-table td.col-num {
+  text-align: right;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.session-results-table td.col-life { font-weight: normal; }
+.session-results-table tr.is-hot td.leaf-cell { background: #efefef; }
+.session-results-table tr.me td.leaf-cell,
+.session-results-table tr.me.is-hot td.leaf-cell {
+  background: var(--this-game);
+  font-weight: bold;
+}
+.session-results-table tr.me td.col-life { font-weight: bold; }
+.session-results-table .cell-head-l1 { font-weight: bold; }
+.session-results-table .cell-stat-l1 { font-size: 11px; margin-top: 1px; }
+.session-results-table .cell-head-l2 { font-weight: normal; }
+.session-results-table .cell-stat-l2 { font-size: 11px; margin-top: 1px; }
+.session-results-table .session-life-inline { font-size: 10.5px; font-weight: normal; }
+.session-leaf-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.session-leaf-label .recent-current-label {
+  padding: 0;
+  font-size: 10px;
+  font-weight: bold;
+  flex: none;
+}
+.session-share-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.session-bar-track {
+  position: relative;
+  display: inline-block;
+  width: 96px;
+  height: 11px;
+  background: #f2f2f2;
+  border: 1px solid #b5b5b5;
+  flex: none;
+}
+.session-results-table tr.me .session-bar-track {
+  background: #ffffff;
+  border-color: #000000;
+}
+.session-bar-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  min-width: 1px;
+}
+.session-bar-fill.cat-won { background: #4baa6d; }
+.session-bar-fill.cat-lost { background: #d66868; }
+.session-bar-fill.cat-abandoned { background: #888888; }
+.session-bar-life {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: #000000;
+  transform: translateX(-1px);
+}
+.session-bar-pct {
+  display: inline-block;
+  min-width: 28px;
+  text-align: right;
+}
+.session-results-table tfoot td {
+  border-top: 1px solid #000000;
+  border-bottom: none;
+  padding: 2.5px 6px;
+  font-weight: bold;
+  font-size: 11.5px;
+}
+
+.session-results-overlays {
+  margin-top: 6px;
+  padding: 4px 7px;
+  border: 1px dashed #666666;
+  background: #fafafa;
+}
+.session-overlays-head {
+  font-size: 11px;
+  font-weight: bold;
+  margin-bottom: 2px;
+}
+.session-overlay-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 1.5px 3px;
+  font-size: 11.5px;
+}
+.session-overlay-row.me {
+  background: var(--this-game);
+  font-weight: bold;
+}
+.session-overlay-label { flex: 1 1 auto; }
+.session-overlay-nums { white-space: nowrap; text-align: right; }
 
 /* This game's stats after a loss or a trial game ("this game"): one line per
    measurement, the label in regular weight and the value right-aligned in

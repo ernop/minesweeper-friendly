@@ -73,6 +73,7 @@ function savePlaySpan(span) {
 
 function touchPlaySpan() {
   currentPlaySpan.lastSeenAt = Date.now();
+  currentPlaySpan.safeRevealed = revealedCount;
   savePlaySpan(currentPlaySpan);
 }
 
@@ -87,6 +88,7 @@ function playSpanBegin() {
     ...(gameGenerator.id === BoardGenerators.DEFAULT_ID ? {}
       : { generator: { id: gameGenerator.id, params: { ...gameGenerator.params } } }),
     ending: null,
+    safeRevealed: revealedCount,
   };
   savePlaySpan(currentPlaySpan);
   playSpanHeartbeat = setInterval(touchPlaySpan, PLAY_SPAN_HEARTBEAT_MS);
@@ -103,6 +105,7 @@ function playSpanEnd(ending) {
   currentPlaySpan.lastSeenAt = now;
   currentPlaySpan.endedAt = now;
   currentPlaySpan.ending = ending;
+  currentPlaySpan.safeRevealed = revealedCount;
   savePlaySpan(currentPlaySpan);
   currentPlaySpan = null;
   renderPlayLimits();

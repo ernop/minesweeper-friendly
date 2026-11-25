@@ -333,14 +333,23 @@ middle? that's okay."
   ("Angelic", "Pink noise (spectral exponent 1, …)"). The variant column
   appears only when some row has one (creator 2026-10-08: "we must must
   valign the 'Standard' aspect. actually, do we even need that? it's
-  default, how about just not having that?"). Columns: board type, games,
-  wins, win rate, best (the session's fastest win of that type), that time's
+  default, how about just not having that?"). Columns: board type, started
+  (all games started, finished plus abandoned, when play spans record endings;
+  headed "games" when abandoned tracking is absent, and matching the breakdown
+  denominator below since 2026-11-25), wins, abandoned (appears only when some
+  row has at least one abandoned board, matching the "defaults show nothing
+  extra" rule), win rate (wins divided by started, so it matches the breakdown's
+  won share), best (the session's fastest win of that type), that time's
   lifetime rank among the type's wins so far ("2nd of 57", a standing-toned
   chip; the this-game light blue with "this" when the best is the game just finished),
-  mean time, mean 3BV/s, and mean IOE. Types without a session win leave
+  mean time, mean 3BV/s, and mean IOE. A board type narrowed to no-mark games
+  keeps finished no-mark games alone (since whether an abandoned board had a
+  flag is not recorded) and leaves the abandoned cell blank if shown. Types
+  with only abandoned boards in the session still appear with 0 wins, 0% win
+  rate, and empty best/rank/means. Types without a session win leave
   best, rank, and the means empty. Rows follow difficulty order, then other
-  boards; an "all" row totals games, wins, and win rate when more than one
-  type was played.
+  boards; an "all" row totals started (or games), wins, optional abandoned,
+  and win rate when more than one type was played.
 - The means (creator 2026-10-08: "in this session info section, I think we
   shall show the averages and/or other numerical values which are
   referenced on the right side, my perf for this board") average the
@@ -411,110 +420,105 @@ middle? that's okay."
   only rows with a game show. The flat list it replaced (built earlier on
   2026-10-14) had win types, then loss types exactly as the endings chart
   filed them.
-- **Session results: one board type, one share column per level** (creator
-  request 2026-10-15, of the grid split by Beginner and Intermediate: "the
-  lower part of the image is about the "distribution" of outcomes. make it
-  ONLY be about the currrne mode (only e.g. expert,not all 3 ypese). 2.
-  each division (win/loss) shallhave its own perccent column. THEN, within
-  the SUBSECTIONS each level of subsection shalal alsohave itsown percent
-  too. i.e. 60% wins 40% losses. then 2nd level ,each is split for example
-  40% losses would be: 10% (of absolute) early game forced guerss loss; 2%
-  carelessly clicking a knowably mined square (e.g. next to a 3 in a
-  corner), 10% chose the best guess when forced to do so, etc.)"). The tree
-  counts only the session's games of the shown game's board type: one
-  size and mine count, play mode, and generator, the same type as a
-  summary row and a history key (creator 2026-10-20, asked whether to split
-  a size's modes and generators apart: "yes, spli treethat way"). Modes
-  stay apart because their rules change what a guess can do (in Angelic a
-  guess cannot kill), and a generator changes the boards. The shown game is
-  the one the summary is built for: the win just finished, or after a loss
-  and in the scores view the latest win of the board being played (the
-  loss itself when that board has no win), so it is always that board's
-  type. From 2026-10-15 to 2026-10-20 the tree was one size with its modes
-  and generators together, the creator's three "main game types"
-  (2026-10-12: "loss-type should be split by main game type (small,
-  medium, expert)").
-  - Columns: result; the count, headed with the type as a summary row
-    names it ("Expert games", "Expert · Angelic games", "Custom 20x20-60
-    games"); then one share column per level, headed "how it ended" ("won
-    or lost" until abandoned joined it on 2026-10-20), "worst offense", and
-    "type"; then "lifetime" (below). Every session share is of all that
-    type's session games started, abandoned included (the creator's "of
-    absolute"), and a row's share stands only in its own level's column, so
-    reading down one column reads one level: won, lost, and abandoned make
-    100%, and the shares under a row add up to that row's share, give or
-    take rounding. A nonzero share that rounds to 0% reads "<1%".
-  - **Abandoned** (creator 2026-10-20, answering whether to add it beside
-    won and lost; requested 2026-10-14 as "all games started through won,
-    lost, and abandoned"), the last level-1 row, under a rule: boards of the
-    type that went into play and never finished, because the player
-    started another board, a trial's end cut the board off, or the page
-    closed with it in play. A board counts once it is abandoned; one still
-    in play in any tab is not counted. It has no deeper rows. Boards record
-    how they left play from 2026-10-20 ([Daily play
-    limits](play-limits.md), play spans), so earlier games include no
-    abandoned ones. The row reads "abandoned" alone. Until 2026-10-21, when
-    the lifetime reached back before the first board recorded that way, it
-    read "abandoned (recorded since 2026-10-20)", with that board's date;
-    the creator had the note removed (2026-10-21: "remove this note: "
-    (recorded since 2026-10-20)""). A summary narrowed to no-mark
-    games has no abandoned row, since whether an abandoned board had a flag
-    is not recorded. Abandoned boards never count in the summary rows above
-    the tree, whose games and win rate stay finished games.
+- **Session results: Option A spanning partition grid + 3-band strip** (redesigned
+  2026-11-25 after creator review of the indented staircase table: "a sequence
+  of ever-finer sub-divisions of the overall entire session (all games started)
+  and within each section like (wins/loss/abandoned) further subdivide it by
+  types so all is visually clear"; creator approved Option A and all
+  recommendations, replacing the 2026-10-15 indented three-share-column grid).
+  The breakdown counts only the session's games of the shown game's board type:
+  one size and mine count, play mode, and generator, the same type as a
+  summary row and a history key (creator 2026-10-20). Modes stay apart because
+  their rules change what a guess can do (in Angelic a guess cannot kill), and
+  a generator changes the boards. The shown game is the one the summary is built
+  for: the win just finished, or after a loss and in the scores view the latest
+  win of the board being played (the loss itself when that board has no win), so
+  it is always that board's type.
+  - **Root line and 3-band 100% proportional strip:** An explicit root line
+    names the scope and denominator ("Expert — 20 games started", or "games"
+    when abandoned boards are not counted). Directly beneath it sits a 3-band
+    100% stacked strip aligned across all three levels: Band 1 splits won
+    (muted green), lost (muted red), and abandoned (neutral gray), printing a
+    label only where the segment fits cleanly; Band 2 splits each outcome into
+    its worst-offense or abandonment-reason families, shaded by severity; Band 3
+    splits each family into its specific leaves, marking only this game's leaf
+    in the this-game light blue (`--this-game`). Hovering a strip segment or
+    table row cross-highlights the matching rows/segment in neutral gray and a
+    crisp black inner border with zero reflow.
+  - **Left-to-right spanning partition table:** Columns are `how it ended`,
+    `offense / reason`, `type`, `games`, `session`, and `lifetime`. Every row
+    is one leaf, so the `games` and `session` columns always sum strictly to
+    the session total and `100%` (confirmed by a compact `total` footer row;
+    the `lifetime` footer stays blank because zero-session rows are omitted).
+    - Column 1 (`how it ended`) carries a colored left accent edge (muted
+      green, muted red, neutral gray) and spans vertically across all leaf rows
+      of `won`, `lost`, and `abandoned` with its subtotal (`count · %` and
+      `(life %)`). Outcomes with 0 session games still appear, spanning
+      columns 1–3 with `0`, `0%`, and their lifetime reference marker.
+    - Column 2 (`offense / reason`) spans vertically across its Level-3 leaves
+      with its subtotal (`count · %` and `(life %)`). A Level-2 leaf with no
+      Level-3 children (`wrong flag made a mine look safe`, `won → guessed
+      past a safe square`, `page closed in play`, `cut off by trial end`, `not
+      judged`) spans columns 2–3 cleanly with no staircase gaps.
+    - Column 3 (`type`) holds concise, non-repetitive full-word leaf labels
+      (omitting phrases already stated by the parent level: e.g., `counting
+      single numbers` and `comparing overlapping numbers` under both `guessed
+      past a safe square` and `opened a proven mine`).
+    - Column 5 (`session`) shows a horizontal 0–100% share gauge (colored for
+      its outcome, with a vertical black marker at the leaf's lifetime share on
+      the same 0–100% axis) beside the rounded percentage (`<1%` for a nonzero
+      share that rounds to 0%).
+  - **Abandoned** (added 2026-10-20; subdivided 2026-11-25): boards of the type
+    that went into play and never finished, subdivided into `restarted` (further
+    split by opening progress when `safeRevealed` was recorded: `in the opening`
+    for under a tenth of safe squares open, `after the opening` for a tenth or
+    more, or `stage not recorded` for pre-2026-11-25 restarts), `page closed in
+    play`, and `cut off by trial end`. A board still in play in any tab is not
+    counted. Boards record how they left play from 2026-10-20 and opening
+    progress from 2026-11-25 ([Daily play limits](play-limits.md)). A summary
+    narrowed to no-mark games has no abandoned row, since whether an abandoned
+    board had a flag is not recorded. Abandoned boards are counted in the top
+    summary rows as well since 2026-11-25 (`started` and `win rate` match the
+    breakdown).
   - **Lifetime** (2026-10-20), the last column: the same row's share of
     every game of that type played up to the shown game, abandoned boards
-    included as in the session columns. It carries the left
-    panel's game endings percentages, which the creator asked to keep when
-    the panel was removed ("same for teh game endings %!"; [Session
-    stats](session-stats.md)); recommended as this column, rather than a
-    game data row, because game data shows only after wins and the results
-    show after every game. Rows stay those with a session game.
-  - Closing the lost branch under another rule follow the likely-misclick
-    rows, one per reason ("of these losses, likely misclick: adjacent wrong
-    flag placed under a second before", "of these losses, likely misclick:
-    left click on a proven mine under a second after a chord beside it
-    lacked flags"). They recount losses already filed above, so they never
-    add to the total; as second-level rows, their shares stand in the worst
-    offense column.
+    included as in the session columns, also marked on each leaf's share gauge.
+    Rows stay those with a session game.
+  - **Detached likely-misclick block** (moved out of the partition 2026-11-25):
+    non-additive subsets of losses sit in their own dashed-border block below
+    the partition table, headed `likely misclicks (subset of the N losses,
+    already counted above)`, with concise reason text (`adjacent wrong flag
+    placed under 1s before`, `left-clicked proven mine under 1s after a
+    short-of-flags chord beside it`) and counts shown with `% of losses`, `% of
+    started`, and `lifetime %`. They never enter the partition's columns or
+    totals.
   - A type with no session games, finished or abandoned, which the scores
     view can show when the board's latest win predates the session, reads
-    "no Expert games in session" in place of the tree.
-  - **This game** (creator 2026-10-15: "relating to the outcome
-    distribution display, it would b natural for that to also  have a
-    "this" section, right?"; read as marking the game's place in the tree,
-    as every rank list marks this game in place). The game the result
-    describes is marked where the tree files it: its leaf, and the
-    likely-misclick row that recounts it when its loss was one. That game is
-    the one just finished, win or loss (after a loss the rest of the summary
-    follows the board's latest win, but the tree marks the loss), or in the
-    scores view the latest win. A marked row is the this-game light blue,
-    bold black, with "this" after its label
-    ([Rank highlights](#rank-highlights-built-2026-09-21-recolored-2026-10-07)).
-    The branch and family above the leaf stay unmarked: the indentation
-    already shows them, and the creator asked for one mark per row ("keep
-    color+this only"). A game outside the session window, such as a latest
-    win from before it in the scores view, marks nothing. Decided while
-    building, each open to the creator: the leaf rather than the whole path,
-    and after a loss the loss rather than the latest win.
-  - Earlier columns: until 2026-10-15 every size played had a count and a
-    share column of its own ("games" and "share of games" when only one size
-    was played), and every row's share stood in that one share column. Until
-    2026-10-14 the grid held only losses, had columns only for sizes that
-    lost a game, took shares of losses, and said "no losses in session" for
-    a window without losses. Per-key count columns were built first and
-    dropped on 2026-10-11: a generator's full name as a column header made
-    the grid about 1,000 px wide.
+    "no Expert games in session" in place of the breakdown.
+  - **This game** (creator 2026-10-15; refined 2026-11-25): the game the result
+    describes is marked where the breakdown files it — its leaf cells (never
+    its spanned parent cells, which already sit directly to its left), its
+    Band 3 segment in the proportional strip, and any likely-misclick row that
+    recounts it. Marked leaf cells wear the this-game light blue (`--this-game`),
+    bold black text, and right-aligned `this` inside the leaf label cell
+    (avoiding prose collision like "in the opening this"). That game is the one
+    just finished, win or loss (after a loss the rest of the summary follows
+    the board's latest win, but the breakdown marks the loss), or in the scores
+    view the latest win. A game outside the session window marks nothing.
+  - Earlier layouts: 2026-10-15 to 2026-11-25 used an indented tree with three
+    staggered share columns (`how it ended`, `worst offense`, `type`), which
+    broke additivity on uneven depths and mixed the misclick overlay into the
+    `worst offense` column. Until 2026-10-15 every size played had a count and
+    share column pair.
   - Gated by shownThings.sessionEndings ("session results by type", on by
     default; "session loss types" until 2026-10-14), listed under Tables
     right after the summary's own switch.
-- **Requested next (creator, 2026-10-14):** while playing a size, show only
-  that size, as one tree from all games started through won, lost, and
-  abandoned to finer kinds. Built: the won/lost and worst-offense levels
-  above, one size from 2026-10-15, one board type and abandoned boards
-  from 2026-10-20. The rest (when in the game a loss came, how far an
-  abandoned board got, a rushed-click overlay) is proposed and awaiting
-  review: [BACKLOG](../../BACKLOG.md), "Game results as one tree per board
-  type".
+- **Requested next (creator, 2026-10-14; Option A layout and abandoned split
+  built 2026-11-25):** remaining proposed taxonomy refinements (splitting
+  `wrong flag` into contradicted vs. guessed flags, proof tiers for survived
+  `won` guesses past a safe square, rushed-click overlay, and judgment-problem
+  calibration) stay in [BACKLOG](../../BACKLOG.md), "Game results as one tree
+  per board type".
 
 ## Recent placements (requested and decided 2026-08-23; charts and the lifetime near-miss rule extended later the same day)
 
