@@ -2,6 +2,12 @@
 
 Research notes and external references. Index: [AGENTS.md](../AGENTS.md).
 
+- `reference/deep-performance-review-2026-11-25.md` — full back-review of
+  12,718 saved games, 229 traced Expert wins, 111 recent late Expert losses,
+  and 329 saolei.wang pro replays (up to 5.99 3BV/s): three-month plateau
+  diagnosis, fast vs slow days and games, warm-up and 90-minute fatigue curves,
+  style-neutral local-stall vs early-bail test, lookahead deficit, and proposed
+  live coaching detectors for practice modes.
 - `reference/expert-speed-training-2026-09-26.md` — evidence behind the Expert
   under-60-seconds training plan: the player's measured diagnosis (input
   replay, removable inputs, run conversion, openings), Minesweeper strategy
