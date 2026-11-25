@@ -363,10 +363,11 @@ function newGame(deal = true) {
   renderTrialChrome();
   renderPregenChrome();
   renderDrillChrome();
+  coachReset();
   renderPregenCharts();
   syncLabChrome();
   const canReuseSnapshot = placed !== null && !placed.snapshot.trialNoBoard
-    && !gameArea.classList.contains('trial-no-board') && boardLabPanel.hidden;
+    && !gameArea.classList.contains('trial-no-board') && boardLabPanel.hidden && coachBar.hidden;
   syncGameSidebar(canReuseSnapshot ? placed.snapshot : null, canReuseSnapshot ? placed.deltaX : 0);
   if (topStage.dataset.detailsDock === 'below' && gameSidebar.style.marginTop !== '') {
     gameSidebar.style.removeProperty('margin-top');
@@ -469,12 +470,18 @@ function revealCell(index) {
     return;
   }
 
-  floodReveal(index);
+  if (!firstReveal && coachActive()) coachBeforeAction('reveal', index);
+  const opened = coachActive() ? [] : undefined;
+  floodReveal(index, opened);
   recordActionEvaluation(actionEvaluation, 'continued');
   checkWin();
+  if (gameState === 'playing' && coachActive()) {
+    if (firstReveal) coachOnFirstReveal(index);
+    else coachAfterReveal(opened);
+  }
 }
 
-function floodReveal(index) {
+function floodReveal(index, opened) {
   const stack = [index];
   while (stack.length > 0) {
     const i = stack.pop();
@@ -482,6 +489,7 @@ function floodReveal(index) {
     if (cell.revealed || cell.flagged) continue;
     cell.revealed = true;
     revealedCount++;
+    if (opened !== undefined) opened.push(i);
     updateCell(i);
     if (cell.adjacent === 0) {
       for (const n of neighbors(i)) {
@@ -654,9 +662,11 @@ function chord(index) {
     lose(hitMines, actionEvaluation);
     return true;
   }
+  if (coachActive()) coachBeforeAction('chord', index, toReveal, chordGesture);
   for (const n of toReveal) floodReveal(n);
   recordActionEvaluation(actionEvaluation, 'continued');
   checkWin();
+  if (gameState === 'playing' && coachActive()) coachOnChordComplete(index, toReveal);
   return true;
 }
 
@@ -700,6 +710,8 @@ function lose(hitIndices, evaluation) {
 
 function finish() {
   playSpanEnd('finished');
+  coachStopTimers();
+  coachClearBoardMarks();
   finalTimeMs = elapsedMs();
   clearInterval(timerInterval);
   timerInterval = null;
@@ -724,6 +736,7 @@ let guardianAngelDetails = [];
 function guardianAngelAppliesToMode() {
   return settings.playMode === 'standard'
     || settings.playMode === 'pregen-10-3bv-desc'
+    || Coach.isPlayMode(settings.playMode)
     || Trial.isPlayMode(settings.playMode);
 }
 
@@ -787,5 +800,6 @@ function guessLedgerAppliesTo(playMode) {
     // Drills are dealt deducible, so any measured guess was unforced —
     // exactly the training signal the mode exists for.
     || playMode === 'endgame-drill'
+    || Coach.isPlayMode(playMode)
     || Trial.isPlayMode(playMode);
 }

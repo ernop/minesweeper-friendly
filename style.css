@@ -65,6 +65,7 @@ body {
    column reclaims the top space and mode tabs stay centered over the board. */
 #page-layout[data-left-dock="true"] #page-head,
 #page-layout[data-left-dock="true"] #mode-options,
+#page-layout[data-left-dock="true"] #coach-bar,
 #page-layout[data-left-dock="true"] #board-lab-panel {
   align-self: stretch;
   width: auto;
@@ -835,6 +836,148 @@ main {
   font-size: 12px;
 }
 
+/*-------COACHING PRACTICE MODES (bar, live cell cues, post-game recap)-------*/
+
+#coach-bar[hidden],
+#coach-flag-budget-wrap[hidden],
+#coach-bail-delay-wrap[hidden],
+#coach-budget-status[hidden],
+#coach-state-readout[hidden],
+#coach-checkin-btn[hidden] { display: none; }
+
+#coach-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  color: #000000;
+  font-size: 12px;
+}
+
+#coach-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px 14px;
+}
+
+#coach-flag-budget-wrap,
+#coach-bail-delay-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+#coach-budget-status {
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+}
+
+#coach-budget-status.coach-budget-hit {
+  color: #a40000;
+}
+
+#coach-state-readout {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Fixed line height prevents live coaching messages from nudging the board. */
+#coach-live-cue {
+  min-height: 18px;
+  line-height: 18px;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.cell.coach-noop {
+  box-shadow: inset 0 0 0 3px #c62828;
+}
+
+.cell.coach-warn {
+  box-shadow: inset 0 0 0 3px #d17a00;
+}
+
+.cell.coach-wrong-flag {
+  box-shadow: inset 0 0 0 3px #b71c1c;
+}
+
+.cell.coach-bail-target {
+  box-shadow: inset 0 0 0 3px #00796b;
+}
+
+.cell.coach-easy-local {
+  box-shadow: inset 0 0 0 3px #2e7d32;
+}
+
+.cell.coach-shield-safe {
+  box-shadow: inset 0 0 0 3px #1565c0;
+}
+
+.coach-recap {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto 12px;
+  padding: 10px 14px;
+  border: 1px solid #c5d0da;
+  border-radius: 5px;
+  background: #f7f9fb;
+  color: #000000;
+  text-align: left;
+  font-size: 12px;
+}
+
+.coach-recap-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.coach-recap-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.coach-recap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, max-content));
+  gap: 4px 18px;
+  margin: 0;
+}
+
+.coach-recap-grid dt {
+  font-weight: bold;
+}
+
+.coach-recap-grid dd {
+  margin: 0 0 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.coach-recap-moments {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #dbe3e8;
+}
+
+.coach-recap-moments-label {
+  font-weight: bold;
+}
+
+.coach-moment-btn {
+  font-variant-numeric: tabular-nums;
+}
+
 /*-------GAME FRAME (classic chrome)-------*/
 
 body.trial-offboard #game-frame {
@@ -915,6 +1058,7 @@ body.trial-offboard #game-frame {
 .game-booting #top-bar,
 .game-booting #difficulty-tabs,
 .game-booting #mode-options,
+.game-booting #coach-bar,
 .game-booting #top-right,
 .game-booting #game-frame,
 .game-booting #scores-nav,
@@ -2007,6 +2151,62 @@ body.trial-offboard #game-frame {
 }
 
 #states-close:hover { background: #e3edf6; }
+
+#state-sample-box {
+  padding: 4px 0 7px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid #d5e1e9;
+}
+
+.state-sample-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: #000000;
+}
+
+.state-sample-label {
+  width: 34px;
+  font-weight: bold;
+}
+
+.state-sample-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.state-sample-btn {
+  padding: 1px 6px;
+  font-size: 11px;
+}
+
+.state-sample-btn[aria-pressed="true"] {
+  border-color: #24648c;
+  background: #dcebf7;
+  font-weight: bold;
+}
+
+.state-sample-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+.state-sample-foot button[hidden] { display: none; }
+
+.state-sample-link {
+  color: #157ba8;
+  text-decoration: none;
+  margin-left: auto;
+}
+
+.state-sample-link:hover { text-decoration: underline; }
 
 .state-option {
   display: flex;

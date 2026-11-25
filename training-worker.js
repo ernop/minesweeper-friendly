@@ -5,9 +5,10 @@
 // posts the summary. It only reads. The page's storage.js owns opening and
 // upgrading the database and sends the names and version it opened.
 
-importScripts('guardian-angel.js?v=20261123-guardian-angel-2', 'solver.js?v=20261123-guardian-angel', 'rng.js',
-  'game/evaluation.js?v=20261125-session-opt-a', 'game-data.js?v=20261125-rank-r1',
-  'training-core.js?v=20261123-guardian-angel');
+importScripts('guardian-angel.js?v=20261123-guardian-angel-2', 'coach.js?v=20261125-coach-m1',
+  'solver.js?v=20261123-guardian-angel', 'rng.js',
+  'game/evaluation.js?v=20261125-coach-m1', 'game-data.js?v=20261125-rank-r1',
+  'training-core.js?v=20261125-coach-m1');
 
 function requestResult(request) {
   return new Promise((resolve, reject) => {
@@ -36,16 +37,25 @@ function openSavedDatabase(database) {
 async function readTrainingInput(database) {
   const db = await openSavedDatabase(database);
   try {
-    const records = (await requestResult(db.transaction(database.recordStore)
-      .objectStore(database.recordStore)
-      .getAll(IDBKeyRange.bound([TrainingCore.KEY, -Infinity], [TrainingCore.KEY, Infinity]))))
+    const store = db.transaction(database.recordStore).objectStore(database.recordStore);
+    const records = (await requestResult(
+      store.getAll(IDBKeyRange.bound([TrainingCore.KEY, -Infinity], [TrainingCore.KEY, Infinity]))))
       .filter((record) => record.evaluationPending !== true);
-    if (records.length === 0) return { records: null, traces: [] };
+    const allKeys = await requestResult(store.getAllKeys());
+    const coachHistoryKeys = [...new Set(allKeys
+      .map((entry) => entry[0])
+      .filter((historyKey) => typeof historyKey === 'string' && historyKey.includes('@coach-')))];
+    const coachLists = await Promise.all(coachHistoryKeys.map((historyKey) =>
+      requestResult(store.getAll(IDBKeyRange.bound([historyKey, -Infinity], [historyKey, Infinity])))));
+    const coachRecords = coachLists.flat().filter((record) => record.evaluationPending !== true);
+    if (records.length === 0 && coachRecords.length === 0) {
+      return { records: null, coachRecords: [], traces: [] };
+    }
     const recentWins = records.filter((r) => r.outcome === 'win')
       .sort((a, b) => a.endedAt - b.endedAt).slice(-TrainingCore.RECENT_WINS);
     const traceStore = db.transaction(database.traceStore).objectStore(database.traceStore);
     const traces = await Promise.all(recentWins.map((r) => requestResult(traceStore.get(r.endedAt))));
-    return { records, traces };
+    return { records, coachRecords, traces };
   } finally {
     db.close();
   }
@@ -63,8 +73,10 @@ const trainingDeps = {
 
 self.onmessage = async ({ data: { database } }) => {
   try {
-    const { records, traces } = await readTrainingInput(database);
-    self.postMessage({ summary: records === null ? null : TrainingCore.summary(records, traces, trainingDeps) });
+    const { records, coachRecords, traces } = await readTrainingInput(database);
+    self.postMessage({
+      summary: records === null ? null : TrainingCore.summary(records, traces, trainingDeps, coachRecords),
+    });
   } catch (error) {
     self.postMessage({ error: error.message });
   }

@@ -444,6 +444,37 @@ found actually carries a button-switch effect:
 - **Weeks:** Monday-based local calendar weeks, newest first: games, wins,
   best, median win, median 3BV/s, IOE, seconds per input, and runs won.
 
+### Coaching drills, mind model, and transfer to Standard (built 2026-11-25)
+
+Creator direction (2026-11-25): manage the coaching practice loop empirically
+so the player can see whether doing the coaching modgames actually transfers
+into Standard play, while modeling recurring hesitation patterns and sampling
+player state.
+
+- **Section `#training-coach`** sits under Stages and shows:
+  1. **Recommended next drill:** derived live from the latest Standard Expert
+     metrics (`Coach: No-waste` when no-ops > 10 or IOE < 0.78;
+     `Coach: Scan shield` when avoidable late losses > 50%; `Coach: Early bail`
+     otherwise).
+  2. **Practice drills played:** per Coach mode, games, wins, active minutes,
+     and earlier-half vs latest-half in-drill trend (no-ops, 1-cell flags,
+     1.5-click share, fast-bail share, lookahead share, blind spots, shield
+     saves, wrong-flag warnings).
+  3. **Slow overlap patterns (`>= 450 ms`):** aggregated across Coach games by
+     pattern family (`1-2 interior`, `1-2 on wall`, `1-1 interior`,
+     `1-1 on wall`, `overlap chain`).
+  4. **Transfer to Standard Expert:** anchored at the timestamp of the first
+     Coach game, compares up to 50 pre-coach Standard Expert wins (and runs
+     from that start) against all post-coach Standard Expert games, plus a
+     coach-days vs non-coach-days split over the recent window, across 3BV/s,
+     win time, IOE, no-ops/win, flags/3BV, flag→chord gap, move gap, left hard
+     work/win, late conversion (`>= 20 s`), and avoidable late loss share.
+     States clearly that at least 10 post-coach Standard Expert wins are needed
+     before judging transfer.
+  5. **Sampled state vs Standard Expert:** splits Standard Expert games carrying
+     a `stateSample` by sampled focus (`1/5`–`5/5`) and pace (`calm`,
+     `flowing`, `rushed`, `tilted`).
+
 ## Not built
 
 Follow-ons are in [BACKLOG.md](../../BACKLOG.md) under "Training toward

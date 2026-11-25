@@ -113,6 +113,7 @@ async function init() {
   }
   buildPlayModeSwitcher();
   buildBoardGeneratorSwitcher();
+  coachBuildControls();
   syncGameChoice();
   setFlagSize(settings.flagSize);
   setMineSize(settings.mineSize);

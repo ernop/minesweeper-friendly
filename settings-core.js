@@ -25,6 +25,26 @@ const PLAY_MODES = [
   },
   { id: 'angelic', label: 'Angelic' },
   { id: 'endgame-drill', label: 'Endgame drill' },
+  {
+    id: 'coach-no-waste',
+    label: 'Coach: No-waste',
+    description: 'Practice mode: cues wasted clicks, 1-cell flags and chords, 1.5-click pairs, and optional flag caps; stored separately from Standard.',
+  },
+  {
+    id: 'coach-early-bail',
+    label: 'Coach: Early bail',
+    description: 'Practice mode: cues when local work turns hard while an easy move sits elsewhere, flags easy local blind spots, and tracks lookahead; stored separately from Standard.',
+  },
+  {
+    id: 'coach-scan-shield',
+    label: 'Coach: Scan shield',
+    description: 'Practice mode: intercepts guesses when a proven-safe square exists elsewhere, warns on wrong flags before you chord, and notes numbered starts; stored separately from Standard.',
+  },
+  {
+    id: 'coach-full',
+    label: 'Coach: Full mix',
+    description: 'Practice mode: runs No-waste, Early bail, and Scan shield together; stored separately from Standard.',
+  },
   { id: 'trial', label: 'Trial' },
   { id: 'short-trial', label: 'Short trial' },
   { id: 'test-trial', label: 'Test trial' },
@@ -364,6 +384,21 @@ function validPlayerStates(v) {
     && typeof s.name === 'string' && s.name.trim() !== '' && typeof s.active === 'boolean')
     && new Set(v.map((s) => s.name)).size === v.length;
 }
+const STATE_CHECKIN_FOCUS_LEVELS = [1, 2, 3, 4, 5];
+const STATE_CHECKIN_PACE_CHOICES = ['calm', 'flowing', 'rushed', 'tilted'];
+const COACH_FLAG_BUDGET_PREFS = [null, 50, 35, 20, 0];
+const COACH_BAIL_DELAY_PREFS = [300, 450, 600, 800];
+function validStateCheckInObject(v) {
+  return preferenceObject(v)
+    && Object.keys(v).length === 3
+    && preferenceNumber(v.sampledAt) && v.sampledAt >= 0
+    && (v.focus === null || STATE_CHECKIN_FOCUS_LEVELS.includes(v.focus))
+    && (v.pace === null || STATE_CHECKIN_PACE_CHOICES.includes(v.pace))
+    && (v.focus !== null || v.pace !== null);
+}
+function validStateCheckIn(v) {
+  return v === null || validStateCheckInObject(v);
+}
 
 const SETTINGS_SCHEMA = [
   {
@@ -400,6 +435,33 @@ const SETTINGS_SCHEMA = [
     group: 'gameplay',
     label: 'player states',
     describe: 'personal state-tag names in display order, including which tags are active',
+    control: 'none',
+  },
+  {
+    field: 'stateCheckIn',
+    default: null,
+    valid: validStateCheckIn,
+    group: 'gameplay',
+    label: 'state check-in',
+    describe: 'latest quick focus (1\u20135) and pace (calm, flowing, rushed, tilted) sample with its timestamp; stamped onto games finished within 45 minutes',
+    control: 'none',
+  },
+  {
+    field: 'coachFlagBudget',
+    default: null,
+    valid: (v) => COACH_FLAG_BUDGET_PREFS.includes(v),
+    group: 'gameplay',
+    label: 'coach flag cap',
+    describe: 'optional per-board flag cap in Coach: No-waste and Coach: Full mix (null = unlimited, or 50, 35, 20, 0)',
+    control: 'none',
+  },
+  {
+    field: 'coachBailDelayMs',
+    default: 450,
+    valid: (v) => COACH_BAIL_DELAY_PREFS.includes(v),
+    group: 'gameplay',
+    label: 'coach early-bail cue delay',
+    describe: 'delay in milliseconds before Coach: Early bail highlights an easy move elsewhere when local easy work runs out',
     control: 'none',
   },
   {
@@ -673,7 +735,7 @@ const SETTINGS_SCHEMA = [
     valid: (v) => PLAY_MODE_IDS.has(v),
     group: 'gameplay',
     label: 'play mode',
-    describe: 'Standard, 3BV countdown, Angelic, Endgame drill, Trial, Short trial, Test trial, or Board lab, chosen from the other modes menu beside the three presets (Standard on the custom board is its Custom entry). Each mode stores and ranks its own results (Board lab records nothing).',
+    describe: 'Standard, 3BV countdown, Angelic, Endgame drill, Coach modes (No-waste, Early bail, Scan shield, Full mix), Trial, Short trial, Test trial, or Board lab, chosen from the other modes menu beside the three presets (Standard on the custom board is its Custom entry). Each mode stores and ranks its own results (Board lab records nothing).',
     control: 'none',
   },
   {

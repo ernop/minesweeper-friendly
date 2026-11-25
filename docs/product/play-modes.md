@@ -243,3 +243,37 @@ odds either completed independently or remained explicitly unmeasured.
   options row as in play; parameter changes made in the lab persist and
   are the values the play modes use. The see-scores control hides here
   (there is nothing to rank).
+- **Coaching practice modes (creator request 2026-11-25: "implement test
+  versions of the coaching modgame ideas. let's also make sure we manage this
+  process to see if doing them has any effect. it's great when you model my
+  mind, and when you can sample my state").** Four one-level-deep entries in
+  the **other modes** menu, each stored under its own mode key (`@coach-*`,
+  never mixing with Standard rankings) and carrying a `coach` counter block on
+  each finished record, with Guardian Angel and guess measurement enabled as
+  in Standard:
+  - **Coach: No-waste (`coach-no-waste`):** flags no-op clicks (with reason),
+    1-cell-only / unused flags, and 1-cell chords (calling out opening-rim
+    1-cell chords); tracks 1.5-click usage on short-range flag→chord pairs;
+    offers an optional per-board **Flag cap** (`unlimited`, `50`, `35`, `20`,
+    `0 (no flags)`) in the coach bar above the board.
+  - **Coach: Early bail (`coach-early-bail`):** runs fast local counting and
+    overlap analysis off the click frame; when local easy work runs out while
+    an easy move sits elsewhere, arms a configurable **Bail cue** timer
+    (`300`, `450` default, `600`, or `800 ms`) and highlights the nearest easy
+    cluster if the player lingers, counting fast bails versus nudges; pulses
+    missed easy local moves after 550 ms; tracks queued lookahead moves
+    executed within 220 ms.
+  - **Coach: Scan shield (`coach-scan-shield`):** intercepts unproven left-click
+    reveals whenever a proven-safe square exists elsewhere (and intercepts
+    clicks on proven mines), flashing the missed safe squares instead of ending
+    the practice run while letting genuine forced guesses proceed normally;
+    warns immediately on provably wrong or overflagging flags before a chord
+    blows up the board; notes numbered starts (`Space to restart`).
+  - **Coach: Full mix (`coach-full`):** runs No-waste, Early bail, and Scan
+    shield together on one board.
+  - Every Coach mode captures slow overlap-tier hesitations (`>= 450 ms`)
+    classified by pattern family (`1-2 interior`, `1-2 on wall`, `1-1 interior`,
+    `1-1 on wall`, `overlap chain`), prompts for a fresh state check-in when
+    none was recorded within 30 minutes (opening the existing `edit states`
+    menu), and shows a post-game **Coach recap** with clickable moment buttons
+    that jump the replay directly to each captured event.

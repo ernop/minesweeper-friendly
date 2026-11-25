@@ -81,3 +81,15 @@ Spec: [docs/product/play-modes.md](../product/play-modes.md). Index: [AGENTS.md]
   `me` marker during the next game. This is deal order, so the percentage
   and podium treatments used for performance rankings do not apply.
   `node tests/pregen-test.js`.
+- Coaching practice modes (`coach-no-waste`, `coach-early-bail`,
+  `coach-scan-shield`, `coach-full`): `coach.js` holds the pure engine
+  (`Coach`: mode registry, `validCoachRecord`, `evaluateFlagPlacement`,
+  `evaluateChordEfficiency`, `analyzeBoardState`, `classifyPatternAt`,
+  `checkScanShield`, plus `summarizePractice`, `summarizeTransfer`,
+  `summarizeStateSamples`, `diagnoseRecommendation`). `game/coach.js` wires
+  `#coach-bar`, zero-reflow inset-ring cell cues, off-frame (`setTimeout(..., 0)`)
+  counting+overlap analysis for Early bail and blind spots, pre-trace reveal
+  interception for Scan shield (keeping saved traces 100% replayable), and
+  `buildCoachRecap` with 1-click `setReplayStep` buttons. Every gameplay hook
+  fast-path returns immediately when `!coachActive()`, adding zero overhead to
+  Standard play. `node tests/coach-test.js`.

@@ -101,6 +101,8 @@ Object.assign(game, {
   observedTimeZone: () => ({ timeZone: 'America/Los_Angeles', utcOffsetMin: -420 }),
   computeBoardShape: () => ({ maxAdjacent: 5, hasSeven: false, zeroCount: 150, islandCount: 31, largestIsland: 9 }),
   activeStateNames: () => ['sleepy'],
+  activeStateSample: () => undefined,
+  coachRecordForGame: () => undefined,
   boardFlagsBlocked: false,
   medianOf: () => 212,
   pathDecisionEvents: () => [],

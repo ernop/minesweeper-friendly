@@ -46,6 +46,15 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   are now found by name at the moment of the click.
 - A new player's menu offers three suggested options: sleepy, just woke
   up, inebriated — none active.
+- **Quick state sample (2026-11-25):** inside the same **edit states** menu
+  sits a compact check-in with two optional dimensions — **focus** (`1` foggy
+  through `5` locked in) and **pace** (`calm`, `flowing`, `rushed`, `tilted`)
+  — plus a **clear sample** button and a link to the 30-second self-check.
+  A recorded sample stays active for 45 minutes: during that window it appears
+  as a tag in the play context line (e.g. `focus 4/5 · flowing`) and stamps
+  `stateSample` onto every finished game (Standard and Coach alike) so the
+  training page can compare speed, IOE, and late conversion by sampled state.
+  Leaving both unset changes nothing in the play context line or saved records.
 - The active set is stamped onto each game record at the moment it
   finishes (win or loss).
 - Editing the list never touches past games: records keep exactly the

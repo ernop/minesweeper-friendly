@@ -38,7 +38,7 @@ function storageFailure(what) {
 
 function userdataReady() {
   const database = { name: DB_NAME, version: db.version, recordStore: RECORD_STORE, traceStore: TRACE_STORE };
-  const worker = new Worker('training-worker.js?v=20261125-session-opt-a');
+  const worker = new Worker('training-worker.js?v=20261125-coach-m1');
   worker.onmessage = ({ data }) => {
     worker.terminate();
     if (data.error !== undefined) showTrainingStatus('Training summary failed: ' + data.error, true);
@@ -413,18 +413,194 @@ function renderTrainingStates(summary) {
   }));
 }
 
+function trainingCoachTrendPart(label, overall, earlier, latest, format) {
+  if (earlier !== null && latest !== null && earlier !== undefined && latest !== undefined) {
+    return label + ': ' + format(earlier) + ' \u2192 ' + format(latest);
+  }
+  return overall === null || overall === undefined ? null : label + ': ' + format(overall);
+}
+
+function trainingCoachModeSummary(row) {
+  const parts = [];
+  const f = row.features;
+  const o = row.overall;
+  const e = row.earlier;
+  const l = row.latest;
+  const add = (label, key, format) => {
+    const text = trainingCoachTrendPart(label, o[key], e === null ? null : e[key], l === null ? null : l[key], format);
+    if (text !== null) parts.push(text);
+  };
+  if (f.noWaste) {
+    add('no-ops/game', 'noopsPerGame', (v) => v.toFixed(1));
+    add('1-cell flags/game', 'lowValueFlagsPerGame', (v) => v.toFixed(1));
+    if (o.flagChordPairs > 0) add('1.5-click', 'click15Share', (v) => Math.round(v * 100) + '%');
+  }
+  if (f.earlyBail) {
+    if (o.earlyBailOpportunities > 0) add('fast bail', 'fastBailShare', (v) => Math.round(v * 100) + '%');
+    if (o.queuedMoves > 0) add('lookahead', 'lookaheadFastShare', (v) => Math.round(v * 100) + '%');
+    add('blind spots/game', 'blindSpotsPerGame', (v) => v.toFixed(1));
+  }
+  if (f.scanShield) {
+    add('shield saves/game', 'shieldSavesPerGame', (v) => v.toFixed(1));
+    add('wrong-flag warnings/game', 'wrongFlagWarningsPerGame', (v) => v.toFixed(1));
+  }
+  return parts.join(' \u00b7 ');
+}
+
+function trainingSignedDelta(after, before, format) {
+  if (after === null || before === null || after === undefined || before === undefined) return '\u2013';
+  const diff = after - before;
+  return format(diff);
+}
+
+function renderTrainingCoach(summary) {
+  const content = document.getElementById('training-coach-content');
+  const { practice, transfer, stateSamples } = summary.coaching;
+  const nodes = [];
+
+  const rec = transfer.recommendation;
+  const recBox = trainingElement('div', 'training-coach-rec');
+  const recTitle = trainingElement('p', 'training-coach-rec-title',
+    'Recommended next drill: ' + rec.label);
+  const recBody = trainingElement('p', '', rec.reason + ' Choose it from other modes on the game page, play a short block (5\u201310 games), then play Standard Expert so transfer is measured automatically.');
+  recBox.append(recTitle, recBody);
+  nodes.push(recBox);
+
+  if (practice.totalGames > 0) {
+    nodes.push(trainingElement('h3', 'training-coach-subhead', 'Practice drills played ('
+      + practice.totalGames + ' games, ' + practice.totalMinutes.toFixed(1) + ' min)'));
+    nodes.push(trainingTable(
+      [{ text: 'drill' }, { text: 'games' }, { text: 'wins' }, { text: 'minutes' },
+        { text: 'in-drill trend (earlier \u2192 latest half)' }],
+      practice.byMode.map((row) => ({
+        cells: [
+          row.label,
+          String(row.games),
+          String(row.wins),
+          row.activeMinutes.toFixed(1),
+          trainingCoachModeSummary(row),
+        ],
+      })),
+      [1, 2, 3],
+    ));
+
+    if (practice.slowPatternTotal > 0) {
+      nodes.push(trainingElement('h3', 'training-coach-subhead',
+        'Slow overlap patterns (\u2265 450 ms, ' + practice.slowPatternTotal + ' captured)'));
+      nodes.push(trainingTable(
+        [{ text: 'pattern family' }, { text: 'slow moves' }, { text: 'share' }],
+        practice.slowPatterns.map((entry) => ({
+          cells: [
+            entry.label,
+            String(entry.count),
+            Math.round(100 * entry.count / practice.slowPatternTotal) + '%',
+          ],
+        })),
+        [1, 2],
+      ));
+    }
+
+    nodes.push(trainingElement('h3', 'training-coach-subhead', 'Transfer to Standard Expert'));
+    const statusText = transfer.status === 'collecting'
+      ? 'First Coach game: ' + trainingDate(transfer.firstCoachAt)
+        + '. Needs at least ' + transfer.minPostWins + ' post-coach Standard Expert wins to judge transfer ('
+        + transfer.post.wins + ' so far).'
+      : 'First Coach game: ' + trainingDate(transfer.firstCoachAt)
+        + '. Comparing ' + transfer.baseline.wins + ' pre-coach Standard Expert wins against '
+        + transfer.post.wins + ' post-coach wins.';
+    nodes.push(trainingElement('p', 'training-coach-verdict', statusText));
+
+    const b = transfer.baseline;
+    const p = transfer.post;
+    const cd = transfer.coachDays;
+    const ncd = transfer.nonCoachDays;
+    const fmt = (v, fn) => (v === null || v === undefined ? '\u2013' : fn(v));
+    const transferRows = [
+      { cells: ['wins (of games)', b.wins + ' / ' + b.games, p.wins + ' / ' + p.games, '\u2013',
+        cd.wins + ' / ' + cd.games, ncd.wins + ' / ' + ncd.games] },
+      { cells: ['median 3BV/s', fmt(b.median3bvPerS, (v) => v.toFixed(2)), fmt(p.median3bvPerS, (v) => v.toFixed(2)),
+        trainingSignedDelta(p.median3bvPerS, b.median3bvPerS, (d) => trainingSignedNumber(d, 2)),
+        fmt(cd.median3bvPerS, (v) => v.toFixed(2)), fmt(ncd.median3bvPerS, (v) => v.toFixed(2))] },
+      { cells: ['median win', fmt(b.medianWinS, (v) => v.toFixed(1) + ' s'), fmt(p.medianWinS, (v) => v.toFixed(1) + ' s'),
+        trainingSignedDelta(p.medianWinS, b.medianWinS, trainingSignedSeconds),
+        fmt(cd.medianWinS, (v) => v.toFixed(1) + ' s'), fmt(ncd.medianWinS, (v) => v.toFixed(1) + ' s')] },
+      { cells: ['median IOE', fmt(b.medianIoe, (v) => v.toFixed(2)), fmt(p.medianIoe, (v) => v.toFixed(2)),
+        trainingSignedDelta(p.medianIoe, b.medianIoe, (d) => trainingSignedNumber(d, 2)),
+        fmt(cd.medianIoe, (v) => v.toFixed(2)), fmt(ncd.medianIoe, (v) => v.toFixed(2))] },
+      { cells: ['no-ops per win', fmt(b.medianNoopsPerWin, (v) => v.toFixed(1)), fmt(p.medianNoopsPerWin, (v) => v.toFixed(1)),
+        trainingSignedDelta(p.medianNoopsPerWin, b.medianNoopsPerWin, (d) => trainingSignedNumber(d, 1)),
+        fmt(cd.medianNoopsPerWin, (v) => v.toFixed(1)), fmt(ncd.medianNoopsPerWin, (v) => v.toFixed(1))] },
+      { cells: ['flags per 3BV', fmt(b.medianFlagsPer3bv, (v) => v.toFixed(2)), fmt(p.medianFlagsPer3bv, (v) => v.toFixed(2)),
+        trainingSignedDelta(p.medianFlagsPer3bv, b.medianFlagsPer3bv, (d) => trainingSignedNumber(d, 2)),
+        fmt(cd.medianFlagsPer3bv, (v) => v.toFixed(2)), fmt(ncd.medianFlagsPer3bv, (v) => v.toFixed(2))] },
+      { cells: ['flag\u2192chord gap', fmt(b.medianFlagChordGapMs, (v) => Math.round(v) + ' ms'),
+        fmt(p.medianFlagChordGapMs, (v) => Math.round(v) + ' ms'),
+        trainingSignedDelta(p.medianFlagChordGapMs, b.medianFlagChordGapMs, trainingSignedMs),
+        fmt(cd.medianFlagChordGapMs, (v) => Math.round(v) + ' ms'),
+        fmt(ncd.medianFlagChordGapMs, (v) => Math.round(v) + ' ms')] },
+      { cells: ['move gap', fmt(b.medianMoveGapMs, (v) => Math.round(v) + ' ms'),
+        fmt(p.medianMoveGapMs, (v) => Math.round(v) + ' ms'),
+        trainingSignedDelta(p.medianMoveGapMs, b.medianMoveGapMs, trainingSignedMs),
+        fmt(cd.medianMoveGapMs, (v) => Math.round(v) + ' ms'),
+        fmt(ncd.medianMoveGapMs, (v) => Math.round(v) + ' ms')] },
+      { cells: ['left hard work per win', fmt(b.meanLeftHardWorkPerWin, (v) => v.toFixed(2)),
+        fmt(p.meanLeftHardWorkPerWin, (v) => v.toFixed(2)),
+        trainingSignedDelta(p.meanLeftHardWorkPerWin, b.meanLeftHardWorkPerWin, (d) => trainingSignedNumber(d, 2)),
+        fmt(cd.meanLeftHardWorkPerWin, (v) => v.toFixed(2)), fmt(ncd.meanLeftHardWorkPerWin, (v) => v.toFixed(2))] },
+      { cells: ['games reaching 20 s won', fmt(b.runConversion, trainingPercent), fmt(p.runConversion, trainingPercent),
+        trainingSignedDelta(p.runConversion, b.runConversion, (d) => trainingSignedNumber(d * 100, 1) + ' pp'),
+        fmt(cd.runConversion, trainingPercent), fmt(ncd.runConversion, trainingPercent)] },
+      { cells: ['avoidable losses past 20 s', fmt(b.avoidableShare, trainingPercent), fmt(p.avoidableShare, trainingPercent),
+        trainingSignedDelta(p.avoidableShare, b.avoidableShare, (d) => trainingSignedNumber(d * 100, 1) + ' pp'),
+        fmt(cd.avoidableShare, trainingPercent), fmt(ncd.avoidableShare, trainingPercent)] },
+    ];
+    nodes.push(trainingTable(
+      [{ text: 'Standard Expert measure' }, { text: 'pre-coach' }, { text: 'post-coach' },
+        { text: 'change' }, { text: 'coach days' }, { text: 'non-coach days' }],
+      transferRows,
+      [1, 2, 3, 4, 5],
+    ));
+  }
+
+  if (stateSamples.totalSampledGames > 0) {
+    nodes.push(trainingElement('h3', 'training-coach-subhead',
+      'Sampled state vs Standard Expert (' + stateSamples.totalSampledGames + ' sampled games)'));
+    const stateRows = [...stateSamples.byFocus, ...stateSamples.byPace].map((row) => ({
+      cells: [
+        row.label,
+        String(row.games),
+        String(row.wins),
+        row.median3bvPerS === null ? '\u2013' : row.median3bvPerS.toFixed(2),
+        row.medianIoe === null ? '\u2013' : row.medianIoe.toFixed(2),
+        row.runConversion === null ? '\u2013' : trainingPercent(row.runConversion) + ' of ' + row.runs,
+      ],
+    }));
+    nodes.push(trainingTable(
+      [{ text: 'state sample' }, { text: 'games' }, { text: 'wins' }, { text: 'median 3BV/s' },
+        { text: 'median IOE' }, { text: 'games reaching 20 s won' }],
+      stateRows,
+      [1, 2, 3, 4, 5],
+    ));
+  }
+
+  content.replaceChildren(...nodes);
+}
+
 function renderTraining(summary) {
   renderTrainingNow(summary);
   renderTrainingStages(summary);
+  renderTrainingCoach(summary);
   renderTrainingBudget(summary);
   renderTrainingOpenings(summary);
   renderTrainingWeeks(summary);
   renderTrainingStates(summary);
-  for (const id of ['training-now', 'training-stages', 'training-budget', 'training-openings', 'training-weeks', 'training-states']) {
+  for (const id of ['training-now', 'training-stages', 'training-coach', 'training-budget', 'training-openings', 'training-weeks', 'training-states']) {
     document.getElementById(id).hidden = false;
   }
   const at = new Date();
-  showTrainingStatus('Computed from ' + summary.games + ' saved Expert games at '
-    + String(at.getHours()).padStart(2, '0') + ':' + String(at.getMinutes()).padStart(2, '0')
+  showTrainingStatus('Computed from ' + summary.games + ' saved Expert games'
+    + (summary.coaching.practice.totalGames > 0
+      ? ' and ' + summary.coaching.practice.totalGames + ' Coach practice games' : '')
+    + ' at ' + String(at.getHours()).padStart(2, '0') + ':' + String(at.getMinutes()).padStart(2, '0')
     + '. Reload after playing to update.', false);
 }

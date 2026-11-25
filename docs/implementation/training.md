@@ -9,8 +9,9 @@ Specification: [docs/product/training.md](../product/training.md).
 | `training.html` | page shell, the plan's static text, section containers |
 | `training.css` | page layout; `style.css` still supplies the base font and the shared `.return-to-game` dress |
 | `training-page.js` | renderer; defines `userdataReady` / `storageFailure` for `storage.js`; starts `training-worker.js` and `switch-cost-worker.js` in parallel |
-| `training-worker.js` | reads IndexedDB, replays Expert games, posts the training summary |
-| `training-core.js` | pure measurements (`TrainingCore`), loaded by the worker and by Node tests |
+| `training-worker.js` | reads IndexedDB (`30x16/99@standard` and all `@coach-*` records), replays Expert games, posts the training summary |
+| `training-core.js` | pure measurements (`TrainingCore`), loaded by the worker and by Node tests; delegates coaching summaries to `coach.js` |
+| `coach.js` | pure coaching engine (`Coach`): live detectors plus `summarizePractice`, `summarizeTransfer`, `summarizeStateSamples`, and `diagnoseRecommendation` |
 | `switch-cost-worker.js` | reads flagged standard records & traces from IndexedDB, filters short-range `flag`/`chord` pairs (`<= 2` cells), fits latest & earlier 500 windows |
 | `switch-cost.js` | pure switch-cost transition extractor, short-range filter, P1 OLS fit (`msPerSwitchLow`/`High`), and two-sample `compare` |
 

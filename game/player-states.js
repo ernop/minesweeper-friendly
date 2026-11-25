@@ -31,6 +31,82 @@ const statesOptions = document.getElementById('states-options');
 const statesAddForm = document.getElementById('states-add-form');
 const statesAddInput = document.getElementById('states-add-input');
 const statesStatus = document.getElementById('states-status');
+const stateSampleFocus = document.getElementById('state-sample-focus');
+const stateSamplePace = document.getElementById('state-sample-pace');
+const stateSampleClear = document.getElementById('state-sample-clear');
+
+const STATE_FOCUS_TITLES = {
+  1: '1 foggy',
+  2: '2 sluggish',
+  3: '3 steady',
+  4: '4 sharp',
+  5: '5 locked in',
+};
+
+function freshStateCheckIn(nowMs = Date.now()) {
+  const sample = settings.stateCheckIn;
+  if (sample === null) return null;
+  if (nowMs - sample.sampledAt > Coach.STATE_SAMPLE_MAX_AGE_MS) return null;
+  return sample;
+}
+
+function activeStateSample(endedAt = Date.now()) {
+  const sample = freshStateCheckIn(endedAt);
+  return sample === null ? undefined : { sampledAt: sample.sampledAt, focus: sample.focus, pace: sample.pace };
+}
+
+function formatStateCheckIn(sample) {
+  const parts = [];
+  if (sample.focus !== null) parts.push('focus ' + sample.focus + '/5');
+  if (sample.pace !== null) parts.push(sample.pace);
+  return parts.join(' \u00b7 ');
+}
+
+function setStateCheckInPart(patch) {
+  const current = freshStateCheckIn(Date.now());
+  const nextFocus = Object.hasOwn(patch, 'focus') ? patch.focus : (current === null ? null : current.focus);
+  const nextPace = Object.hasOwn(patch, 'pace') ? patch.pace : (current === null ? null : current.pace);
+  const next = nextFocus === null && nextPace === null
+    ? null
+    : { sampledAt: Date.now(), focus: nextFocus, pace: nextPace };
+  updateSettings({ stateCheckIn: next });
+  renderStateSampleControls();
+  renderPlayContext();
+  renderCoachStatePrompt();
+}
+
+function renderStateSampleControls() {
+  const sample = freshStateCheckIn(Date.now());
+  stateSampleFocus.replaceChildren(...Coach.STATE_FOCUS_LEVELS.map((level) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ui-button state-sample-btn';
+    btn.textContent = String(level);
+    btn.title = STATE_FOCUS_TITLES[level];
+    const pressed = sample !== null && sample.focus === level;
+    btn.setAttribute('aria-pressed', String(pressed));
+    btn.addEventListener('click', () => setStateCheckInPart({ focus: pressed ? null : level }));
+    return btn;
+  }));
+  stateSamplePace.replaceChildren(...Coach.STATE_PACE_CHOICES.map((pace) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ui-button state-sample-btn';
+    btn.textContent = pace;
+    const pressed = sample !== null && sample.pace === pace;
+    btn.setAttribute('aria-pressed', String(pressed));
+    btn.addEventListener('click', () => setStateCheckInPart({ pace: pressed ? null : pace }));
+    return btn;
+  }));
+  stateSampleClear.hidden = sample === null;
+}
+
+stateSampleClear.addEventListener('click', () => {
+  updateSettings({ stateCheckIn: null });
+  renderStateSampleControls();
+  renderPlayContext();
+  renderCoachStatePrompt();
+});
 
 // The states on are facts about this session, so they show as tags in the
 // play context line after the measured music state, never as buttons.
@@ -39,7 +115,9 @@ const statesStatus = document.getElementById('states-status');
 // field at the bottom creates a new one.
 function renderStates() {
   renderPlayContext();
+  renderStateSampleControls();
   renderStatesMenu();
+  renderCoachStatePrompt();
 }
 
 function renderPlayContext() {
@@ -50,6 +128,14 @@ function renderPlayContext() {
     item.textContent = state.name;
     return item;
   });
+  const sample = freshStateCheckIn(Date.now());
+  if (sample !== null) {
+    const item = document.createElement('span');
+    item.className = 'context-item';
+    item.title = 'Your quick state sample, stamped onto games finished within 45 minutes';
+    item.textContent = formatStateCheckIn(sample);
+    items.push(item);
+  }
   playContext.replaceChildren(musicStateItem, ...items);
 }
 
@@ -137,7 +223,8 @@ document.addEventListener('keydown', (event) => {
 // row from the menu by the time the click reaches the document.
 document.addEventListener('click', (event) => {
   const path = event.composedPath();
-  if (!statesMenu.hidden && !path.includes(statesMenu) && !path.includes(statesEditBtn)) {
+  if (!statesMenu.hidden && !path.includes(statesMenu)
+      && !path.includes(statesEditBtn) && !path.includes(coachCheckInBtn)) {
     setStatesMenuOpen(false);
   }
 });

@@ -14,7 +14,7 @@ is to know and define "solvable" (`GuardianAngel.DEDUCTION_LEVELS`) are in
 [docs/product/design-axis.md](docs/product/design-axis.md).
 
 Runtime: `index.html` + `style.css` load `storage.js`; pure `rng.js` /
-`guardian-angel.js` / `board-shape.js` / `zini.js` / `board-metrics.js`;
+`guardian-angel.js` / `coach.js` / `board-shape.js` / `zini.js` / `board-metrics.js`;
 `board-metrics-ui.js` (historical backfill in `board-metrics-worker.js`); pure
 `endgame.js` / `solver.js` / `generators.js` / `pregen.js` / `odds.js` /
 `trial.js`; shared `game-data.js` / `during-game.js` (pure, the during-the-game
@@ -98,6 +98,7 @@ Files, in load order:
 | `layout.js` | board position solver, wiring, and editor; zoom and pixel ratio; docked columns; clearance |
 | `play.js` | top panel (LCDs, face), generator glue and Generator menu, new-game flow, reveal/flag/chord, win/loss, Guardian Angel |
 | `play-modes.js` | other modes menu, mode predicates and labels; 3BV countdown (the code's "pregen"), Endgame drill, Board lab, trials on the live board |
+| `coach.js` | coaching practice modes (`coach-no-waste`, `coach-early-bail`, `coach-scan-shield`, `coach-full`): `#coach-bar`, live cell cues, off-frame Early bail & blind-spot timers, Scan shield reveal guard, wrong-flag brake, slow-pattern bookmarks, and post-game recap with replay jumps |
 | `play-limits.js` | daily play limits: the play spans (every saved one; this tab's begin, heartbeat, and ending), the closed-board gate and notice, the no-flags penalty gate, today's use in the top bar |
 | `evaluation.js` | game-end evaluation: pure verdict model; the game-end judgment of the saved decisions (run in the reports worker); raw capture at the click |
 | `results.js` | the saved record (`reportResult`, then `completeGameRecord` with the worker's judgment), after-game report, result view, High scores view; the openers (a title that opens and closes its block, remembered in `settings.panels`) |

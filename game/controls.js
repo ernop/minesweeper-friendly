@@ -83,6 +83,7 @@ function joinChordGesture() {
 function recordNoOp(index, reason) {
   noOpClicks++;
   recordActionEvaluation(captureNoOpAction(index, reason), 'continued');
+  coachOnNoOp(index, reason);
 }
 
 // A right press on an open cell that ended without a left press joining it
@@ -93,12 +94,17 @@ function settlePendingRightPress() {
   pendingRightPress = null;
   noOpClicks++;
   recordActionEvaluation(evaluation, 'continued');
+  coachOnNoOp(evaluation.selected[0], evaluation.evidence.reason);
 }
 
 function flagCell(index) {
-  const actionEvaluation = captureFlagAction(index, cells[index].flagged);
+  const wasFlagged = cells[index].flagged;
+  if (!wasFlagged && coachActive()) coachBeforeAction('flag', index);
+  const actionEvaluation = captureFlagAction(index, wasFlagged);
   toggleFlag(index, actionEvaluation);
   recordActionEvaluation(actionEvaluation, 'continued');
+  if (wasFlagged) coachOnFlagRemoved();
+  else coachOnFlagPlaced(index);
 }
 
 function rightPress(event) {
@@ -109,6 +115,10 @@ function rightPress(event) {
   // A refused input is never traced, as while a board is closed.
   if (!leftDown && !cells[index].revealed && !cells[index].flagged && flagPlacementBlocked()) {
     showFlagRefused();
+    return;
+  }
+  if (!leftDown && !cells[index].revealed && !cells[index].flagged && coachFlagBudgetBlocks()) {
+    coachOnFlagBudgetRefused();
     return;
   }
   settlePendingRightPress();
@@ -164,10 +174,12 @@ boardElement.addEventListener('mouseup', (event) => {
   if (index === null) return;
   if (trialBlocksPlay() || boardLabActive() || playLimitBlocksStart()
       || gameState === 'won' || gameState === 'lost') return;
+  const cell = cells[index];
+  // Scan shield intercepts an unproven reveal before tracing or killing the board.
+  if (!chordGesture && !cell.revealed && !cell.flagged && coachInterceptReveal(index)) return;
   // Logged before acting so a game-ending click is inside its own trace.
   const logged = traceEvent('lup', event, index);
   inputActionCount++;
-  const cell = cells[index];
   if (chordGesture) {
     logged.chordGesture = true;
     if (cell.revealed) chordFromNumber(index);

@@ -19,6 +19,8 @@ function reportResult(outcome, endedAt = Date.now()) {
   const shape = computeBoardShape();
   const mineAt = cells.map((cell) => cell.mine);
   const timeMs = Math.round(finalTimeMs);
+  const stateSample = activeStateSample(endedAt);
+  const coach = coachRecordForGame(endedAt);
   const record = {
     endedAt: endedAt,
     ...observedTimeZone(endedAt),
@@ -38,6 +40,8 @@ function reportResult(outcome, endedAt = Date.now()) {
     mousePathPx: DuringGame.cursorTravelPx({ timeMs, t: trace.t, x: trace.x, y: trace.y,
       merged: liveMergedObservations(), events: trace.events }),
     states: activeStateNames(),
+    ...(stateSample !== undefined ? { stateSample } : {}),
+    ...(coach !== undefined ? { coach } : {}),
     guardianAngelEnabled: guardianAngelEnabledForGame,
     seed: gameSeed,
     ...(firstRevealIndex !== null ? { firstRevealIndex } : {}),
@@ -956,6 +960,7 @@ function buildGameStats(record) {
     // The states row appears only when the game carries at least one state
     // tag; a tagless game shows nothing rather than an empty row.
     ...(record.states.length > 0 ? [['States', record.states.join(', ')]] : []),
+    ...(record.stateSample !== undefined ? [['State sample', formatStateCheckIn(record.stateSample)]] : []),
     ...(record.musicPlaying !== undefined
       ? [['Music', record.musicPlaying ? 'playing' : 'none']] : []),
     ...(record.flagsBlocked ? [['Flags', 'blocked by a daily limit']] : []),
@@ -1089,15 +1094,17 @@ async function renderResultAsync(record, modeRecords, options = {}) {
   else if (options.reviewList !== undefined) setOldGameSummary(record, options.reviewList);
   else resultSummary.textContent = '';
   const historyView = options.historyView === true;
+  const coachRecap = !historyView ? buildCoachRecap(record) : null;
   const verdicts = !historyView && settings.reportScope !== 'none' ? buildVerdictBlocks(record) : null;
-  if (verdicts === null) {
-    resultAnalysis.replaceChildren();
-  } else {
+  const analysisNodes = [];
+  if (coachRecap !== null) analysisNodes.push(coachRecap);
+  if (verdicts !== null) {
     const { section, body } = buildStatSection('resultAnalysis', 'after-game report');
     section.classList.add('result-analysis-section');
     body.appendChild(verdicts);
-    resultAnalysis.replaceChildren(section);
+    analysisNodes.push(section);
   }
+  resultAnalysis.replaceChildren(...analysisNodes);
   const gameStats = settings.shownThings.gameStats && (record.outcome !== 'win'
     || (Trial.isPlayMode(settings.playMode) && !historyView)) ? buildGameStats(record) : null;
 

@@ -60,6 +60,36 @@ body.training-page .return-to-game {
   font-weight: 600;
 }
 
+.training-coach-rec {
+  padding: 12px 14px;
+  border: 2px solid #417ca4;
+  border-radius: 6px;
+  background: #eef5fb;
+  margin-bottom: 14px;
+}
+
+.training-coach-rec p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.training-coach-rec-title {
+  font-weight: 700;
+  margin-bottom: 4px !important;
+}
+
+.training-coach-subhead {
+  margin: 18px 0 8px !important;
+  font-size: 16px;
+}
+
+.training-coach-verdict {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .training-section {
   margin: 0 0 18px;
   padding: 18px 22px 20px;

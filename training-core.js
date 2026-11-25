@@ -7,6 +7,10 @@
 // Node. The solver placement, seeded random stream, and fatal-status
 // classifier are passed in, so every result depends only on its arguments.
 
+if (typeof module !== 'undefined' && module.exports && typeof Coach === 'undefined') {
+  globalThis.Coach = require('./coach.js');
+}
+
 const TRAINING_KEY = '30x16/99@standard';
 const TRAINING_BOARD = { width: 30, height: 16, mines: 99 };
 const TRAINING_GOAL_MS = 60000;
@@ -626,7 +630,7 @@ function trainingStageStatus(values, sampleSizes) {
 
 // The whole training summary. `winTraces` holds, for each of the latest
 // wins (oldest first), its saved trace or undefined when none was saved.
-function trainingSummary(records, winTraces, deps) {
+function trainingSummary(records, winTraces, deps, coachRecords = []) {
   const sorted = [...records].sort((a, b) => a.endedAt - b.endedAt);
   const wins = sorted.filter((r) => r.outcome === 'win');
   const recentWins = wins.slice(-TRAINING_RECENT_WINS);
@@ -686,6 +690,19 @@ function trainingSummary(records, winTraces, deps) {
     weeks: trainingWeeks(sorted, deps.fatalKindOf),
     openings: trainingOpenings(sorted, deps),
     stateComparisons: trainingStateComparisons(sorted, deps.fatalKindOf),
+    coaching: {
+      practice: Coach.summarizePractice(coachRecords),
+      transfer: Coach.summarizeTransfer(sorted, coachRecords, {
+        bvPerSecond,
+        ioeOf,
+        fatalKindOf: deps.fatalKindOf,
+      }),
+      stateSamples: Coach.summarizeStateSamples(sorted, {
+        bvPerSecond,
+        ioeOf,
+        fatalKindOf: deps.fatalKindOf,
+      }),
+    },
   };
 }
 

@@ -12,7 +12,7 @@ function analysisFailure(error) {
 
 // Each lane is one worker computing on data the page sends.
 function startAnalysisWorker() {
-  return new Worker('analysis-worker.js?v=20261125-session-opt-a');
+  return new Worker('analysis-worker.js?v=20261125-coach-m1');
 }
 
 async function analysisTask(lane, kind, payload) {

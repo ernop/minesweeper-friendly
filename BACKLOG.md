@@ -8,49 +8,24 @@ leave new ideas only in chat.
 Status labels: **creator** = the creator asked for it; **mapped** = named
 on the design axis or in a research note, not requested as a build.
 
-## Live coaching modes and in-game detectors (creator idea 2026-11-25)
+## Live coaching modes follow-ons (initial test versions built 2026-11-25)
 
-Creator direction (2026-11-25): consciously design targeted training programs
-for measured gaps and slownesses rather than grinding standard games on
-autopilot, including "modified game" practice/training variants (separate from
-official Standard runs) where a live detector acts like a coach teaching one
-behavior at a time (e.g., jumping nearby earlier when local work turns slow).
-Grounded in the 12,718-game back-review and pro-replay comparison in
-[reference/deep-performance-review-2026-11-25.md](reference/deep-performance-review-2026-11-25.md),
-which showed that passive post-game stats and a separate drill page left live
-habits unchanged across 2,700+ subsequent Expert games.
+Test versions of the four live coaching modes (`Coach: No-waste`,
+`Coach: Early bail`, `Coach: Scan shield`, `Coach: Full mix`), quick state
+sampling (Focus 1–5 + Pace inside `edit states`), slow overlap-pattern
+bookmarking with replay jumps, and Standard Expert transfer tracking on
+`training.html` are built ([Play modes](docs/product/play-modes.md),
+[Training](docs/product/training.md)). Remaining follow-ons:
 
-Proposed practice variants (unranked, worker-isolated so gameplay input is
-never blocked; awaiting creator selection of which to build first):
-
-- **creator** — **Early-Bail Coach** (local slowdown detector): when local
-  counting moves run out (only overlap/hard deduction remains within 2 squares)
-  and easy counting-safe moves exist elsewhere, trigger a gentle cue / target
-  highlight after ~450 ms of hesitation so the player builds the fast bailout
-  reflex instead of lingering >= 500 ms before jumping (measured 3-click tempo:
-  1,062 ms fast jump vs 1,198 ms stay vs 1,666 ms linger-then-jump).
-- **mapped** — **No-Waste Coach**: live subtle cue on test-chords and
-  finished-number no-ops; post-click amber mark on 1-cell-only flags and
-  opening-rim 1-cell chords; optional per-board flag budget (e.g., 45 -> 30 on
-  Expert, or pure NF Intermediate intervals); live `% 1.5-clicked` meter for
-  `flag -> chord` pairs.
-- **mapped** — **Lookahead & Blind-Spot Pacer**: live `% queued moves launched
-  within <= 50 ms` (currently 38.7% vs 85.7% in 4.5+ 3BV/s pros) and a cue when
-  a gap exceeds 500 ms while a counting-safe move sits within 2 squares of the
-  cursor.
-- **mapped** — **Scan-Before-Guess & Wrong-Flag Brake (Practice Shield)**: in
-  practice games, catch unproven clicks when an easy counting-safe move exists
-  elsewhere on the board (flashing the missed safe square instead of ending the
-  run; targets 21% of late Expert deaths), and warn immediately on provably
-  contradictory flags before a < 500 ms chord kills the run (targets 50% of
-  late Expert deaths).
-- **mapped** — **Weak-Pattern Auto-Bookmark**: during practice games, bookmark
-  exact positions where the player hesitates > 450 ms on fresh `1-2` interior,
-  `1-1` interior, or `overlap-chain` patterns into a 2-minute post-session
-  rotated/mirrored flashcard set.
-- **mapped** — **Opening & Session Guardrails**: subtle `Space = new board` cue
-  on numbered corner starts, a short reset prompt after > 15 s losses, and a
-  60–75 minute session cap before the measured 90-minute fatigue drop.
+- **mapped** — **Weak-Pattern Flashcard Export:** turn captured `>= 450 ms`
+  overlap-pattern bookmarks (`1-2 interior`, `1-1 interior`, `overlap chain`)
+  into a 2-minute rotated/mirrored flashcard set on `problems.html`.
+- **mapped** — **Session Guardrails:** optional short reset prompt after
+  `> 15 s` losses (addressing the 1.5 s snap-restart conversion drop) and a
+  60–75 minute session reminder before the measured 90-minute fatigue drop.
+- **mapped** — **Coach Mode Calibration:** once 10+ post-coach Standard Expert
+  wins accumulate, evaluate transfer deltas on `training.html` and refine
+  detectors, thresholds, or cue strength based on measured Standard gains.
 
 ## Live perf charts follow-ons (creator request 2026-10-15; base built the same day)
 
