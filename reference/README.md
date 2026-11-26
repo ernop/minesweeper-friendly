@@ -2,6 +2,14 @@
 
 Research notes and external references. Index: [AGENTS.md](../AGENTS.md).
 
+- `reference/mind-map-and-coach-eval-2026-11-25.md` — follow-up empirical
+  audit of `12,752` games (`450` traced wins across Beginner/Intermediate/Expert
+  plus `23` initial Coach games): weekly top-3 3BV/s peaks, physical vs. habit
+  breakdown of Coach no-ops, cross-size technique/pattern speed map,
+  exhaustive `4/5/6/7` skip and hover audit, trace-derived visual-check and
+  frustration signals, rigorous No-Mark sharpening check (`N=2` on long Int/Exp
+  blocks), and skill-acquisition literature synthesis (Blocked→Interleaved,
+  Kellman PLMs, Mettler & Kellman ARTS).
 - `reference/deep-performance-review-2026-11-25.md` — full back-review of
   12,718 saved games, 229 traced Expert wins, 111 recent late Expert losses,
   and 329 saolei.wang pro replays (up to 5.99 3BV/s): three-month plateau

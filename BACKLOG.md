@@ -15,8 +15,48 @@ Test versions of the four live coaching modes (`Coach: No-waste`,
 sampling (Focus 1–5 + Pace inside `edit states`), slow overlap-pattern
 bookmarking with replay jumps, and Standard Expert transfer tracking on
 `training.html` are built ([Play modes](docs/product/play-modes.md),
-[Training](docs/product/training.md)). Remaining follow-ons:
+[Training](docs/product/training.md)). Empirical follow-up and skill-acquisition
+research: [reference/mind-map-and-coach-eval-2026-11-25.md](reference/mind-map-and-coach-eval-2026-11-25.md).
+Remaining follow-ons:
 
+- **creator** — **Cross-Size Trace Mind-Map & Technique Profiler:** build a
+  live diagnostic (on `training.html` / trace worker) pooling **Beginner,
+  Intermediate, and Expert** traces to map the player's thinking and exact
+  per-technique latencies across games, sessions, and days — covering ~20–30
+  explicit solving techniques (straight-edge `1-2-1` / `1-2-2-1`, wall vs
+  interior `1-2` / `1-1`, counting-noflag vs after-flag, fresh vs partial
+  exhaustive `4/5/6/7`, overlap chains), abandoned frontier visual-check hovers,
+  approach-and-abort cursor reversals, physical-miss vs habit no-op split, and
+  frustration/post-no-op slowdown.
+- **creator** — **Sub-Board Focused Pattern Trainer + 100-Game Intermediate
+  Transfer Test:** drill one chosen weak pattern/variant intensely across ~100
+  very small cluttered boards (rotations, reflections, partial flags, distractor
+  neighbors; blocked-to-interleaved progression with ARTS response-time
+  sequencing retiring items only below target RT, e.g. `< 300 ms`), paired with
+  an automated before/after comparison of *that exact pattern's* in-game latency
+  and skip rate across `100` Intermediate games to verify transfer. Priority
+  starter patterns: partial exhaustive `4/5/6/7`, `flag-1-2-interior`, and
+  straight-edge `1-2-1` / `1-2-2-1`.
+- **creator** — **Shield Mode `+20 s` Discipline Time-Penalty & Exhaustive
+  `4/5/6/7` Rule:** evolve `Coach: Scan shield` so it still protects from dying,
+  **but adds a configurable time penalty (default `+20 s`)** for violating
+  selected discipline rules — jumping far away while easy local moves or an
+  exhaustively ready `4/5/6/7` remain unhandled, or guessing past a proven-safe
+  square — plus dedicated training for fast recognition of partially-flagged
+  exhaustive `4/5/6/7`s.
+- **creator** — **Early Bail Redesign (No Target-Cell Hints):** remove/replace
+  target-cell highlighting in `Coach: Early bail`; once the trace mind-map
+  identifies the player's actual decision points and hesitation patterns, coach
+  those decision transitions without telling the player which squares to click.
+- **creator** — **No-Mark Sharpening Experiment Protocol:** run alternating
+  tagged blocks (`15–20 min` Intermediate no-mark warmup via `Coach: No-waste`
+  with `Flag cap = 0` vs no warmup) before flagged Expert sessions and score
+  Expert 3BV/s, IOE, and late conversion in `training.html` (historical `N = 2`
+  on long Int/Exp blocks).
+- **creator** — **Weekly Top-3 3BV/s Peak Chart on `training.html`:** track
+  weekly `average(fastest 3 wins)` alongside weekly median per level (marking
+  low-volume weeks `< 10` wins) so upper-tail breakthroughs stay visible even
+  when medians look flat.
 - **mapped** — **Weak-Pattern Flashcard Export:** turn captured `>= 450 ms`
   overlap-pattern bookmarks (`1-2 interior`, `1-1 interior`, `overlap chain`)
   into a 2-minute rotated/mirrored flashcard set on `problems.html`.

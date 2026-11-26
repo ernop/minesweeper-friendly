@@ -475,6 +475,34 @@ player state.
      a `stateSample` by sampled focus (`1/5`–`5/5`) and pace (`calm`,
      `flowing`, `rushed`, `tilted`).
 
+### Next training architecture (creator direction 2026-11-25; not yet built)
+
+Following the initial day of Coach-mode testing and empirical trace audit
+([reference/mind-map-and-coach-eval-2026-11-25.md](../../reference/mind-map-and-coach-eval-2026-11-25.md)),
+the creator set three connected training directions (tracked in
+[BACKLOG.md](../../BACKLOG.md)):
+
+1. **Cross-size cognitive mind-map & technique profiler:** map how the player
+   thinks from mouse traces, clicks, and board states — inferring visual checks
+   (abandoned frontier hovers), mid-flight cursor reversals, frustration/burst
+   no-op slowdown, and exact per-technique latency (`flag-1-2-interior`,
+   `flag-edge-1-2-1`, `partial exhaustive 4/5/6/7`, etc.) pooled across
+   **Beginner, Intermediate, and Expert** so sub-move measurements accumulate
+   high sample counts comparable across games, sessions, and days.
+2. **Concentrated sub-board focused pattern practice + transfer test:** drill a
+   specific rare or weak pattern/variant intensely on many very small boards
+   (e.g. `100` mini-boards with rotations, reflections, partial flags, and
+   realistic border clutter, sequenced by response time and accuracy via
+   Perceptual Learning Module / ARTS principles) until automatic, then play
+   `100` full Intermediate games and compare speed on *that exact pattern*
+   before versus after to verify whether concentrated practice transfers into
+   real play.
+3. **Controlled No-Mark sharpening experiment:** test the creator's observation
+   that `15–20 min` of Intermediate/Expert no-mark play when playing fast-but-
+   sloppy sharpens subsequent flagged Expert play (historically `N = 2` long
+   Int/Exp blocks), using alternating tagged blocks evaluated by
+   `training.html`'s paired-block rule (or `Coach: No-waste` with `Flag cap = 0`).
+
 ## Not built
 
 Follow-ons are in [BACKLOG.md](../../BACKLOG.md) under "Training toward

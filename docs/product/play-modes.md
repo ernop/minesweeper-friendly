@@ -277,3 +277,21 @@ odds either completed independently or remained explicitly unmeasured.
     none was recorded within 30 minutes (opening the existing `edit states`
     menu), and shows a post-game **Coach recap** with clickable moment buttons
     that jump the replay directly to each captured event.
+  - **Planned revisions (creator direction 2026-11-25; not yet built — tracked
+    in [BACKLOG.md](../../BACKLOG.md)):**
+    - **Early bail must not tell the player which squares to click.** Before
+      redesigning Early bail cues, first build the trace-based cognitive and
+      technique model that infers which solving techniques the player uses,
+      where the player is looking/checking, and how fast each technique runs;
+      then refine those actual decision points rather than highlighting target
+      cells.
+    - **Scan shield discipline penalty:** evolve Shield mode so it still
+      protects the player from dying, **but adds a configurable time penalty
+      (e.g. `+20 s`)** for violating chosen discipline rules — such as jumping
+      far away past easy local moves, leaving exhaustively ready `4/5/6/7`
+      numbers unflagged while doing unrelated work, or guessing past a safe
+      move.
+    - **Exhaustive high-number (`4/5/6/7`) priority:** treat an exhaustively
+      complete high number (including partially flagged ones whose remaining
+      unflagged covered neighbors equal remaining mines) as a mandatory
+      immediate local action in discipline/shield drills.
