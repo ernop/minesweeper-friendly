@@ -2,6 +2,7 @@
 
 Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation notes: [docs/implementation/training.md](../implementation/training.md).
 Evidence and the measured diagnosis: [reference/expert-speed-training-2026-09-26.md](../../reference/expert-speed-training-2026-09-26.md).
+Long-term sub-60 iteration program (2026-11-25): [reference/sub60-iteration-program-2026-11-25.md](../../reference/sub60-iteration-program-2026-11-25.md).
 
 User request (2026-09-26): "I want to get my minesweeper skill way up, til I
 can break sub 60s for expert. Can you please make a plan and training system

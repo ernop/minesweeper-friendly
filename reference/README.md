@@ -2,6 +2,12 @@
 
 Research notes and external references. Index: [AGENTS.md](../AGENTS.md).
 
+- `reference/sub60-iteration-program-2026-11-25.md` — master long-term
+  research, development, practice, and experiment program consolidating the
+  2026-11-25 performance review, mind-map audit, shipped Phase 0 tools, Tracks
+  A–D (mind-map deepening, sub-board PLM/ARTS pattern trainer + 100-game
+  Intermediate transfer harness, Shield `+20 s` & slow-pattern Early Bail,
+  paired human-performance experiments), and the `/goal` iteration check-in loop.
 - `reference/mind-map-and-coach-eval-2026-11-25.md` — follow-up empirical
   audit of `12,752` games (`450` traced wins across Beginner/Intermediate/Expert
   plus `23` initial Coach games): weekly top-3 3BV/s peaks, physical vs. habit
