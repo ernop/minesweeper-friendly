@@ -38,6 +38,27 @@
         "switchToExpertMs": 32,
         "afterGameFreezeMs": 210
       }
+    },
+    "cloud-vm": {
+      "note": "2-vCPU Ubuntu 24.04 cloud agent VM. Set 2026-11-26 just above the worst of five Firefox 157 runs on unchanged runtime (startup 607-675 ms, newGameWork 15-22, newGame 20-30, firstClickWork 5-7, firstClick 8-15, clickWork 3-4, click 17-19, showMineWork 12-17, showMine 20-26, switchToExpertWork 11-14, switchToExpert 15-19, afterGameFreeze 48-56, winClickWork 5-9, winClick 14-20, afterWinFreeze 112-191, expertWinResults 1099-1247). Click time-to-screen budgets keep the two-frame 34 ms cap.",
+      "budgets": {
+        "startupMs": 710,
+        "newGameWorkMs": 26,
+        "newGameMs": 34,
+        "firstClickWorkMs": 9,
+        "firstClickMs": 34,
+        "clickWorkMs": 6,
+        "clickMs": 34,
+        "showMineWorkMs": 20,
+        "showMineMs": 34,
+        "switchToExpertWorkMs": 16,
+        "switchToExpertMs": 22,
+        "afterGameFreezeMs": 65,
+        "winClickWorkMs": 12,
+        "winClickMs": 34,
+        "afterWinFreezeMs": 210,
+        "expertWinResultsMs": 1320
+      }
     }
   }
 }

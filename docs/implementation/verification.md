@@ -277,8 +277,8 @@ and `winClickMs`, the winning click's work and time to screen, and
 `afterWinFreezeMs`, the longest freeze in the two seconds after it (the check
 waits out those two seconds). Unlike the checks above, these are pass thresholds, one set per
 machine (creator request 2026-10-18). `tests/latency-machine.txt`, gitignored,
-holds the label of the machine running the check: `linux-pc` or
-`windows-laptop`. The check stops at once when the file is missing, and any
+holds the label of the machine running the check: `linux-pc`,
+`windows-laptop`, or `cloud-vm`. The check stops at once when the file is missing, and any
 value over that machine's limits under `machines` in
 `tests/latency-budgets.json` fails; each machine's limits must name exactly
 the measured metrics. Limits sit just above the worst of several Firefox runs
@@ -304,6 +304,10 @@ prints one table per machine against its limits.
   It has no `expertWinResultsMs`, `winClickWorkMs`, `winClickMs`, or
   `afterWinFreezeMs` limit yet: the check fails there, printing its
   measurements, until three runs there set them.
+- `cloud-vm`: 2-vCPU Ubuntu 24.04 cloud agent VM, Playwright from
+  `voice-wei/node_modules/playwright-core` and Firefox 157 in
+  `/opt/ms-playwright/firefox-1555/firefox/firefox` (~22 seconds a run).
+  All 16 metrics budgeted on 2026-11-26 from five idle Firefox runs.
 
 Hosting verification (2026-09-26): `python3 tests/hosting-release-test.py`
 checks the committed-runtime artifact. `tests/hosting-browser-check.js` takes
