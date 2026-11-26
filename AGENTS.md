@@ -7,9 +7,9 @@ a task needs.
 ## Project
 
 A minesweeper clone of minesweeper.online's standard mode (same mechanics,
-classic-Windows look), growing toward friendlier variants such as Guardian Angel
+classic-Windows look) with solver-aware variants such as Guardian Angel
 and Angelic play (the no-guess modes were removed 2026-10-21). The
-friendliness axis and the deduction levels that grade how hard each fact
+ambiguity design axis and the deduction levels that grade how hard each fact
 is to know and define "solvable" (`GuardianAngel.DEDUCTION_LEVELS`) are in
 [docs/product/design-axis.md](docs/product/design-axis.md).
 
@@ -199,7 +199,7 @@ the file path, plus the section heading when the file holds several.
 | Area | Product spec | Implementation notes |
 | --- | --- | --- |
 | Public hosting and deployment, play statistics | [docs/product/hosting.md](docs/product/hosting.md) | [docs/implementation/hosting.md](docs/implementation/hosting.md) |
-| Friendliness axis, deduction levels, move hierarchy (how the moves available at any moment are characterized, from proven moves to guesses and output per hour) | [docs/product/design-axis.md](docs/product/design-axis.md) | none |
+| Design axis (ambiguity handling), deduction levels, move hierarchy (how the moves available at any moment are characterized, from proven moves to guesses and output per hour) | [docs/product/design-axis.md](docs/product/design-axis.md) | none |
 | UI doctrine (read before any UI work) | [docs/product/ui-doctrine.md](docs/product/ui-doctrine.md) | none |
 | Board chrome, page layout (game setup rows, top bar, settings row, footer), board position | [docs/product/board-and-layout.md](docs/product/board-and-layout.md) | [docs/implementation/board-and-layout.md](docs/implementation/board-and-layout.md) |
 | Play modes (Angelic, Endgame drill, trials, 3BV countdown, Board lab; the removed no-guess modes) | [docs/product/play-modes.md](docs/product/play-modes.md) | [docs/implementation/play-modes.md](docs/implementation/play-modes.md) |

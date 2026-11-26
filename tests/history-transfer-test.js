@@ -74,7 +74,7 @@ function check(name, condition) {
   // A backup from before 2026-10-27 or 2026-11-23 carries the old field names.
   const source = {
     endedAt: 3, outcome: 'win', clicks: 12, wastedClicks: 1, movesRanOut: 2,
-    justice: 1, justiceEnabled: true, justiceVersion: 'just-universe-v4',
+    justice: 1, justiceEnabled: true, justiceVersion: 'guardian-angel-v4',
     actionEvaluations: [{ version: 'action-evaluation-v1', action: 'reveal', result: 'continued',
       mistakes: [], evidence: { justiceProtected: true } }],
   };
@@ -85,7 +85,7 @@ function check(name, condition) {
   check('old field names import under the current ones',
     record.boardChangingClicks === 12 && record.noOpClicks === 1 && record.movesMovedOn === 2
     && record.guardianAngel === 1 && record.guardianAngelEnabled === true
-    && record.guardianAngelVersion === 'just-universe-v4'
+    && record.guardianAngelVersion === 'guardian-angel-v4'
     && record.actionEvaluations[0].evidence.guardianAngelProtected === true);
   check('old field names are gone', !('clicks' in record || 'wastedClicks' in record || 'movesRanOut' in record
     || 'justice' in record || 'justiceEnabled' in record || 'justiceVersion' in record

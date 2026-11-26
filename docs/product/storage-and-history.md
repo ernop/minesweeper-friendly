@@ -126,9 +126,9 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   renaming are the code a later release deletes. The creator set that
   deletion for 2026-11-05 or any later day (2026-10-29;
   [BACKLOG.md](../../BACKLOG.md), "Record field names: step 2"). The third
-  renames the Guardian Angel record fields (version 8, above) and setting
-  (`justUniverse` to `guardianAngel`); its step 2 is tracked in
-  [BACKLOG.md](../../BACKLOG.md), "Guardian Angel rename: step 2".
+  renames the legacy Guardian Angel record fields (version 8, above); its
+  step 2 cleanup is tracked in [BACKLOG.md](../../BACKLOG.md), "Guardian Angel
+  rename: step 2".
 
 ## Raw input traces (decided 2026-08-20)
 

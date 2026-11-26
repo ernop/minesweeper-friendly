@@ -163,7 +163,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   section's own selectors and the stats panel's drag edge, the other two,
   left with the panel on 2026-10-20 ([Session stats](session-stats.md)).
 - Settings so far: `cellSize` (default 28) — saved Zoom in pixels;
-  `guardianAngel` (default on; named `justUniverse` before 2026-11-23) — a guess that nothing else on the board
+  `guardianAngel` (default on) — a guess that nothing else on the board
   could ever settle never kills you (see
   [Guardian Angel](guardian-angel.md);
   a game freezes the value at its first reveal, so a change made mid-game

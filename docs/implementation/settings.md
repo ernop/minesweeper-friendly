@@ -48,7 +48,7 @@ Spec: [docs/product/settings.md](../product/settings.md). Index: [AGENTS.md](../
   unbroken groups. Each switch from
   `buildSettingRow` is one wide label with its name left, checkbox at the
   far right, and the rare schema `hint` in a dedicated middle column
-  (only `guardianAngel`, named `justUniverse` before 2026-11-23); `describe` remains the name's title tooltip.
+  (only `guardianAngel`); `describe` remains the name's title tooltip.
   `buildChoiceRow` puts its radio group to the right of the setting name.
   A field listed in `CHOICE_PREVIEWS` (`numberDisplay`, `flagStyle`,
   `mineStyle`) also shows each choice as `.cell` squares in a

@@ -14,10 +14,9 @@ Long-term vision (creator direction 2026-11-26):
 
 1. **The world's best play-mode Minesweeper for players:** faithful standard
    mechanics and crisp classic-Windows feel, ultra-low latency, effortless
-   clarity, and thoughtful friendlier variants (the design axis is mapped in
-   [docs/product/design-axis.md](docs/product/design-axis.md); first variant
-   implemented 2026-08-20: "Guardian Angel", named "A just universe" until
-   2026-11-23, [docs/product/guardian-angel.md](docs/product/guardian-angel.md);
+   clarity, and solver-aware play variants (the design axis is mapped in
+   [docs/product/design-axis.md](docs/product/design-axis.md); Guardian Angel
+   is specified in [docs/product/guardian-angel.md](docs/product/guardian-angel.md);
    the earlier no-guess modes were removed 2026-10-21,
    [docs/product/play-modes.md](docs/product/play-modes.md)).
 2. **Integrated intelligence and inventive self-training:** continually
@@ -48,7 +47,7 @@ single-file spec; older references cite them as `PRODUCT.md "Heading"`.
 
 - [docs/product/hosting.md](docs/product/hosting.md) — Independent Fuseki application hosting, browser-origin isolation, release boundaries, and the hosted site's play statistics.
 
-- [docs/product/design-axis.md](docs/product/design-axis.md) — The friendliness axis from naive random to the angelic dual of Kaboom, and the deduction levels (counting, overlap, all numbers, mine total) that grade how hard each fact is to know and define "solvable"; the move hierarchy: how the moves available at any moment are characterized, from proven moves through guesses to the player's output per hour, and what is built at each level.
+- [docs/product/design-axis.md](docs/product/design-axis.md) — The ambiguity design axis from naive random to the angelic dual of Kaboom, and the deduction levels (counting, overlap, all numbers, mine total) that grade how hard each fact is to know and define "solvable"; the move hierarchy: how the moves available at any moment are characterized, from proven moves through guesses to the player's output per hour, and what is built at each level.
 - [docs/product/ui-doctrine.md](docs/product/ui-doctrine.md) — App-wide directives (simplicity first, defaults show nothing extra, global configuration in one place, useful optional help, no hover reflow, unshortened legend labels, layout stability). Read before building or reshaping any surface. Section: "UI doctrine".
 - [docs/product/board-and-layout.md](docs/product/board-and-layout.md) — The classic skin and board chrome, the game setup rows, top bar, settings row, and footer, and the page columns around a board that never moves. Sections: "Board and chrome", "Game setup, top bar, settings row, and footer", "Layout: the board never moves".
 
@@ -56,7 +55,7 @@ single-file spec; older references cite them as `PRODUCT.md "Heading"`.
 
 - [docs/product/play-modes.md](docs/product/play-modes.md) — Choosing a mode (preset links, the other modes menu) and every mode (Standard, Angelic, Endgame drill, trials, 3BV countdown, Board lab) and the removed no-guess modes, with the visible-information solver. Section: "Play modes".
 - [docs/product/board-generators.md](docs/product/board-generators.md) — The Generator menu, each generator, and the top score keys that rankings are stored under. Section: "Board generators and top score keys".
-- [docs/product/guardian-angel.md](docs/product/guardian-angel.md) — A click into a guess that nothing else on the board could ever settle (a boxed-in 50/50 and the like) is safe; open-field gambles and chords stay deadly. Section: "Guardian Angel" (named "A just universe" until 2026-11-23).
+- [docs/product/guardian-angel.md](docs/product/guardian-angel.md) — A click into a guess that nothing else on the board could ever settle (a boxed-in 50/50 and the like) is safe; open-field gambles and chords stay deadly. Section: "Guardian Angel".
 
 ### After a game
 

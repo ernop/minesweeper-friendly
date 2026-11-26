@@ -210,22 +210,18 @@ standardize"), and game data's pool picker since 2026-11-23 (when the
 
 ## Guardian Angel rename: step 2 (step 1 built 2026-11-23)
 
-When "A Just Universe" was renamed to "Guardian Angel" on 2026-11-23
-([Guardian Angel](docs/product/guardian-angel.md)), step 1 added:
-- the database version-8 upgrade (`storage.js`, `RENAMED_RECORD_FIELDS` and
-  `renameRecordFields` renaming `justice`, `justiceEnabled`, `justiceVersion`,
-  and `actionEvaluations[].evidence.justiceProtected` in saved records and the
-  trial session's attempts, plus `cleanTransferredGameRecord` on backup
-  import);
-- the read-time setting migration (`settings-core.js`, reading `justUniverse`
-  when `guardianAngel` is absent).
+When Guardian Angel's legacy record fields (`justice`, `justiceEnabled`,
+`justiceVersion`, `justiceProtected`) were renamed on 2026-11-23
+([Guardian Angel](docs/product/guardian-angel.md)), step 1 added the database
+version-8 upgrade (`storage.js`, `RENAMED_RECORD_FIELDS` and
+`renameRecordFields` in saved records and trial attempts, plus
+`cleanTransferredGameRecord` on backup import). The old setting-name shim was
+deleted 2026-11-26.
 
-Step 2 deletes the version-8 rename shim for the Guardian Angel fields, the
-`justUniverse` setting migration, the "named ... before 2026-11-23" schema
-notes, and their old-name migration tests once active players' browsers have
-loaded step 1 (historical `guardianAngelVersion` stamps `'just-universe-v3'`,
-`'just-universe-v4'`, `'sealed-pocket-mercy-v1'`, `'sealed-pocket-mercy-v2'`
-and the historical `justiceSaves` field stay accepted on existing records).
+Step 2 deletes the version-8 field-rename shim and its old-name migration tests
+once active browsers have loaded step 1 (historical `guardianAngelVersion`
+stamps in `game/history.js` and the historical `justiceSaves` field stay
+accepted on existing records unless rewritten in a one-time upgrade).
 
 ## Legacy panel cleanup: `panels.gameDetails` step 2 (step 1 built 2026-11-19)
 

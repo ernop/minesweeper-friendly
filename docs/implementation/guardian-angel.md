@@ -2,8 +2,8 @@
 
 Spec: [docs/product/guardian-angel.md](../product/guardian-angel.md). Index: [AGENTS.md](../../AGENTS.md).
 
-- Guardian Angel ([Guardian Angel](../product/guardian-angel.md); renamed from
-  "A Just Universe" 2026-11-23): the judge and redraw
+- Guardian Angel ([Guardian Angel](../product/guardian-angel.md)): the judge
+  and redraw
   are `guardian-angel.js` — pure logic on a view {width, height, mines,
   revealed[], adjacent[]} (flags invisible by design), exporting the
   `GuardianAngel` global / CommonJS module, loaded before the `game/` scripts in

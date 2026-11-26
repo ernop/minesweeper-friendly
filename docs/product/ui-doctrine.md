@@ -136,16 +136,12 @@ because they apply app-wide, not just where each was first stated.
   traits) carry no (?) since 2026-10-20 (creator: "remove all three (?)
   buttosn and mouseovers entirely, not replacing orputting the removed text
   anywhere; it merely wil lbe gone."); their rows keep their definitions.
-- Player words only (creator 2026-10-21, of Guardian Angel's settings text
-  "a bare click into a truly unknowable pocket never kills you": "you must
-  rewrite a just univere's text blurb to be more clear about what we do.
-  never use phrases like "pocket" which I haven't approved, with players.").
-  Everything a player can read (labels, hints, tooltips, reports, legends,
-  help pages, the README) uses words a player already knows (square,
-  click, chord, flag, number, mine, guess, 50/50) or a name the creator
-  approved. Terms coined while building ("pocket", "sealed", "certified",
-  "bare click", "sea remnant") stay in code and implementation notes; a new
-  coined term reaches players only with the creator's approval. Text that
+- Player words only: everything a player can read (labels, hints, tooltips,
+  reports, legends, help pages, the README) uses words a player already knows
+  (square, click, chord, flag, number, mine, guess, 50/50) or a name explicitly
+  approved for players. Terms coined while building ("pocket", "sealed",
+  "certified", "bare click", "sea remnant") stay in code and implementation
+  notes; a new coined term reaches players only with approval. Text that
   explains a rule says what happens to the player, in their words, not how
   the code decides it. `tests/player-words-test.js` searches every shipped
   file's prose for the removed terms.

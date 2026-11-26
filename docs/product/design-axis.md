@@ -22,15 +22,11 @@ The design axis mapped so far, ordered by who bears the burden of ambiguity:
 6. Kaboom (pwmarcz.pl/kaboom) — adversarial: mines stay unfixed; any unforced
    guess is a mine, forced guesses are always safe. Unbuilt.
 7. The angelic dual of Kaboom: any guess consistent with your information
-   succeeds; you die only by contradicting known facts. First step
-   implemented 2026-08-20 as "A just universe", renamed 2026-11-23 to "Guardian Angel" ([guardian-angel.md](guardian-angel.md)): clicks
-   into a guess that nothing else on the board could ever settle are
-   guaranteed safe; open-field gambles and all
-   chords stay deadly. The rest of the dual is the Angelic play mode
-   (2026-08-21): a cell that is not a proven mine is made safe.
-
-The repo name points at entry 7 and its neighbors: variants friendlier than
-standard play.
+   succeeds; you die only by contradicting known facts. Guardian Angel
+   ([guardian-angel.md](guardian-angel.md)) covers clicks into a guess that
+   nothing else on the board could ever settle; open-field gambles and all
+   chords stay deadly. The rest of the dual is the Angelic play mode: any cell
+   that is not a proven mine is made safe.
 
 ## Deduction levels
 

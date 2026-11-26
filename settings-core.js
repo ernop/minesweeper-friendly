@@ -585,10 +585,6 @@ const SETTINGS_SCHEMA = [
     field: 'guardianAngel',
     default: true,
     valid: (v) => typeof v === 'boolean',
-    // Temporary: delete when active profiles have saved guardianAngel
-    // (BACKLOG.md, "Guardian Angel rename: step 2").
-    migrate: (stored) => (Object.hasOwn(stored, 'guardianAngel')
-      ? stored.guardianAngel : stored.justUniverse),
     group: 'gameplay',
     label: 'guardian angel',
     // The one visible hint: the name alone cannot carry this meaning.

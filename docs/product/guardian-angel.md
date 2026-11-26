@@ -1,27 +1,20 @@
-# Guardian Angel (decided 2026-08-20; renamed from "A Just Universe" 2026-11-23)
+# Guardian Angel
 
 Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation notes: [docs/implementation/guardian-angel.md](../implementation/guardian-angel.md).
 
-The first friendly variant (the direction of [design-axis](design-axis.md) entry
-7, the angelic dual of Kaboom). Principle: the player can lose to their own
-choices and to the field's diffuse odds, but never to a coin the universe
-minted specifically for them. Renamed from "A Just Universe" to "Guardian Angel"
-on 2026-11-23 (creator decision: full rename across UI, code, settings,
-records, and play statistics; the separate Angelic play mode keeps its name).
+A solver-aware rule ([design-axis](design-axis.md) entry 7, the angelic dual
+of Kaboom). Principle: the player can lose to their own choices and to the
+field's diffuse odds, but never to an unresolvable forced guess. The separate
+Angelic play mode keeps its own name.
 
 - Exact player-facing definition: **when you click a square in a guess that
   nothing else on the board could ever settle, that square is guaranteed
-  safe.** Until 2026-10-21 it read "when you bare-click into a certified
-  pocket that no outside clue can ever resolve, that entry is guaranteed
-  safe".
-- Player words (creator 2026-10-21, of the settings hint "a bare click into a
-  truly unknowable pocket never kills you": "you must rewrite a just
-  univere's text blurb to be more clear about what we do. never use phrases
-  like "pocket" which I haven't approved, with players."). Player text names
-  the covered guesses as "a guess that nothing else on the board could ever
-  settle", "a 50/50", "a chain of 50/50s", "1 mine among 3 squares", and
-  "the last squares no number touches"; it never says pocket, sealed,
-  certified, bare click, or sea remnant. The app-wide rule is in
+  safe.**
+- Player words: player-facing text describes covered guesses as "a guess that
+  nothing else on the board could ever settle", "a 50/50", "a chain of
+  50/50s", "1 mine among 3 squares", and "the last squares no number touches";
+  it never uses unapproved internal terms (`pocket`, `sealed`, `certified`,
+  `bare click`, or `sea remnant`). The app-wide rule is in
   [UI doctrine](ui-doctrine.md), "Player words only". Below, a *group* is
   the squares of one such guess; the word is this spec's, not the player's.
 - A covered group is a set of still-unknown squares with at least two
@@ -62,8 +55,7 @@ records, and play statistics; the separate Angelic play mode keeps its name).
   50/50 or k-of-n group qualifies when its count is pinned by the numbers
   (directly, or after subtracting groups already pinned) and every number
   touching it sees all of its squares alike; a chain qualifies when every
-  number touching it sees its two sides alike. Records made from then on
-  carried `just-universe-v3`.
+  number touching it sees its two sides alike (rule v3).
 - A chain of 50/50s with unequal sides qualifies when the last squares no
   number touches make up the difference (creator report 2026-10-26, with a screenshot of a
   loss at a board's top edge, in a 2-by-2 block walled off by flags). The
@@ -88,9 +80,7 @@ records, and play statistics; the separate Angelic play mode keeps its name).
   of 50/50s over N squares". When more squares no number touches remain
   than the difference, several layouts remain at unequal odds, and the
   rule does not cover them ([BACKLOG.md](../../BACKLOG.md), "Guardian Angel v1
-  family expansion"). Records made from 2026-10-26 carried `just-universe-v4`;
-  records made since 2026-11-23 carry `guardianAngelVersion` `guardian-angel-v4`
-  (same rule semantics).
+  family expansion"). Records carry `guardianAngelVersion` `guardian-angel-v4`.
 - At game end a single chip appears to the board's right stating the
   game's Guardian Angel intervention count (creator decision 2026-11-23,
   updating the post-game reporting to match the Guardian Angel rename;
@@ -114,7 +104,7 @@ records, and play statistics; the separate Angelic play mode keeps its name).
   Guardian-Angel-off games in the same lists: first decided 2026-08-20 as a
   deferral, confirmed as the product on 2026-08-23 — Guardian Angel stays on
   and its games rank within these lists; separation is not planned.
-- Setting `guardianAngel` (default on; named `justUniverse` before 2026-11-23), labeled "guardian angel". Its one
+- Setting `guardianAngel` (default on), labeled "guardian angel". Its one
   visible hint: "a guess that nothing else on the board could ever settle,
   like a boxed-in 50/50, never kills you". The name's tooltip: "when you
   click (not chord) a square in a guess that nothing else on the board could

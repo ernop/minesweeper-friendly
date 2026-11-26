@@ -38,13 +38,13 @@ async function serveWorkingTree(context) {
 // version 6 (before measurement renames), and version 7 (before Guardian Angel).
 const SEEDED_RECORD = {
   endedAt: 1, outcome: 'win', clicks: 3, wastedClicks: 1, movesRanOut: 2,
-  justice: 1, justiceEnabled: true, justiceVersion: 'just-universe-v4',
+  justice: 1, justiceEnabled: true, justiceVersion: 'guardian-angel-v4',
   actionEvaluations: [{ version: 'action-evaluation-v1', action: 'reveal', result: 'continued',
     mistakes: [], evidence: { justiceProtected: true } }],
 };
 const RENAMED_RECORD = {
   endedAt: 1, outcome: 'win', boardChangingClicks: 3, noOpClicks: 1, movesMovedOn: 2,
-  guardianAngel: 1, guardianAngelEnabled: true, guardianAngelVersion: 'just-universe-v4',
+  guardianAngel: 1, guardianAngelEnabled: true, guardianAngelVersion: 'guardian-angel-v4',
   actionEvaluations: [{ version: 'action-evaluation-v1', action: 'reveal', result: 'continued',
     mistakes: [], evidence: { guardianAngelProtected: true } }],
 };
