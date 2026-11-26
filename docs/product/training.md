@@ -369,13 +369,20 @@ the first incomplete one. Achieving the goal does not wait for earlier stages.
   status line names the game count and time and says to reload after playing.
 - Scope: Standard Expert with the default generator (`30x16/99@standard`)
   only. Other keys never mix in.
-- Sections in order: **Now** (cards listed below), **Stages** (each measure's current value, target, met, and the
-  sample it was measured over; the current stage outlined), **Where the time
-  goes in your latest wins**, **Button switch cost** (pooled short-range
-  flag/chord switch cost across flagged standard games, moved here from game
-  data on 2026-11-24), **Openings**, **The plan** (the text above; the current stage's
-  block outlined; readable even with no games), **Week by week**, and
-  **Experiments: player states compared**. The Now cards
+- Sections in order: **Now** (cards listed below), **What stands out & ranked
+  performance traits** (automatic notable highlights + all measured Expert
+  traits ordered by time cost, built 2026-11-25), **Stages** (each measure's
+  current value, target, met, and the sample it was measured over; the current
+  stage outlined), **Technique & thinking mind-map** (pooled cross-size
+  technique speed catalog with inline visual mini-boards, endgame pointless
+  flagging, and single-game thinking trace, built 2026-11-25), **Coaching
+  drills & transfer to Standard**, **Where the time goes in your latest wins**,
+  **Button switch cost** (pooled short-range flag/chord switch cost across
+  flagged standard games, moved here from game data on 2026-11-24),
+  **Openings**, **The plan** (the text above; the current stage's block
+  outlined; readable even with no games), **Week by week** (including weekly
+  `top-3 3BV/s` and aligned `20 s+ runs` / `20 s+ won` columns since
+  2026-11-25), and **Experiments: player states compared**. The Now cards
   are best Expert win (with its 3BV and date), median win, median 3BV/s, IOE,
   seconds per input, wins under 60 s, and current stage, each with the sample
   it describes.
@@ -475,20 +482,61 @@ player state.
      a `stateSample` by sampled focus (`1/5`–`5/5`) and pace (`calm`,
      `flowing`, `rushed`, `tilted`).
 
-### Next training architecture (creator direction 2026-11-25; not yet built)
+### Cross-size trace mind-map, visual technique catalog, and ranked traits (built 2026-11-25)
+
+Creator direction (2026-11-25): rank and order all performance traits cleanly
+as a standard part of the site, surface genuinely notable findings
+automatically, show classic visual board examples (including complex
+multi-clue shapes such as a `1-3-1` inner corner) with counts and clean
+vertically aligned numbers, check pointless flagging at the end of wins,
+reconstruct how each game was solved in order, and identify slow solvable
+shapes where moving elsewhere first saves time.
+
+- **What stands out & ranked performance traits (`#training-traits`):**
+  - Surfaces up to 6 high-signal highlight cards only when clear thresholds
+    trigger (pointless endgame flagging, slow solvable shapes tackled while
+    counting moves waited elsewhere, skipped ready `4/5/6/7`s, slow "known"
+    patterns like straight-edge `1-2-1` or interior `1-2`, upper-tail
+    `2.0+ 3BV/s` breakout, post-no-op rhythm slowdown).
+  - Ranks all measured Expert traits by estimated seconds per win left on the
+    table (click efficiency IOE, habit vs physical no-op clicks, abandoned
+    frontier hovers, left-click vs right-click hover dwell, slow solvable
+    shapes tackled past easy moves, post-no-op slowdown, pointless flags in the
+    final 5 safe squares, ready `4/5/6/7` skips, no-flag counting hesitation),
+    using right-aligned digits with aligned unit columns and explicit counts.
+- **Technique & thinking mind-map (`#training-mind-map`):**
+  - Pools up to `100` Beginner, `100` Intermediate, and `80` Expert traced
+    Standard wins off the main thread (`mind-map-worker.js`) using exact
+    `GuardianAngel.proveLevels` proof tiers and layout-mapped pointer samples.
+  - One-step size filter (`All sizes | Expert | Intermediate | Beginner`) —
+    no triple-slash cells.
+  - Inline classic Minesweeper visual mini-board for every technique (with a
+    `yours` / `shape` toggle to inspect a real 5x5 captured position from the
+    player's own games when available), plus `count`, integer `median (ms)`,
+    integer `90th (ms)`, whole-percent `slow (%)` (`>= 600 ms`), whole-percent
+    `easy elsewhere (%)` (`>= 2` counting moves `>= 3` squares away), and an
+    `action` pill tagging slow solvable shapes (`>= 450 ms` with `>= 50%` easy
+    moves elsewhere) as **`bail first`** (`low n` under 5 samples).
+  - **Endgame pointless flagging table:** separate rows for Expert,
+    Intermediate, and Beginner reporting `%` of wins with unused or
+    1-square-only flags in the final 5 safe squares, flags/win, time (`s/win`),
+    and `%` of wins that placed a flag when only 1 safe square remained.
+  - **Single-game thinking trace:** dropdown over the latest 12 replayed Expert
+    wins showing chronological decision episodes (fast local streaks, slow
+    shapes tackled while easy moves waited elsewhere, abandoned frontier
+    hovers, pointless endgame flags, unproven guesses) with exact 5x5 local
+    board snapshots.
+
+### Remaining planned training architecture (creator direction 2026-11-25; not yet built)
 
 Following the initial day of Coach-mode testing and empirical trace audit
 ([reference/mind-map-and-coach-eval-2026-11-25.md](../../reference/mind-map-and-coach-eval-2026-11-25.md)),
-the creator set three connected training directions (tracked in
-[BACKLOG.md](../../BACKLOG.md)):
+the next unbuilt training steps tracked in [BACKLOG.md](../../BACKLOG.md) are:
 
-1. **Cross-size cognitive mind-map & technique profiler:** map how the player
-   thinks from mouse traces, clicks, and board states — inferring visual checks
-   (abandoned frontier hovers), mid-flight cursor reversals, frustration/burst
-   no-op slowdown, and exact per-technique latency (`flag-1-2-interior`,
-   `flag-edge-1-2-1`, `partial exhaustive 4/5/6/7`, etc.) pooled across
-   **Beginner, Intermediate, and Expert** so sub-move measurements accumulate
-   high sample counts comparable across games, sessions, and days.
+1. **Deeper shape discovery & decision-order refinement:** expand the
+   single-game thinking trace over time to automatically mine recurring
+   multi-clue shapes beyond the initial 24-technique catalog and refine
+   explanations of why areas were visited in a given order.
 2. **Concentrated sub-board focused pattern practice + transfer test:** drill a
    specific rare or weak pattern/variant intensely on many very small boards
    (e.g. `100` mini-boards with rotations, reflections, partial flags, and
@@ -500,8 +548,9 @@ the creator set three connected training directions (tracked in
 3. **Controlled No-Mark sharpening experiment:** test the creator's observation
    that `15–20 min` of Intermediate/Expert no-mark play when playing fast-but-
    sloppy sharpens subsequent flagged Expert play (historically `N = 2` long
-   Int/Exp blocks), using alternating tagged blocks evaluated by
-   `training.html`'s paired-block rule (or `Coach: No-waste` with `Flag cap = 0`).
+   Int/Exp blocks, both positive on `2026-10-11` and `2026-10-14`), using
+   alternating tagged blocks evaluated by `training.html`'s paired-block rule
+   (or `Coach: No-waste` with `Flag cap = 0`).
 
 ## Not built
 

@@ -314,3 +314,25 @@ because they apply app-wide, not just where each was first stated.
   the top and the bottom of the body (not tucked at a far edge), plus
   Esc. Modals and separate pages are allowed; the old "in-page only,
   never a modal" lock was lifted 2026-08-23.
+- Compact, vertically aligned numbers and visual pattern examples (creator
+  direction 2026-11-25: "I find beg/int/exp triple number displays especially
+  with SO many sigdigs to be overwhelmingly incomprehensible. they are i think
+  salvageable if we: brutally limit sigdigs. include viz examples. make sure
+  digits valign (*i.e. 12.8 above 7%, the 7 and the 1 may not be valigned; the
+  1 must be LEFTERN to the 7 on its own line; because 12 is bigger than 7 (2
+  dig not 1 dig)) ... for the counts of the techniques like 'Wall 1-1 reveal'
+  we also do need counts here please"):
+  - Brutally limit significant digits: integers for milliseconds and whole
+    percentages, at most one decimal for seconds/rates where useful, and at
+    most two decimals for ratios (`3BV/s`, `IOE`), uniform down every column.
+  - Never pack triple slash-separated numbers across levels (`Beg / Int / Exp`)
+    into one cramped cell; split them into separate clean rows or a one-step
+    level switcher.
+  - Vertically align digits in every numeric column using `tabular-nums` and
+    right-aligned place values (tens over tens, ones over ones, decimals over
+    decimals — e.g. `12.8%` over ` 7.0%`, never left-aligned `1` over `7`). When
+    units vary within one column, align digits right and units left in a fixed
+    two-column pair.
+  - Show sample counts (`n`) beside every technique/pattern timing or rate, and
+    render a classic Minesweeper visual mini-board beside every technique or
+    pattern name.

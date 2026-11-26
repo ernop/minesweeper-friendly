@@ -38,7 +38,7 @@ function storageFailure(what) {
 
 function userdataReady() {
   const database = { name: DB_NAME, version: db.version, recordStore: RECORD_STORE, traceStore: TRACE_STORE };
-  const worker = new Worker('training-worker.js?v=20261125-coach-m1');
+  const worker = new Worker('training-worker.js?v=20261125-mindmap-1');
   worker.onmessage = ({ data }) => {
     worker.terminate();
     if (data.error !== undefined) showTrainingStatus('Training summary failed: ' + data.error, true);
@@ -50,7 +50,18 @@ function userdataReady() {
   };
   worker.postMessage({ database });
 
-  const switchWorker = new Worker('switch-cost-worker.js?v=20261124-switch-cost-w1');
+  const mindMapWorker = new Worker('mind-map-worker.js?v=20261125-mindmap-1');
+  mindMapWorker.onmessage = ({ data }) => {
+    mindMapWorker.terminate();
+    if (data.error !== undefined) renderTrainingMindMapError('Mind-map failed: ' + data.error);
+    else if (data.mindMap !== null) renderTrainingMindMap(data.mindMap);
+  };
+  mindMapWorker.onerror = (event) => {
+    renderTrainingMindMapError('Mind-map worker failed: ' + event.message);
+  };
+  mindMapWorker.postMessage({ database });
+
+  const switchWorker = new Worker('switch-cost-worker.js?v=20261125-mindmap-1');
   switchWorker.onmessage = ({ data }) => {
     switchWorker.terminate();
     if (data.error !== undefined) renderTrainingSwitchCostError('Button switch cost failed: ' + data.error);
@@ -350,17 +361,21 @@ function renderTrainingWeeks(summary) {
   const content = document.getElementById('training-weeks-content');
   const table = trainingTable([
     { text: 'week of' }, { text: 'games' }, { text: 'wins' }, { text: 'best' }, { text: 'median win' },
-    { text: '3BV/s' }, { text: 'IOE', help: '3BV divided by all inputs, no-ops included.' }, { text: 'seconds per input' },
-    { text: 'games reaching 20 s won', help: 'Wins among the games that lasted at least 20 seconds.' },
+    { text: '3BV/s' }, { text: 'top-3 3BV/s', help: 'Average of the 3 fastest 3BV/s Expert wins in that week (shown when 3+ wins).' },
+    { text: 'IOE', help: '3BV divided by all inputs, no-ops included.' }, { text: 'sec/input' },
+    { text: '20 s+ runs', help: 'Games lasting at least 20 seconds.' },
+    { text: '20 s+ won', help: 'Share of games lasting at least 20 seconds that ended in a win.' },
   ], summary.weeks.map((week) => ({
     cells: [trainingDate(week.weekStartMs), String(week.games), String(week.wins),
-      week.bestMs === null ? '' : (week.bestMs / 1000).toFixed(3) + ' s',
+      week.bestMs === null ? '' : (week.bestMs / 1000).toFixed(1) + ' s',
       week.medianWinS === null ? '' : week.medianWinS.toFixed(1) + ' s',
       week.median3bvPerS === null ? '' : week.median3bvPerS.toFixed(2),
+      week.top3BvPerS === null ? '' : week.top3BvPerS.toFixed(2),
       week.medianIoe === null ? '' : week.medianIoe.toFixed(2),
-      week.medianSecondsPerInput === null ? '' : week.medianSecondsPerInput.toFixed(3),
-      week.conversion === null ? '' : Math.round(week.conversion * 100) + '% of ' + week.runs],
-  })), [1, 2, 3, 4, 5, 6, 7, 8]);
+      week.medianSecondsPerInput === null ? '' : week.medianSecondsPerInput.toFixed(2),
+      week.runs === 0 ? '' : String(week.runs),
+      week.conversion === null ? '' : Math.round(week.conversion * 100) + '%'],
+  })), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   table.classList.add('training-weeks-table');
   content.replaceChildren(table);
 }
@@ -584,6 +599,295 @@ function renderTrainingCoach(summary) {
   }
 
   content.replaceChildren(...nodes);
+}
+
+function renderTrainingMiniBoard(diagram, large) {
+  const board = trainingElement('div', 'training-mini-board' + (large ? ' training-mini-board-lg' : ''));
+  board.style.setProperty('--mini-w', String(diagram.width));
+  board.style.setProperty('--mini-h', String(diagram.height));
+  for (const wall of diagram.walls || []) board.classList.add('wall-' + wall);
+  const flagMarkup = typeof flagSvg === 'function' ? flagSvg('classic', 100) : '';
+  for (const cell of diagram.cells) {
+    const tile = trainingElement('span', 'training-mini-tile');
+    if (cell.kind === 'open') {
+      tile.classList.add('training-mini-open');
+      if (cell.num > 0) {
+        tile.classList.add('training-mini-n' + cell.num);
+        tile.textContent = String(cell.num);
+      }
+    } else if (cell.kind === 'flag') {
+      tile.classList.add('training-mini-covered');
+      tile.innerHTML = flagMarkup;
+    } else {
+      tile.classList.add('training-mini-covered');
+    }
+    if (cell.mark) {
+      tile.classList.add('training-mini-mark', 'training-mini-mark-' + cell.mark);
+    }
+    board.appendChild(tile);
+  }
+  return board;
+}
+
+function trainingValuePair(numText, unitText, wide) {
+  const wrap = trainingElement('span', 'training-val-pair' + (wide ? ' training-val-pair-wide' : ''));
+  wrap.append(
+    trainingElement('span', 'training-val-num', numText),
+    trainingElement('span', 'training-val-unit', unitText),
+  );
+  return wrap;
+}
+
+function renderTrainingMindMapError(message) {
+  for (const [secId, contentId] of [['training-traits', 'training-traits-content'], ['training-mind-map', 'training-mind-map-content']]) {
+    const section = document.getElementById(secId);
+    const content = document.getElementById(contentId);
+    section.dataset.status = 'error';
+    content.replaceChildren(trainingElement('p', 'training-error', message));
+    section.hidden = false;
+  }
+}
+
+function renderTrainingHighlightsAndTraits(data) {
+  const section = document.getElementById('training-traits');
+  const content = document.getElementById('training-traits-content');
+  const nodes = [];
+
+  if (data.highlights.length > 0) {
+    const grid = trainingElement('div', 'training-highlights-grid');
+    for (const h of data.highlights) {
+      const card = trainingElement('div', 'training-highlight training-highlight-' + h.severity);
+      const head = trainingElement('div', 'training-highlight-head');
+      head.append(
+        trainingElement('span', 'training-highlight-title', h.title),
+        trainingElement('span', 'training-highlight-metric', h.metric),
+      );
+      card.append(head, trainingElement('p', 'training-highlight-detail', h.detail));
+      grid.appendChild(card);
+    }
+    nodes.push(grid);
+  }
+
+  if (data.rankedTraits.length > 0) {
+    nodes.push(trainingElement('h3', 'training-coach-subhead',
+      'All measured Expert traits, ordered by time cost (' + data.counts.Expert + ' traced wins)'));
+    const table = trainingElement('table', 'training-table');
+    const headRow = table.createTHead().insertRow();
+    [
+      { text: 'trait' },
+      { text: 'now', num: true },
+      { text: 'target', num: true },
+      { text: 'cost (s/win)', num: true, help: 'Estimated seconds per Expert win left on the table.' },
+      { text: 'status' },
+      { text: 'count', num: true },
+    ].forEach((col) => {
+      const th = trainingElement('th', col.num ? 'training-number' : '', col.text);
+      th.scope = 'col';
+      if (col.help) th.title = col.help;
+      headRow.appendChild(th);
+    });
+    const body = table.createTBody();
+    for (const t of data.rankedTraits) {
+      const tr = body.insertRow();
+      const labelCell = trainingElement('td', '', t.label);
+      if (t.help) labelCell.title = t.help;
+      const nowCell = trainingElement('td', 'training-number');
+      nowCell.appendChild(trainingValuePair(t.valueNum, t.valueUnit));
+      const targetCell = trainingElement('td', 'training-number', t.benchmark);
+      const costCell = trainingElement('td', 'training-number', t.costSec > 0 ? t.costSec.toFixed(1) : '0.0');
+      const statusCell = trainingElement('td', '');
+      statusCell.appendChild(trainingElement('span', 'training-status-pill training-status-' + t.status, t.status));
+      const sampleCell = trainingElement('td', 'training-number');
+      sampleCell.appendChild(trainingValuePair(t.sample.toLocaleString(), t.sampleUnit, true));
+      tr.append(labelCell, nowCell, targetCell, costCell, statusCell, sampleCell);
+    }
+    nodes.push(table);
+  }
+
+  content.replaceChildren(...nodes);
+  section.dataset.status = 'ready';
+  section.hidden = false;
+}
+
+function renderTrainingMindMap(data) {
+  renderTrainingHighlightsAndTraits(data);
+
+  const section = document.getElementById('training-mind-map');
+  const content = document.getElementById('training-mind-map-content');
+  const nodes = [];
+
+  // 1) Technique speed catalog with inline classic visual diagrams + size filter
+  nodes.push(trainingElement('h3', 'training-coach-subhead',
+    'Technique speed & skip-first map (pooled across ' + data.counts.all + ' traced Standard wins)'));
+
+  const filterRow = trainingElement('div', 'training-filter-row');
+  const tableHolder = trainingElement('div', '');
+  const levels = [
+    { key: 'all', label: 'All sizes (' + data.counts.all + ')' },
+    { key: 'Expert', label: 'Expert (' + data.counts.Expert + ')' },
+    { key: 'Intermediate', label: 'Intermediate (' + data.counts.Intermediate + ')' },
+    { key: 'Beginner', label: 'Beginner (' + data.counts.Beginner + ')' },
+  ];
+  let activeLevel = data.counts.Expert > 0 ? 'all' : 'all';
+
+  const keyLine = trainingElement('p', 'training-key-line');
+  keyLine.innerHTML = '<span class="training-key-chip training-key-safe"></span>safe = open'
+    + '<span class="training-key-chip training-key-mine"></span>mine = flag'
+    + '<span class="training-key-chip training-key-chord"></span>chord = both buttons'
+    + '<span class="training-key-chip training-key-guess"></span>guess = unproven'
+    + ' \u00b7 thick border = board edge';
+
+  const drawTechniqueTable = (levelKey) => {
+    activeLevel = levelKey;
+    for (const btn of filterRow.querySelectorAll('button')) {
+      btn.setAttribute('aria-pressed', btn.dataset.level === levelKey ? 'true' : 'false');
+    }
+    const rows = data.techniques[levelKey] || [];
+    if (rows.length === 0) {
+      tableHolder.replaceChildren(trainingElement('p', '', 'No traced wins measured for this size yet.'));
+      return;
+    }
+    const table = trainingElement('table', 'training-table');
+    const head = table.createTHead().insertRow();
+    [
+      { text: 'shape' },
+      { text: 'technique' },
+      { text: 'count', num: true },
+      { text: 'median (ms)', num: true },
+      { text: '90th (ms)', num: true },
+      { text: 'slow (%)', num: true, help: 'Share of moves taking 600 ms or longer.' },
+      { text: 'easy elsewhere (%)', num: true, help: 'Share of moves where 2+ counting moves sat open at least 3 squares away.' },
+      { text: 'action', help: 'bail first = slow solvable shape (450 ms+) where easy counting moves usually wait elsewhere.' },
+    ].forEach((col) => {
+      const th = trainingElement('th', col.num ? 'training-number' : '', col.text);
+      th.scope = 'col';
+      if (col.help) th.title = col.help;
+      head.appendChild(th);
+    });
+    const body = table.createTBody();
+    for (const r of rows) {
+      const tr = body.insertRow();
+      const shapeTd = trainingElement('td', '');
+      const wrap = trainingElement('div', 'training-mini-cell-wrap');
+      const boardSlot = trainingElement('span', '');
+      boardSlot.appendChild(renderTrainingMiniBoard(r.diagram, false));
+      wrap.appendChild(boardSlot);
+      if (r.sampleCrop) {
+        let showingReal = false;
+        const toggle = trainingElement('button', 'training-crop-toggle', 'yours');
+        toggle.type = 'button';
+        toggle.title = 'Switch between canonical diagram and a real 5x5 position from your games';
+        toggle.addEventListener('click', () => {
+          showingReal = !showingReal;
+          boardSlot.replaceChildren(renderTrainingMiniBoard(showingReal ? r.sampleCrop : r.diagram, false));
+          toggle.textContent = showingReal ? 'shape' : 'yours';
+        });
+        wrap.appendChild(toggle);
+      }
+      shapeTd.appendChild(wrap);
+
+      const nameTd = trainingElement('td', '', r.label);
+      if (r.help) nameTd.title = r.help;
+      const countTd = trainingElement('td', 'training-number', r.n.toLocaleString());
+      const medTd = trainingElement('td', 'training-number', r.medMs === null ? '\u2013' : String(r.medMs));
+      const p90Td = trainingElement('td', 'training-number', r.p90Ms === null ? '\u2013' : String(r.p90Ms));
+      const slowTd = trainingElement('td', 'training-number', r.slowPct === null ? '\u2013' : r.slowPct + '%');
+      const easyTd = trainingElement('td', 'training-number', r.easyPct === null ? '\u2013' : r.easyPct + '%');
+      const adviceTd = trainingElement('td', '');
+      const adviceLabel = r.advice === 'bail-first' ? 'bail first' : r.advice === 'low-n' ? 'low n' : r.advice;
+      adviceTd.appendChild(trainingElement('span', 'training-advice-pill training-advice-' + r.advice, adviceLabel));
+      tr.append(shapeTd, nameTd, countTd, medTd, p90Td, slowTd, easyTd, adviceTd);
+    }
+    tableHolder.replaceChildren(table);
+  };
+
+  for (const lv of levels) {
+    const btn = trainingElement('button', 'training-filter-btn', lv.label);
+    btn.type = 'button';
+    btn.dataset.level = lv.key;
+    btn.setAttribute('aria-pressed', lv.key === activeLevel ? 'true' : 'false');
+    btn.addEventListener('click', () => drawTechniqueTable(lv.key));
+    filterRow.appendChild(btn);
+  }
+  drawTechniqueTable(activeLevel);
+  nodes.push(filterRow, keyLine, tableHolder);
+
+  // 2) Endgame pointless flagging (separate clean rows by board size, no triple-slash cells)
+  const endgameRows = ['Expert', 'Intermediate', 'Beginner']
+    .map((lvl) => ({ lvl, e: data.endgame[lvl] }))
+    .filter((entry) => entry.e !== null);
+  if (endgameRows.length > 0) {
+    nodes.push(trainingElement('h3', 'training-coach-subhead', 'Endgame pointless flagging (final 5 safe squares)'));
+    nodes.push(trainingTable(
+      [
+        { text: 'level' },
+        { text: 'wins' },
+        { text: 'wins with pointless flag (%)' },
+        { text: 'flags/win' },
+        { text: 'time (s/win)' },
+        { text: 'flagged at 1 safe left (%)', help: 'Share of wins that placed a flag when only one safe square remained.' },
+      ],
+      endgameRows.map(({ lvl, e }) => ({
+        className: e.withEnd5Pct >= 50 ? 'training-waste' : '',
+        cells: [
+          lvl,
+          String(e.wins),
+          e.withEnd5Pct + '%',
+          e.end5FlagsPerWin.toFixed(1),
+          e.end5SecPerWin.toFixed(1),
+          e.withLast1Pct + '%',
+        ],
+      })),
+      [1, 2, 3, 4, 5],
+    ));
+  }
+
+  // 3) Single-game thinking reconstruction (latest replayed Expert wins)
+  if (data.recentGames.length > 0) {
+    nodes.push(trainingElement('h3', 'training-coach-subhead', 'Single-game thinking trace (latest Expert wins)'));
+    const pickerRow = trainingElement('div', 'training-game-picker-row');
+    const select = trainingElement('select', 'training-game-picker');
+    select.setAttribute('aria-label', 'Choose a recent Expert win to inspect');
+    data.recentGames.forEach((g, idx) => {
+      const opt = document.createElement('option');
+      opt.value = String(idx);
+      opt.textContent = trainingDate(g.endedAt) + ' \u00b7 ' + g.timeS.toFixed(1) + ' s (' + g.bvs.toFixed(2) + ' 3BV/s, 3BV ' + g.bv3 + ')';
+      select.appendChild(opt);
+    });
+    const meta = trainingElement('span', 'training-game-meta');
+    const epList = trainingElement('div', 'training-episode-list');
+
+    const drawGameEpisodes = (idx) => {
+      const g = data.recentGames[idx];
+      meta.textContent = 'IOE ' + (g.ioe === null ? '\u2013' : g.ioe.toFixed(2))
+        + ' \u00b7 no-ops ' + g.habitNoops + ' habit / ' + g.physicalNoops + ' physical'
+        + ' \u00b7 endgame flags ' + g.end5Flags
+        + ' \u00b7 hovers ' + g.abandonedChecks
+        + ' \u00b7 reversals ' + g.reversals;
+      if (g.episodes.length === 0) {
+        epList.replaceChildren(trainingElement('p', '', 'No slow decisions or notable interruptions in this win.'));
+        return;
+      }
+      epList.replaceChildren(...g.episodes.map((ep) => {
+        const row = trainingElement('div', 'training-episode training-episode-' + ep.kind);
+        row.append(
+          trainingElement('span', 'training-episode-time', (ep.atMs / 1000).toFixed(1) + ' s'),
+          trainingElement('span', 'training-episode-text', ep.label),
+        );
+        if (ep.crop) row.appendChild(renderTrainingMiniBoard(ep.crop, true));
+        return row;
+      }));
+    };
+
+    select.addEventListener('change', () => drawGameEpisodes(Number(select.value)));
+    pickerRow.append(select, meta);
+    drawGameEpisodes(0);
+    nodes.push(pickerRow, epList);
+  }
+
+  content.replaceChildren(...nodes);
+  section.dataset.status = 'ready';
+  section.hidden = false;
 }
 
 function renderTraining(summary) {

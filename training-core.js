@@ -358,11 +358,14 @@ function trainingWeeks(records, fatalKindOf) {
   return [...groups.entries()].sort((a, b) => b[0] - a[0]).map(([weekStartMs, group]) => {
     const wins = group.filter((r) => r.outcome === 'win');
     const runs = trainingRuns(group.filter((r) => r.timeMs >= TRAINING_RUN_MIN_MS), fatalKindOf);
+    const top3BvPerS = wins.length < 3 ? null
+      : trainingMean(wins.map((r) => bvPerSecond(r)).sort((a, b) => b - a).slice(0, 3));
     return {
       weekStartMs,
       games: group.length,
       bestMs: wins.length === 0 ? null : Math.min(...wins.map((r) => r.timeMs)),
       ...trainingWinPace(wins),
+      top3BvPerS,
       runs: runs.runs,
       conversion: runs.conversion,
     };

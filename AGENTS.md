@@ -57,10 +57,14 @@ exception to the Anti-Fallback Principle below: statistics must never
 interrupt play (creator decision 2026-10-11;
 [Play statistics](docs/product/hosting.md#play-statistics)).
 The training page is `training.html` + `training-page.js`, loading
-`style.css`, `training.css`, and `storage.js`; `training-worker.js` reads the
-saved games and runs the pure `training-core.js` with `guardian-angel.js`,
-`solver.js`, `rng.js`, and `game/evaluation.js`, and `switch-cost-worker.js`
-runs in parallel to estimate the short-range flag/chord button switch cost
+`style.css`, `training.css`, `storage.js`, and `board-icons.js`;
+`training-worker.js` reads the saved games and runs the pure `training-core.js`
+with `guardian-angel.js`, `solver.js`, `rng.js`, `coach.js`, `game-data.js`,
+and `game/evaluation.js`; `mind-map-worker.js` runs in parallel with
+`mind-map.js` across Beginner, Intermediate, and Expert traced wins to build
+highlights, ranked traits, visual technique diagrams, endgame pointless-flag
+audits, and single-game thinking traces; and `switch-cost-worker.js` runs in
+parallel to estimate the short-range flag/chord button switch cost
 (`switch-cost.js`) across flagged standard games.
 
 ### Game page code (`game/`)

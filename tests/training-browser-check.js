@@ -154,8 +154,17 @@ function fixture() {
     }, { history, traces });
     await page.reload();
     await page.waitForFunction(() => /Computed from/.test(document.getElementById('training-status').textContent));
+    await page.waitForFunction(() => document.getElementById('training-traits').dataset.status === 'ready'
+      && document.getElementById('training-mind-map').dataset.status === 'ready');
 
     assert.match(await page.locator('#training-status').innerText(), /Computed from 9 saved Expert games/);
+    assert.ok(await page.locator('#training-traits .training-val-pair').count() >= 2, 'ranked traits render aligned value/unit cells');
+    assert.ok(await page.locator('#training-mind-map .training-mini-board').count() >= 2, 'technique diagrams render inline mini-boards');
+    assert.equal(await page.locator('#training-mind-map .training-filter-btn').count(), 4, 'all-sizes / Exp / Int / Beg filter buttons');
+    await page.locator('#training-mind-map .training-filter-btn[data-level="Expert"]').click();
+    assert.equal(await page.locator('#training-mind-map .training-filter-btn[data-level="Expert"]').getAttribute('aria-pressed'), 'true');
+    assert.match(await page.locator('#training-mind-map').innerText(), /Endgame pointless flagging/);
+    assert.ok(await page.locator('#training-mind-map .training-game-picker option').count() >= 1, 'recent Expert thinking trace picker populated');
     const bestMs = Math.min(...records.filter((r) => r.outcome === 'win').map((r) => r.timeMs));
     const cards = await page.locator('.training-card').allInnerTexts();
     assert.equal(cards.length, 7);
@@ -189,7 +198,7 @@ function fixture() {
     const nonBlack = await page.evaluate(() => {
       const offenders = [];
       for (const element of document.querySelectorAll('main *')) {
-        if (element.closest('a') || element.closest('.training-error')) continue;
+        if (element.closest('a') || element.closest('.training-error') || element.closest('.training-mini-board')) continue;
         const ownText = [...element.childNodes].some((node) => node.nodeType === 3 && node.textContent.trim() !== '');
         if (!ownText || element.getClientRects().length === 0) continue;
         const color = getComputedStyle(element).color;
@@ -202,7 +211,7 @@ function fixture() {
     assert.deepEqual(errors, []);
     await page.route('**/index.html', (route) => route.fulfill({ contentType: 'text/html', body: '<!DOCTYPE html><title>game</title>' }));
     await Promise.all([page.waitForURL('**/index.html'), page.keyboard.press('Escape')]);
-    console.log('training page: empty state, worker summary from IndexedDB, stages, budget, weeks, states compared, black text, Esc returns');
+    console.log('training page: empty state, worker summary, mind-map diagrams & ranked traits, stages, budget, weeks, states compared, black text, Esc returns');
   } finally {
     await browser.close();
   }

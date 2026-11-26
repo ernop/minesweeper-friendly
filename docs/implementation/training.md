@@ -8,9 +8,11 @@ Specification: [docs/product/training.md](../product/training.md).
 | --- | --- |
 | `training.html` | page shell, the plan's static text, section containers |
 | `training.css` | page layout; `style.css` still supplies the base font and the shared `.return-to-game` dress |
-| `training-page.js` | renderer; defines `userdataReady` / `storageFailure` for `storage.js`; starts `training-worker.js` and `switch-cost-worker.js` in parallel |
+| `training-page.js` | renderer; defines `userdataReady` / `storageFailure` for `storage.js`; starts `training-worker.js`, `mind-map-worker.js`, and `switch-cost-worker.js` in parallel; renders classic mini-board diagrams using `board-icons.js` |
 | `training-worker.js` | reads IndexedDB (`30x16/99@standard` and all `@coach-*` records), replays Expert games, posts the training summary |
-| `training-core.js` | pure measurements (`TrainingCore`), loaded by the worker and by Node tests; delegates coaching summaries to `coach.js` |
+| `training-core.js` | pure measurements (`TrainingCore`), loaded by the workers and by Node tests; delegates coaching summaries to `coach.js` |
+| `mind-map-worker.js` | reads recent traced Standard wins across Beginner (`<= 100`), Intermediate (`<= 100`), and Expert (`<= 80`) from IndexedDB, runs `MindMap.analyzeGame` + `MindMap.summarize` off-thread |
+| `mind-map.js` | pure cross-size trace mind-map (`MindMap`): exact `GuardianAngel.proveLevels` technique classification, 24 canonical visual board diagrams + 5x5 real-game board crops, layout-mapped pointer hover/reversal/abandoned-check analysis, endgame pointless-flagging audit, ranked traits, notable highlights, and single-game episode reconstruction |
 | `coach.js` | pure coaching engine (`Coach`): live detectors plus `summarizePractice`, `summarizeTransfer`, `summarizeStateSamples`, and `diagnoseRecommendation` |
 | `switch-cost-worker.js` | reads flagged standard records & traces from IndexedDB, filters short-range `flag`/`chord` pairs (`<= 2` cells), fits latest & earlier 500 windows |
 | `switch-cost.js` | pure switch-cost transition extractor, short-range filter, P1 OLS fit (`msPerSwitchLow`/`High`), and two-sample `compare` |

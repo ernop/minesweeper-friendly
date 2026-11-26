@@ -10,7 +10,7 @@
 
 // solver.js builds on GuardianAngel, so guardian-angel.js loads first (as in training-worker.js).
 importScripts('guardian-angel.js?v=20261123-guardian-angel-2', 'rng.js', 'solver.js?v=20261123-guardian-angel',
-  'training-core.js?v=20261123-guardian-angel', 'switch-cost.js?v=20261124-switch-cost-w1');
+  'training-core.js?v=20261125-mindmap-1', 'switch-cost.js?v=20261124-switch-cost-w1');
 
 const switchCostDeps = {
   training: TrainingCore,
