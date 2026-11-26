@@ -1,153 +1,36 @@
-# Measurement purpose (decided 2026-08-20)
+# Measurement purpose
 
 Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation notes: [docs/implementation/offline-analysis.md](../implementation/offline-analysis.md).
 
-The point of all per-game measurement — scalar stats, raw input traces,
-and state tags — is to preserve observations that can be compared within
-one player over minutes, days, and longer periods. The game records what
-happened; it does not infer why a value changed. A state tag permits later
-grouping by that self-reported context, but neither a tag nor a correlation
-establishes a cause. Motion and gameplay measurements are not diagnoses,
-health assessments, personality traits, or proven measures of fatigue,
-attention, confidence, expertise, or cognition.
+## Core measurement doctrine
 
-Questions about learning, equipment, health, or other circumstances are
-research hypotheses until tested against the stored observations with an
-explicit analysis and appropriate controls.
-This is why measurements favor completeness over compactness, why raw
-traces are kept (a metric invented years from now must be computable over
-today's games), and why spent effort is never dropped (see the
-measurement principle in reference/mouse-motion-metrics.md).
+Per-game scalars, raw input traces, and state tags preserve within-player observations for comparison over minutes, days, and years.
 
-## Lifelong self-measurement (creator direction, 2026-09-26)
+- **Observe, never infer cause:** the game records what happened, not why. State tags enable grouping by self-reported context, never causal proof; gameplay and motion measures are not diagnoses or proven indicators of fatigue, attention, or cognition until validated by explicit within-person analysis.
+- **Completeness over compactness:** raw traces are kept permanently so metrics invented years later remain computable over past games, and spent effort (such as no-ops) is never dropped.
+- **Outer physical layer:** motion metrics measure observable hand-to-mouse interaction anchored at the preceding click, deliberately not guessing private cognitive birth times (see `reference/mouse-motion-metrics.md`). Indirectly cleared cells (flood fills, chords) generate no separate movement.
 
-The creator asks to turn the project into something usable "over years and
-decades to measure and check all aspects of myself". This is now the governing
-purpose; the later sections describe measurement layers that serve it.
+## Lifelong self-measurement
 
-**Coverage.** Mouse play and short standardized tasks can track:
-- aimed hand movement (speed, precision, corrections, consistency);
-- processing and reasoning speed;
-- sustained alertness;
-- decision and risk style;
-- learning, and fatigue within a session;
-- how each of these varies with sleep, time of day, season, health, and age.
+The governing longitudinal goal: an instrument usable across years and decades to track motor control, reasoning speed, alertness, decision/risk style, learning, and within-session fatigue across sleep, time of day, season, health, and age. External physiological channels (strength, cardiovascular, heart rate) join records by UTC timestamp and time zone — never inferred from cursor data.
 
-Strength, balance, gait, cardiovascular fitness, and body composition need
-other instruments. Their data joins these records by UTC time and time zone;
-it is never inferred from cursor data.
+### Seven rules for multi-decade validity
+1. **Two streams:** free play is dense and natural but changes with software/hardware; short frozen reference checks ([Self-check](self-check.md)) provide the invariant ruler that calibrates gameplay metrics.
+2. **Frozen protocols:** never edit a released protocol id; ship changes under a new id with a bridging period so offsets can be measured.
+3. **Context travels with every observation:** UTC timestamp, IANA time zone and UTC offset, screen/viewport/browser facts, protocol/capture version, and declared (never guessed) physical setup facts.
+4. **Paired self-report:** every check starts with a graded sleepiness rating and stores `routine` vs. `extra` occasion so circumstance-prompted checks never skew baselines.
+5. **Nothing lost:** IndexedDB is a working copy backed by write-once open files in the [archive folder](storage-and-history.md#archive-folder) plus `navigator.storage.persist()`; absent always means `"not measured"`.
+6. **Low burden:** checks stay short (~30 s, well under 5 min) with minimal required input so multi-year adherence holds.
+7. **Like-for-like comparison:** judge change against personal baselines under the same protocol and setup, treating the day (not the individual trial) as the independent unit and requiring day-to-day reliability plus association with independent reports before treating any measure as a state indicator.
 
-**Rules for decades:**
+**Shipped foundations:** [Self-check](self-check.md) (`kss-9-v1` + `alertness-10-v1`), per-record `timeZone`/`utcOffsetMin`, trace `environment` + [capture provenance](storage-and-history.md#capture-provenance), automatic write-once [archive folder](storage-and-history.md#archive-folder), and persistent storage request. Remaining longitudinal roadmap lives in [BACKLOG.md](../../BACKLOG.md#lifelong-self-measurement-and-longitudinal-research).
 
-1. **Two measurement streams.**
-   - Free play is dense and natural, but its instrument keeps changing (game
-     code, browser, hardware), so on its own it cannot compare one decade with
-     another.
-   - Short frozen reference checks are the ruler: the [self-check](self-check.md)
-     keeps the same stimuli, timing, input, and scoring for as long as its data
-     exists.
-   - A play measure becomes trustworthy only after it is shown to track the
-     checks.
-2. **Frozen protocols.** A released protocol id is never edited. A change ships
-   under a new id, and old and new run side by side for a bridging period so
-   their offset is measured.
-3. **Context travels with every observation:**
-   - UTC time, plus the IANA time zone and the offset then in force;
-   - screen, viewport, and browser facts;
-   - the protocol or capture version;
-   - physical setup facts the browser cannot see (mouse, DPI, pointer
-     acceleration, hand), which are declared, never guessed.
-4. **Paired self-report.** Every check starts with a graded sleepiness rating.
-   The occasion (routine or extra) is stored, because extra checks are chosen
-   by circumstance and would bias a baseline.
-5. **Nothing lost.**
-   - Every attempt, full-rate input, and every check must be kept (restarted
-     games and full-rate input are on the roadmap).
-   - The browser database is only a working copy. The archive folder keeps
-     documented open files outside the browser.
-   - Absent means not measured.
-6. **Low burden.** A check stays under five minutes, the only required answer is
-   one click, and everything else is optional. Adherence over years matters
-   more than any single measurement.
-7. **Like-for-like comparison.**
-   - Change is judged against the person's own baseline under the same protocol
-     version and setup, accounting for practice, time of day, and board
-     difficulty.
-   - The day, not the trial, is the independent unit.
-   - A measure becomes a reported indicator of a state only after this
-     person's data shows both its day-to-day reliability and its association
-     with independent reports, such as sleepiness ratings.
+## Behavioral signatures and state research
 
-**Built 2026-09-26:**
-- self-check v1: a sleepiness rating plus a 3-minute alertness test, with
-  history and backup; the same day the creator replaced the 3-minute test with
-  a single 10-counter test (about 30 s);
-- the time zone on every new finished-game record;
-- screen and browser facts on every new trace, and input provenance
-  ([capture v1](storage-and-history.md#capture-provenance-v1-2026-09-26));
-- the [archive folder](storage-and-history.md#archive-folder-creator-direction-2026-09-26):
-  every record, trace, self-check, and problems-page attempt and run written
-  automatically, once, as
-  documented gzip JSON files in a folder the player chooses, outside the
-  browser;
-- a persistent-storage request, so the browser does not evict the database
-  under disk pressure.
+Requirements governing upcoming longitudinal analysis views ([BACKLOG.md](../../BACKLOG.md#lifelong-self-measurement-and-longitudinal-research)):
 
-The rest is the ordered roadmap in [BACKLOG.md](../../BACKLOG.md#lifelong-self-measurement-and-longitudinal-research).
-
-## Behavioral signatures and state research (requested 2026-08-30)
-
-The longitudinal analysis purpose includes characterizing repeatable play
-tendencies within this player and testing whether measured behavior can
-predict a self-reported state. The requested analysis surfaces are not built
-yet; their concrete backlog is in `BACKLOG.md` under "Longitudinal behavior
-and state analysis."
-
-- Every analysis must support both whole-session summaries and trailing
-  played-time chunks inside the current session. At minimum each grouping
-  reports games, wins, win rate, accumulated play time, mouse speed, useful
-  click rate and fastclick gap, with robust center/spread and measured sample
-  coverage. Additional motion, error, action, and risk measures join the same
-  grouping when present. The left stats panel's session charts drew
-  trailing played-time chunks in the page until 2026-10-20, when the creator
-  removed the panel ([Session stats](session-stats.md)); the requirement
-  stands for the analyses still to be built.
-- A play signature is multidimensional: movement/click cadence and geometry;
-  no-op, contradiction, and fatal-action patterns; marking/chording style;
-  and the rate, risk rank, one-move life, and context of guesses. A total
-  score must not erase the component values that identify how two signatures
-  differ.
-- State classification is a supervised within-person research result, not an
-  inference from a suggestive curve. Train on explicit state labels, evaluate
-  on held-out whole sessions, report class balance, uncertainty, calibration,
-  and errors, and compare against time-of-day/session-position baselines.
-  Until that validation exists, the UI may show associations but may not say
-  that motion or gameplay detected a physical, physiological, cognitive, or
-  clinical state.
-- Guess behavior must be analyzed against more than one objective. Immediate
-  minimum mine risk and one-move life (expected remaining life) describe per-instance
-  survival quality; wins per wall-clock hour, attempts per hour, expected
-  time to the next win, and cumulative progress/risk describe exposure-time
-  optimization. A player may rationally accept lower per-game win probability
-  to restart faster, especially on larger boards, so that policy must not be
-  mislabeled as declining sophistication.
-- Difficulty comparisons remain stratified by exact board, mode, generator,
-  and measurement era. Analyses then test whether guess policy changes with
-  level, date, session position, and recent state rather than treating the
-  pooled game mix as a player trait.
-
-Clarified 2026-08-20: the motion metrics measure the outer physical
-world — the layer where the player actually interacts with the mouse and
-generates movements — not the inner cognitive one. Concretely, every
-inter-click movement is anchored at the last click before it, regardless
-of how long before that its destination had been revealed or become
-deducible; when the player's intention for a move was actually born
-(at the enabling reveal, during earlier work, on committing after the
-previous click, or on re-verifying at arrival) is private and is
-deliberately not guessed at. A cell that gets resolved indirectly by
-separate processes (a flood fill or a chord from elsewhere) simply
-produces no movement and no work items — correct, because no physical
-interaction happened there. The full birth-time analysis, including the
-uneven thinking-contamination it implies and the computable refinements
-left for later, is in reference/mouse-motion-metrics.md ("Goal birth
-time and segment anchoring").
+- **Session and trailing played-time views:** support both whole-session summaries and trailing played-time chunks (games, wins, win rate, play time, mouse speed, click rate, fastclick gap, with robust center/spread and coverage).
+- **Multidimensional play signature:** preserve separate dimensions (cadence/geometry, error grammar, marking/chording style, guess policy) without collapsing them into one opaque score.
+- **Held-out state classification:** train supervised within-person models on explicit labels, evaluate on held-out whole sessions against time-of-day/session-position baselines, and report calibration and errors. Until validated, UI may show associations only — never claim to detect physical or cognitive states.
+- **Competing guess objectives:** evaluate guesses both for per-game survival (minimum immediate risk, one-move life) and exposure-time throughput (wins/hour, expected time to next win) — faster-resetting strategies on large boards must not be mislabeled as poorer play.
+- **Stratified baselines:** keep comparisons stratified by exact board size, mode, generator, and measurement era.

@@ -1,297 +1,64 @@
-# Play modes (decided 2026-08-21)
+# Play modes
 
 Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation notes: [docs/implementation/play-modes.md](../implementation/play-modes.md).
 
-A second uniqueifier next to board size. Rankings and history are stored
-per (board, play mode); a 9 x 9 Standard win never appears on 9 x 9
-Angelic lists.
+## Choosing a mode and score isolation
 
-Choosing a mode (creator request 2026-10-20: "beg, int, exp are "all-in-one
-settings choosers". when a user choose a mode besides those from the
-dropdown they shoudl only then be presetned with the variant and other
-options", "for inner modes like for example NG ... they'd be in a custom
-mode overall, then pick the board size and minecount and logic etc
-subsequently"; "simlify the mode pickers. i don't like the current layers
-wqhich are duplicative and needlessly complex"):
+Play mode is a second uniqueifier beside board dimensions and generator: every mode stores history and rankings under its own key (`WxH/M@<playMode>`), so wins in different modes never mix.
 
-- Beginner, Intermediate, and Expert are whole choices: the preset board,
-  Standard, and the default generator. They are the only way to play a
-  preset board, so every other mode's games are custom-board games.
-- Every other mode, and Custom (Standard on a board the player sizes), is
-  one entry of the **other modes** menu beside the preset links, one level
-  deep: every mode is an entry of its own, never a variant choice under
-  another mode. Choosing an entry opens the mode options row with the board
-  size, the generator where the mode uses one, and the mode's progress
-  ([Game setup](board-and-layout.md#navigation-and-progressive-disclosure)).
-- Until 2026-10-20 the mode was a separate menu in the details column, so a
-  preset board could be played in any mode. Saved settings holding a preset
-  with another mode continue as that mode on a custom board of the preset's
-  size, so the rankings they play into are unchanged.
+- **One-click presets:** **Beginner**, **Intermediate**, and **Expert** are complete choices (preset board, `Standard` mode, default generator) showing zero extra setup controls above the board.
+- **Flat `other modes` menu:** `Custom` (`Standard` on player-chosen dimensions) and every alternate mode live directly in one flat dropdown beside the presets — never split across redundant mode + variant menus ([Board and layout](board-and-layout.md#navigation-and-progressive-disclosure)). Selecting any entry switches to the player's custom dimensions and reveals one `#mode-options` row holding dimensions, generator (where applicable), and mode progress.
 
-- **Standard.** Today's first-click-safe random boards. "Guardian Angel"
-  applies here and in the Trial modes (frozen from the setting on the
-  first click, or when a given opening is used). It does not apply in
-  Angelic.
-- **3BV countdown (decided 2026-08-26 as "pregen 10 boards and order by 3BV
-  descending, assuming auto-click in upper right"; renamed 2026-10-20).**
-  The creator asked for a better name ("figure outa better pregen10-name")
-  when the long one was found cut off in the closed other modes menu. The
-  new name says what the player meets: the boards count down from the
-  highest 3BV. The menu entry's tooltip, and the closed menu's while the
-  mode is chosen, gives the rest: "Ten boards a batch, played from the
-  highest 3BV down; the upper-right square opens on its own." Its id
-  (`pregen-10-3bv-desc`) and history keys are unchanged, so saved games and
-  rankings carry over. Generate ten first-click-safe
-  candidates through the selected board generator, using the upper-right
-  cell as every candidate's opening. Compute each full board's 3BV, order
-  the candidates from highest to lowest (generation order breaks ties), and
-  deal all ten in that order; exhausting the batch creates a fresh ten.
-  Every candidate has its own replayable seed. The upper-right cell opens
-  automatically and the timer starts after generation; that supplied opening
-  is not counted as a player click. The current batch position and 3BV appear
-  in the mode options row. Gameplay otherwise follows Standard, including Guardian
-  Angel and guess measurement, while history and rankings remain separate
-  under this mode's key.
-  A persistent "challenge progress" table precedes the charts with columns
-  `run`, `3BV`, and `time`. Each finished board adds one row in ranked deal
-  order; a loss is named in its time cell. Only completed facts appear here:
-  there is no second live timer or transient current-board row. The latest
-  completed run keeps the page-wide this-game light blue "me" background, including
-  while the next board is underway.
-  Two persistent 3BV → solve-time scatters sit below the board throughout
-  play and after each result: "this challenge" contains wins completed since
-  the current ten-board batch was created, while "whole day" contains this
-  top-score key's wins since local midnight, including earlier batches.
-  They use the normal relationship-chart grammar (wins only, age-colored
-  dots, nice axes and minor ticks, Tukey y-outlier trimming, a blue
-  Theil–Sen fit, and the latest win ringed with its within-scope time rank).
-  Each chart keeps a fixed-size waiting frame until the normal two-win
-  minimum is reached.
-- **No-guess modes (built 2026-08-21, removed 2026-10-21).** Uniform NG,
-  Single-path NG, and Proof-or-die are gone, with the method that made their
-  boards. Creator decision 2026-10-21: "let's eliminate that bad method. it
-  sounds like it'll take a long time, and taht just sucks. just remove NG
-  overall please." The method drew random boards and threw each away until
-  one passed the mode's test. At Expert it almost never found a Uniform NG
-  or Single-path NG board within its attempt budget, so the first click
-  failed. The Single-path boards it did find were nearly all opened by the
-  first click: all 8 saved Single-path games had 3BV 1 to 3. A replacement
-  that builds each board directly, swapping mines wherever the solver gets
-  stuck, was prototyped the same day and not built. It made every board
-  tested at every standard size, in a median 4 to 6 ms at Expert.
-  - What the modes were, for reading their saved games. Each board was fully
-    solvable from the opening without guessing. Uniform NG also required
-    every deduction step to sit at one grade: all direct counting, all
-    overlap deduction, or all exhaustive layouts. Single-path NG also
-    required one click's opening to cover each step's newly proven safe
-    squares. Proof-or-die used a solvable board and killed any opening of a
-    square not proven safe, even an empty one.
-  - Saved games stay. Their mode, names, history lists, and Proof-or-die's
-    verdicts are kept: a rule death for opening an unproven square, and
-    every win counted as won without a guess. They export and import as
-    before. No new game can be started in these modes. A stored setting
-    naming one loads as Standard, as any invalid stored setting loads as
-    its default; a preferences file naming one is refused on import, as
-    any invalid preference is.
-  - The rule that prompted the removal holds for any later no-guess mode:
-    one method that works well at every board size the mode offers, never a
-    first method with a second behind it for when the first fails ("we
-    should use ONE technology which works well. not use something, and if it
-    fails, use another thing. that's a very bad pattern.").
-- **Angelic.** The rest of the angelic dual of Kaboom: a click (or chord
-  cell) that is not a proven mine is made safe; you die only by
-  contradicting known facts (clicking a proven mine). Guardian Angel is
-  the sealed-pocket special case; this mode covers every consistent
-  guess. Guardian Angel is off here — the mode is the mercy.
-- **Endgame drill (2026-08-30).** Repeated quick training on realistic
-  endgame positions. Each deal generates a full board with the selected
-  generator, then presents it late-game: every safe cell is revealed
-  except a remnant pocket flush with a board side (real endgames finish
-  against borders and corners), with opening closure enforced (a
-  revealed zero never keeps a covered neighbor). A deal is accepted only
-  when the pocket keeps 4–45 covered safe cells, contains at least one
-  mine and one covered numbered safe cell (an all-zero remnant trains
-  nothing), and is finishable by pure deduction from the visible numbers
-  and mine counter — verified with the exact solver, so a drill death is
-  always a reading error, never a forced guess. Rejection budget
-  exhausted → fail loudly. The timer starts on the player's first input
-  (reveal or flag; an accepted chord always follows a flag). The
-  record's 3BV is the presented remnant's remaining 3BV — the minimum
-  clicks to finish what was actually left — so 3BV/s, efficiency, and
-  the same-3BV tables stay honest within the mode; ZiNi/HZiNi and STNB
-  are omitted (full-board measures misdescribe a partial solve). The
-  guess ledger stays on: every measured guess in a deducible position is
-  unforced, which is the mode's training signal. Records rank under
-  their own `@endgame-drill` history key. A drill's seed replays the
-  entire deal (board and window search), and dealing is ~2 ms on expert,
-  so face-button restarts stay instant. The upper-right chrome shows
-  "N safe cells left · remaining 3BV M". Dealing lives in `endgame.js`
-  (pure, dependency-injected, node-tested).
+## Active play modes
+
+### Standard
+First-click-safe random play. Guardian Angel applies (frozen from the setting at first click or given opening).
+
+### 3BV countdown (`pregen-10-3bv-desc`)
+Generates ten independently seeded first-click-safe candidates through the chosen generator with the upper-right cell safe, ranks them by descending 3BV (generation order breaks ties), and deals all ten in order (starting a fresh batch after ten).
+
+- The upper-right square opens automatically without counting as a player click; the timer starts after generation. `#mode-options` shows batch progress and board 3BV. Guardian Angel and guess measurement follow Standard rules.
+- **Persistent challenge display below the board:** a `challenge progress` table (`run`, `3BV`, `time` — completed facts only, no second live timer, latest completed run highlighted in `--this-game` light blue) precedes two persistent 3BV → solve-time scatters (`this challenge` since batch creation and `whole day` since local midnight), using standard relationship-chart grammar with fixed waiting frames until two wins exist.
+
+### Angelic (`angelic`)
+The full angelic dual of Kaboom ([Design axis](design-axis.md)): any reveal or chord square not proven to be a mine is made safe; you die only by contradicting visible facts (clicking a proven mine). Guardian Angel and the guess ledger do not apply here because unproven clicks cannot kill.
+
+### Endgame drill (`endgame-drill`)
+Fast, repeatable pure-deduction training on realistic late-game remnants (`endgame.js`).
+
+- Generates a full board through the chosen generator, then reveals every safe cell except a border-flush remnant pocket enforcing opening closure (no revealed zero keeps a covered neighbor) with `4–45` covered safe cells, `>= 1` mine, `>= 1` covered numbered safe cell, and exact solver proof that the entire remnant finishes by pure deduction (exhausting the sampling budget fails loudly).
+- Timer starts on first input; each seed replays the full board and window search.
+- Records store **remaining 3BV** as `bv3` (keeping `3BV/s`, `efficiency`, and same-3BV tables honest within the mode), omit full-board `zini`/`hzini`/`STNB`, keep the guess ledger active (every guess is unforced), and show `"N safe cells left · remaining 3BV M"` in `#mode-options`.
+
+### Coaching practice modes (`coach-*`)
+Four one-level-deep practice entries stored under separate `@coach-*` keys (never mixing with Standard rankings), carrying a `coach` counter block per record with Guardian Angel and guess measurement enabled:
+
+- **Coach: No-waste (`coach-no-waste`):** cues no-op clicks (with reason), 1-cell-only/unused flags, and 1-cell chords (calling out opening-rim 1-cell chords); tracks 1.5-click short-range flag→chord pairs; offers an optional per-board **Flag cap** (`unlimited`, `50`, `35`, `20`, `0 (no flags)`) in `#coach-bar`.
+- **Coach: Early bail (`coach-early-bail`):** runs off-frame local counting/overlap analysis; when local easy work runs out while easy moves exist elsewhere, arms a configurable **Bail cue** timer (`300`, `450` default, `600`, `800 ms`) and highlights the nearest easy cluster if lingering, tracking fast bails vs. nudges, local blind spots (`550 ms`), and queued lookahead moves (`<= 220 ms`).
+- **Coach: Scan shield (`coach-scan-shield`):** intercepts unproven left-click reveals while a proven-safe square exists elsewhere (and clicks on proven mines), flashing missed safe squares instead of ending the run while letting genuine forced guesses proceed; warns on provably wrong or overflagging flags before chording; notes numbered starts (`Space` to restart).
+- **Coach: Full mix (`coach-full`):** runs No-waste, Early bail, and Scan shield together.
+- **Shared coach features:** captures slow overlap-tier hesitations (`>= 450 ms`) by pattern family (`1-2 interior`, `1-2 on wall`, `1-1 interior`, `1-1 on wall`, `overlap chain`), prompts for a fresh state tag check-in if none occurred within `30 min`, and displays a post-game **Coach recap** with one-click replay jumps. Planned revisions (removing target-cell hints in Early bail, Scan shield `+20 s` discipline penalty, exhaustive `4/5/6/7` priority) are tracked in [BACKLOG.md](../../BACKLOG.md#training-coaching-and-mind-map).
+
+### Trial (`trial`), Short trial (`short-trial`), and Test trial (`test-trial`)
+Repeated hidden-board identity experiments (`25×4 = 100`, `4×4 = 16`, and `1×4 = 4` games), each stored under its own mode key and excluded from Standard charts/streaks.
+
+- Starts from a centered lobby (`Start trial`). Layouts are pre-fixed, so an ungiven first click on a mine can kill (`trialGiveOpening`, default off, restores a predetermined opening and subtracts `givenOpeningBv3` from 3BV performance metrics; [Per-game stats](per-game-stats.md)).
+- Shuffled presentations separate repeat meetings of the same board identity across four distinct dihedral orientations (`identity`, `180°`, and flips on rectangles; a subset of all eight on squares). Progress displays `n / total` with `end trial`; restarting mid-game skips the current slot; leaving mode/size discards an active session. Guardian Angel follows the user setting.
+- **After-trial review:** hides the board, leads with later-vs-first summary comparison, meeting-index bars (mean win time, `3BV/s`, win rate; light gold = first meeting, dark brown = last), and `Start another trial` (briefly inert against trailing clicks). Per-identity cards auto-open on losses, large first-to-last swings, or single-board trials, displaying attempt charts and inverse-isometry overlaid traces (open squares, remaining safe squares, flags, unmarked mines, cursor path, speed with bucket slider, and aligned cursor coordinates).
+
+### Board lab (`board-lab`)
+Non-play generator explorer: deals fully revealed boards immediately (safe cells open, every mine flagged for visibility, LCDs at `0`), ignores cell input, records nothing, hides `see scores`, and shows generator parameter sliders + `make new board` beneath `#mode-options` (parameter changes persist for play modes; titlebar/Space deals fresh boards).
+
+## Removed no-guess modes (legacy history compatibility)
+
+`Uniform NG`, `Single-path NG`, and `Proof-or-die` were removed on `2026-10-21` because their generate-and-reject generator failed reliably at Expert and skewed Single-path boards toward trivial openings.
+
+- **Preserved history:** saved records retain their mode keys, labels, history lists, exports/imports, and Proof-or-die verdicts (`REMOVED_PLAY_MODES`). No new game can start in these modes; stored settings naming one default to `Standard`, and preference imports naming one fail validation.
+- **Standing rule for any future NG generator:** ship one constructive technology that works reliably across every board size — never a primary method backed by a fallback generator.
 
 ## Visible-information solver
 
-`GuardianAngel.proveFacts` is the canonical proof engine used by Angelic, the
-Endgame drill, misclick classification, guess scoring, and action reports. It receives only revealed numbers, covered-cell locations, board
-dimensions, and the total mine count. Player flags are annotations and the
-hidden layout is never evidence.
+`GuardianAngel.proveFacts` is the canonical exact proof engine shared by Angelic, Endgame drill, misclick classification, guess scoring, live perf charts, and action evaluation. It reads only revealed numbers, covered-cell indices, board dimensions, and total mine count (flags are player annotations, never proof; hidden mines are never consulted).
 
-The solver first closes direct-count and arbitrary overlap-difference
-constraints. It then partitions the unresolved frontier into connected
-constraint components, counts every layout of each component exactly, and
-joins their possible mine totals through the board-wide mine count and
-unconstrained sea. A cell is proven safe or mined only when it has that
-value in every globally consistent layout. This is general constraint
-solving rather than a catalog of named patterns. Its stages are the
-deduction levels ([design axis](design-axis.md), "Deduction levels"):
-counting, overlap, the search without the mine total, then the search
-joined through it. `GuardianAngel.proveLevels` runs them in one pass, recording
-the first level proving each fact, for the live perf charts' moves
-available.
-
-Since 2026-11-02 the count has no work limit
-([JSMinesweeper review](../../reference/jsminesweeper.md)): covered squares
-beside exactly the same numbers are counted together, and the numbers are
-taken in an order that keeps few of them half-settled at once, partial
-layouts that leave every open number the same need being merged into one
-count. The work grows with how many numbers are half-settled at once, not
-with how many layouts there are, so a group of 2^80 layouts is counted in
-milliseconds. Results carry `complete` and `method`; a full proof is always
-complete, and only the counting and overlap levels, which never search, are
-marked incomplete. Identical visible positions reuse the last exact proof
-result. One-move odds scoring (the one-move life of every covered square)
-counts the layouts by the number each square would show from the same
-counts, with no hypothetical boards and no work limit.
-
-Until 2026-11-02 the browser search listed layouts with a deterministic
-two-million-node work limit, and results also carried `visits`. An
-over-limit search returned only facts already soundly established and
-marked itself incomplete; reports did not call an unresolved action
-“unproven” merely because the engine exhausted its work budget. One-move
-odds scoring inspected up to forty hypothetical next positions, each
-hypothetical proof prepass with an 80000-node limit, after which residual
-odds either completed independently or remained explicitly unmeasured.
-- **Trial.** 25 hidden board identities for the current size, each shown
-  four times (100 games). Choosing the mode hides the board and shows
-  a centered description plus Start trial. That click starts the
-  sequence; the player chooses the opening (a mine can kill — the
-  layout is already fixed). Presentations are
-  shuffled so repeats are not obvious, with the same identity kept away
-  from its other showings; the four showings of one identity use four
-  different isometries (a subset of the eight dihedral maps on a square;
-  all four of identity, 180°, and the two flips on a rectangle) so the
-  puzzle is the same logically and never the same orientation twice.
-  The board stays covered until you click; the timer starts then.
-  Progress is `n / 100` with an "end trial" control. After each game
-  the finished board stays; the titlebar (or space) deals the next
-  one. A restart before that game is finished skips the current slot
-  and deals the next item. When the last game finishes, the board
-  disappears. A centered header holds the session line, a descriptive
-  later-versus-first comparison, and Start another trial; the meeting-index summary is a
-  full-width row under that; per-board cards wrap below. Start another trial stays inert for a short
-  moment so a trailing click cannot begin a new session. Leaving the
-  mode or changing size while a session is running ends it; that
-  review is not kept. Guardian Angel follows the user setting (default on).
-  Solve-time, 3BV/s, and efficiency omit losses; counts, overlays, and
-  motion metrics keep them.
-  The review leads with later meetings of the same identity vs first
-  meetings. Descriptive comparison text and meeting-index bars (mean win time, 3BV/s,
-  win rate; light gold = first meeting, dark brown = last) sit above
-  the per-board list. Identities are collapsed; a row opens if it has a
-  loss, a large first-to-last swing, or is the only board. Open rows
-  keep attempt-index charts plus overlaid traces: open squares,
-  remaining safe squares (0 is a win), flags, unmarked mines, cursor
-  path, speed (with a bucket-width slider; default 200 ms mean, 0 =
-  raw samples), and cursor x/y mapped back through the inverse isometry
-  onto the identity board so the four orientations share one
-  coordinate frame. From the results the player
-  starts another trial (same size) or changes mode / size (that opens
-  a fresh lobby). Ending early via "end trial" shows the same review
-  for the games already played.
-  Finished trial games are stored under that size's trial key only —
-  they do not enter Standard (or any other mode's) time windows,
-  streaks, relationship charts, or average-time charts.
-- **Short trial.** The same rules as Trial, with 4 identities shown
-  four times each (16 games). Its results live under that size's
-  short-trial key and never mix with the 100-game Trial lists.
-- **Test trial.** One identity, four orientations (4 games). Same
-  storage split (`@test-trial`).
-- The setting `trialGiveOpening` (default off) restores a predetermined
-  opening on trial boards. A first click on a mine can kill: the
-  layout is already fixed. Each presentation keeps the setting as it was
-  dealt, so a change during play cannot change what its record says
-  (`givenOpening`). A presentation given an opening stores the 3BV the
-  opening solved (`givenOpeningBv3`, since 2026-10-27), and its performance
-  measurements count only the 3BV the player solved
-  ([Per-game stats](per-game-stats.md), "Trials with a given opening");
-  the review's 3BV/s, clicks, and efficiency are game data's
-  ([Measurement catalog](measurement-catalog.md)).
-- **Board lab (decided 2026-08-25).** The non-play mode for exploring
-  board generation. Every board appears the instant it is dealt, shown
-  fully known: safe cells open with their numbers, every mine flagged,
-  mine LCD 0, timer 0. (Since 2026-10-10 a won game no longer flags the
-  remaining mines; the lab still flags every mine, because nobody plays
-  its boards and its flags only show where the mines are.)
-  No input reaches the cells, no timer runs, and nothing is ever
-  recorded — the mode exists to look at generated boards, not to play
-  them. The board size is the mode options row's size form, as in every
-  custom mode (until 2026-10-20 the lab had its own width, height, and
-  mines sliders in place of that form). A panel under the row holds the
-  lab's note, one slider per parameter of the chosen generator, and a
-  "make new board" button; the titlebar, dove, and space bar deal a new
-  board as everywhere else. Any slider movement regenerates instantly. The
-  generator itself is chosen with the same Generator menu in the mode
-  options row as in play; parameter changes made in the lab persist and
-  are the values the play modes use. The see-scores control hides here
-  (there is nothing to rank).
-- **Coaching practice modes (creator request 2026-11-25: "implement test
-  versions of the coaching modgame ideas. let's also make sure we manage this
-  process to see if doing them has any effect. it's great when you model my
-  mind, and when you can sample my state").** Four one-level-deep entries in
-  the **other modes** menu, each stored under its own mode key (`@coach-*`,
-  never mixing with Standard rankings) and carrying a `coach` counter block on
-  each finished record, with Guardian Angel and guess measurement enabled as
-  in Standard:
-  - **Coach: No-waste (`coach-no-waste`):** flags no-op clicks (with reason),
-    1-cell-only / unused flags, and 1-cell chords (calling out opening-rim
-    1-cell chords); tracks 1.5-click usage on short-range flag→chord pairs;
-    offers an optional per-board **Flag cap** (`unlimited`, `50`, `35`, `20`,
-    `0 (no flags)`) in the coach bar above the board.
-  - **Coach: Early bail (`coach-early-bail`):** runs fast local counting and
-    overlap analysis off the click frame; when local easy work runs out while
-    an easy move sits elsewhere, arms a configurable **Bail cue** timer
-    (`300`, `450` default, `600`, or `800 ms`) and highlights the nearest easy
-    cluster if the player lingers, counting fast bails versus nudges; pulses
-    missed easy local moves after 550 ms; tracks queued lookahead moves
-    executed within 220 ms.
-  - **Coach: Scan shield (`coach-scan-shield`):** intercepts unproven left-click
-    reveals whenever a proven-safe square exists elsewhere (and intercepts
-    clicks on proven mines), flashing the missed safe squares instead of ending
-    the practice run while letting genuine forced guesses proceed normally;
-    warns immediately on provably wrong or overflagging flags before a chord
-    blows up the board; notes numbered starts (`Space to restart`).
-  - **Coach: Full mix (`coach-full`):** runs No-waste, Early bail, and Scan
-    shield together on one board.
-  - Every Coach mode captures slow overlap-tier hesitations (`>= 450 ms`)
-    classified by pattern family (`1-2 interior`, `1-2 on wall`, `1-1 interior`,
-    `1-1 on wall`, `overlap chain`), prompts for a fresh state check-in when
-    none was recorded within 30 minutes (opening the existing `edit states`
-    menu), and shows a post-game **Coach recap** with clickable moment buttons
-    that jump the replay directly to each captured event.
-  - **Planned revisions (creator direction 2026-11-25; not yet built — tracked
-    in [BACKLOG.md](../../BACKLOG.md)):**
-    - **Early bail must not tell the player which squares to click.** Before
-      redesigning Early bail cues, first build the trace-based cognitive and
-      technique model that infers which solving techniques the player uses,
-      where the player is looking/checking, and how fast each technique runs;
-      then refine those actual decision points rather than highlighting target
-      cells.
-    - **Scan shield discipline penalty:** evolve Shield mode so it still
-      protects the player from dying, **but adds a configurable time penalty
-      (e.g. `+20 s`)** for violating chosen discipline rules — such as jumping
-      far away past easy local moves, leaving exhaustively ready `4/5/6/7`
-      numbers unflagged while doing unrelated work, or guessing past a safe
-      move.
-    - **Exhaustive high-number (`4/5/6/7`) priority:** treat an exhaustively
-      complete high number (including partially flagged ones whose remaining
-      unflagged covered neighbors equal remaining mines) as a mandatory
-      immediate local action in discipline/shield drills.
+- **Stages (`GuardianAngel.proveLevels`):** closes single-number counting (level 1) and pairwise overlap differences (level 2), then partitions the remaining frontier into connected components, merges squares beside identical open numbers, and counts layouts via frontier dynamic programming without enumerating individual layouts — first per component (`all numbers`, level 3) and then joined through the board mine total (`mine total`, level 4; [Design axis](design-axis.md#deduction-levels)).
+- **Unlimited exact proofs (`2026-11-02` onward):** full proofs and one-move odds scoring run with no work limit, scaling with frontier width rather than total layout count (`complete: true` on every full proof; only counting/overlap prepasses report incomplete). Identical visible positions reuse the last exact proof. Pre-`2026-11-02` saved records that hit the former `2,000,000`-node work limit stay explicitly marked incomplete rather than generating unproven criticisms.

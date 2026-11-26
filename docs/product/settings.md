@@ -1,276 +1,36 @@
-# Personal settings (decided 2026-08-20; area redone from scratch 2026-08-23)
+# Personal settings
 
 Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation notes: [docs/implementation/settings.md](../implementation/settings.md).
 
-- The design doctrine (settled 2026-08-23 after several same-day
-  revisions; the general rules it produced live in [UI doctrine](ui-doctrine.md)):
-  settings live on their own full page, settings.html, reached from the
-  clear "settings" button at the game page's upper right, in the top bar;
-  the way back is
-  equally clear — "return to game" buttons at the top and bottom of the
-  page body, Esc, or the browser's Back. The page stays focused on the
-  settings themselves. A change shows its meaning where the thing itself
-  lives: the game page reads settings fresh on every load.
-  Everything else (row shape, hint placement) is implementation and
-  freely revisable; earlier revisions of this section had mistaken
-  implementation defaults for decisions.
-- A schema-driven settings system for player-facing behavior switches:
-  `SETTINGS_SCHEMA` is the single definition (field, default, validity,
-  group, label, hint, description, and optional migration); the loader,
-  saver, import validator, settings page UI, and data-format card all derive
-  from it. Selectable values and limits live beside the schema; generator
-  parameters use the shared generator registry. Both pages load that registry
-  and can validate every preference without the game runtime. It lives
-  in settings-core.js, loaded by both pages, so the game and the settings
-  page cannot drift. Named "settings", never "config" — that word is the
-  board parameters.
-- Stored beside the history (userdata `settings`; see [Storage](storage-and-history.md)). Absent
-  entry or absent field = the default (the player never changed it). Invalid
-  stored fields also use their defaults, and nested values are copied before
-  editing. Loading only writes when consolidating an existing state-tag list
-  into preferences; other writes follow user changes. All persistent
-  preferences use this flat JSON-compatible object,
-  including controls edited on the game page. The data-format reference
-  lists every setting, default, and meaning directly from the schema.
-- Preferences and game history have separate files and transfer controls.
-  The Settings page exports/imports a plain JSON object defined by
-  `SETTINGS_SCHEMA`; an invalid or unknown field rejects the whole preference
-  import with an error. History exports contain only mode-keyed game lists;
-  history imports ignore the preferences embedded in older combined exports.
-  Neither transfer applies the other kind of data.
-- All lasting control and view choices are preferences: difficulty/preset,
-  applied custom width/height/mines, the separate unsubmitted custom-form
-  values, player-state tags and active flags, mouse-path mode, all six replay
-  overlays, trial-speed averaging, score/current-game view, replay action
-  position, all panels/disclosures, trial identity/action-report
-  disclosures, text drafts, page scroll position, and focused control.
-  These use the same schema and settings record as the existing preferences.
-- The game choice is one consistent pair (2026-10-20): a preset difficulty
-  always goes with the Standard mode, and every other mode with the custom
-  board ([Play modes](play-modes.md)). Saving any other pair is an error.
-  A stored or imported preset with another mode, the pair the former
-  separate Mode menu allowed, loads as that mode on a custom board of the
-  preset's size, which keeps its rankings. The replay disclosure's
-  remembered open state (`panels.replay`) is gone with the disclosure, and
-  so is the Overlays panel's (`panels.reviewOptions`, 2026-10-21); a stored
-  one is dropped on load.
-- Preference restoration completes before the game becomes interactive.
-  Inapplicable panels keep their open preference until available. Replay
-  positions refer to finished games by timestamp; the actual completed board
-  and trace belong to the trace store, never the preference file. New traces
-  store the final board and metric sampling times so the finished view can
-  be reconstructed without recording another result.
-- Browser-selected file handles, held mouse buttons, active drags, hover
-  highlights, and tooltips are transient input state, not preferences. File
-  selections are applied immediately. An unfinished board still starts fresh
-  on reload; saved Trial progress remains separate from personal preferences.
-- One place for the player's global configuration (creator 2026-10-20:
-  "all usre-specific global configuration should be in the same place"):
-  on the game page it is the settings row at the page foot, holding the
-  session picker and the board display (Zoom, position, pixel ratio), with
-  the settings page's own button (below) at the upper right since
-  2026-10-21 and the daily limits link beside it since 2026-10-22
-  ([Game setup, top bar, settings row, and footer](board-and-layout.md#navigation-and-progressive-disclosure)).
-  Choices that belong to one game setup, the board size and the generator,
-  stay beside the mode they configure. Each option has one place (creator
-  2026-10-21; [UI doctrine](ui-doctrine.md)): a setting the settings page
-  shows is changed only there, and a surface's own view choices (the
-  replay's overlays, a chart's averaging) only on that surface.
-- A "settings" button at the right end of the game page's top bar, at the
-  upper right (creator 2026-10-21: "move "settings" to upper right."; on
-  2026-10-20 in the settings row at the page foot; in the top bar from
-  2026-10-14; before that in the details column's cluster it shared with the
-  states tags, 2026-08-20; a real bordered
-  button since 2026-08-23) is a plain link to settings.html (2026-08-23;
-  before that it opened an in-page surface — first a small corner
-  dropdown, then briefly a full-height right-edge drawer that same day).
-  The settings page wears the game's identity: a slim titlebar with the
-  site name, then a centered body headed "Settings" with its save
-  behavior stated beside the title. The two "return to game" buttons
-  (dressed like the game's own top-right buttons) sit above and below the
-  settings panels in the body; Esc also returns. They are not tucked at
-  a screen edge.
-- The demo world (2026-08-23, created with the page and removed later
-  the same day): a miniature pretend mid-game beside the controls —
-  partially played board, mini left-panel cards, stand-in result
-  cards — that reacted live to every switch. Removed to keep the page
-  super simple; the record stays because the idea may return.
-- Global vs. local split (creator decision 2026-11-24, Option S1: "regartding
-  the ideal from-scratch loation, yes, please do that. So, S1. go for it, all
-  of them."):
-  - **Global play & account** (`settings.html`): daily limits, Guardian Angel,
-    board look and glyph sizes (`numberDisplay`, `numberSize`, `flagStyle`,
-    `flagSize`, `flagIntensity`, `mineStyle`, `mineSize`), after-game report
-    level (`reportScope`), preferences backup, and archive folder.
-  - **Local view composition** (directly on the game page): which rows show in
-    Game Data (`gameDataMetrics`, `gameDataBoardTraits`, `gameDataScopedRows`),
-    which lines/tracks show in live perf charts
-    (`duringGameRows`), which columns show in full score lists
-    (`scoreListColumns`), and which lower result sections/tables/charts show
-    (`shownThings` and `collapseDuplicateCharts`). Every surface supports
-    right-click → `hide` / `remove` directly on individual rows, columns,
-    tables, charts, or section headings (Shift+right-click reaches the
-    browser's native menu), plus a local `configure` / `columns` control to
-    bring hidden items back. The 25 result-section switches (`RESULT_SECTION_GROUPS`)
-    moved off `settings.html` into a local `<dialog id="results-config">` opened
-    from the compact `configure` buttons on `rankings` and `This board`, the
-    always-reachable `configure results` button in `#settings-row`, or any
-    result section's right-click menu. Changes apply live to the shown result.
-- Switches render under group headings naming where they act — gameplay /
-  after a game, with a "left panel" group until the panel's removal on
-  2026-10-20 — driven by the schema's `group` field
-  (`SETTINGS_GROUPS` orders the sections), so the page and the schema
-  cannot drift. Each group is a separate panel with its heading in a
-  stable left column and its settings on the right. A switch row puts its
-  name on the left, its checkbox at the far right, and any earned hint in
-  the column between them — never below the name where it could look like
-  another list item. The schema's full description remains a plain
-  tooltip. A multi-option setting such as `reportScope` puts one radio
-  group to the right of its name. (From 2026-09-26 to 2026-11-24 `settings.html`
-  also held the four compact `RESULT_SECTION_GROUPS` option grids under
-  `after a game`; those moved to the game page's local `configure results`
-  dialog on 2026-11-24 so `settings.html` holds global play/look/report/account
-  settings only and every setting still has one place.) The layout
-  collapses to one section column on narrow screens while retaining the
-  name/control relationship. Width (2026-09-23 sweep): the body spans the
-  window less 48px (28px on narrow screens), and the title and return
-  buttons stay centered. The groups flow into as many columns of at least
-  760px as fit, which is the width that keeps a switch row's name, hint,
-  and checkbox on one line. That gives three columns at 2560px and two at
-  1920px. Preferences backup joins the same flow, followed by the Archive
-  group (2026-09-26): the archive status sentence in bold, the browser's
-  answer to the persistent-storage request, then "Choose folder" (or "Change
-  folder") and "Archive now" once a folder exists; see
-  [Archive folder](storage-and-history.md#archive-folder-creator-direction-2026-09-26).
-  Neither button is ever shown disabled, because disabled controls render
-  gray text: "Choose folder" is absent where the browser cannot pick
-  folders, and an "Archive now" click during a sync queues one more. A
-  switch row without a hint lets its name use the hint column. A
-  change saves immediately; the game page reads settings fresh on every
-  load, so returning applies them. "Changes save automatically" beside
-  the page title states why there is no save button.
-- Hover must never inject or swap text (decided 2026-08-23 after two
-  rounds of hover-note mechanisms did exactly that). The row–demo glow
-  link retired with the demo world the same day. The game page has no
-  hover-only controls: the floating "hide ×" chip that appeared over a
-  hovered result section (added earlier on 2026-08-23) was removed the
-  same day — the pointer never stumbles into hiding controls on hover.
-  Instead, explicit right-click menus (added 2026-11-24, Option S1) offer
-  `hide`/`remove` on individual rows, columns, tables, charts, and section
-  heads without injecting hover chrome; Shift+right-click opens the browser's
-  native menu. The remaining one-click precedent stands: the
-  details column's width, set by dragging its own edge. The session
-  section's own selectors and the stats panel's drag edge, the other two,
-  left with the panel on 2026-10-20 ([Session stats](session-stats.md)).
-- Settings so far: `cellSize` (default 28) — saved Zoom in pixels;
-  `guardianAngel` (default on) — a guess that nothing else on the board
-  could ever settle never kills you (see
-  [Guardian Angel](guardian-angel.md);
-  a game freezes the value at its first reveal, so a change made mid-game
-  applies from the next game — the old drawer's mid-game lock UI retired
-  with the drawer, 2026-08-23);
-  `collapseDuplicateCharts` (default on) — the rank
-  lists' progressive disclosure switch (see [Rank lists](rankings.md));
-  `panels.motionStats` (default closed; set by the section's title) — the
-  motion stats section at the page foot, the mouse-dynamics values (see
-  [Motion stats](motion-stats.md)); it replaced `showMotionStatsDuringGame`
-  and `showMotionStatsAfterGame` ("motion charts") on 2026-10-20;
-  `panels.sessionSummary`, `panels.recentPlacements`, `panels.gameStats`,
-  `panels.rankTables`, `panels.boardTables`, `panels.perfCharts`,
-  `panels.boardCharts`, and `panels.relationships` (default open; each set
-  by its title, 2026-10-26) — the result's tables and sections under the
-  board ([Openers](results.md#openers-creator-request-2026-10-26));
-  `reportScope` (`none` by default; choices `none`, `fatal`, `risk`,
-  `full`) — the simple after-game analysis ladder, chosen only on the
-  settings page since 2026-10-21 (before then also in the game's Overlays &
-  display panel and above the trial review); it does not change what game
-  data's report category rows count;
-  `sessionDefinition` (default `today`, since local midnight; set only by
-  the one session picker in the game page's settings row, never on the
-  settings page) — the shared wall-clock session window (see [One session
-  definition](game-data.md#one-session-definition)). The left panel's
-  `showSessionStats`, `sessionLookbackSeconds`, `metricsPanelWidth`, and
-  the other session chart controls were removed with it on 2026-10-20
-  ([Session stats](session-stats.md));
-  `detailsColumnShare` (default 0.46; set by dragging the docked details
-  column's board-facing edge) — the docked details column's preferred share
-  of the window width, clamped between 320 px and the free flank beside the
-  placed board (see [Board and layout](board-and-layout.md));
-  `numberDisplay` (default numbers; the first choice-row setting) —
-  digits / letters / dots for revealed counts (see [Board and chrome](board-and-layout.md));
-  `numberSize` (default 100, percent of a count's standard size at the
-  zoom, 50–120 by 5; added 2026-11-05) — set with a slider (see [Board and
-  chrome](board-and-layout.md));
-  `flagStyle` (default classic), `flagSize` (default 45, percent of the
-  square's width, 20–100 by 5), and `flagIntensity` (default 100, color
-  strength, 10–100 by 10; all added 2026-10-15) — the flag's look, the two
-  numbers set with sliders (see [Board and chrome](board-and-layout.md));
-  `mineStyle` (default classic; added 2026-10-15) — classic / bold / sea
-  mine / bomb / star, each choice shown as board squares in the picker (see
-  [Board and chrome](board-and-layout.md));
-  `mineSize` (default 100, percent of the mine style's own size, 50–100 by
-  5; added 2026-11-05) — set with a slider (see [Board and
-  chrome](board-and-layout.md));
-  `gameDataMetrics` (one selection for both comparisons since 2026-10-07,
-  replacing separate lifetime and session selections; a measurement either
-  of them showed stays shown; a choice saved under an id renamed on
-  2026-10-26 keeps its choice under the new id, as in `duringGameRows`:
-  [Measurement catalog](measurement-catalog.md), "Ids renamed 2026-10-26"), `gameDataBoardTraits` (since 2026-10-14: which
-  board traits game data ranks, chosen in its configure, apart from the This
-  board table switches; a profile saved before then starts from what those
-  switches showed), `gameDataShowValues`,
-  (`gameDataSwitchCost` was retired on 2026-11-24 when pooled switch cost moved
-  to `training.html` and per-game `flag→chord gap` joined `gameDataMetrics`),
-  `gameDataPool` (default `all`, replacing `gameDataBandPool` and
-  `gameDataDistributionPools` on 2026-11-23; saved profiles keep `session`
-  when that was active and map everything else to `all`),
-  `gameDataScopedRows` (default empty, added 2026-11-24: extra `{metric,
-  pool}` rows plotted alongside the base rows in `game summary perf`, chosen
-  in configure), and `gameDataDistributions` (default off; chosen on the
-  chart itself) — the game data
-  column (see [Game data](game-data.md)); `shownThings.duringGame` (default
-  on; "live perf charts", titled "during this game, second by second"
-  until 2026-10-20, in the This game group before game data, which it leads
-  in the result; in the Charts group until it moved there on 2026-10-15),
-  `duringGameRows` (which rows it shows, chosen with its configure), and
-  `duringGameAveraging` (default a 2 s rolling average, chosen on the
-  block; added 2026-10-15 as `duringGameAverage` with 5 s buckets, renamed
-  2026-10-20 so the new default reached every player), and
-  `duringGameRelativeScale` (default log, or linear; the scale of the chart
-  of each line against its whole-game value, chosen with the block's "log
-  scale" checkbox; added 2026-10-21) — the live perf charts at the head of the game data column (see
-  [During the game](during-game.md));
-  `shownThings.sessionSummary`
-  (default on) — the session summary table (see
-  [Rank lists](rankings.md#session-summary-and-results-partition));
-  `shownThings.sessionEndings` (default on, added 2026-10-11 as "session
-  loss types"; "session results by type" since 2026-10-14) — the summary's
-  results tree under it for the current board type alone (its size, mode,
-  and generator since 2026-10-20; the size alone from 2026-10-15; before
-  then one column pair per size played): won, lost, and abandoned (since
-  2026-10-20), won and lost then by the worst offense against perfect play
-  and its type, each level's shares in their own column, listed under
-  Tables right after the summary.
-- Daily limits (2026-10-12): the first panel on the page, "Daily limits",
-  holds the [daily play limits](play-limits.md). They are not schema
-  settings and do not save automatically: each change goes through two
-  confirmations, and preferences backup neither exports nor imports them.
-- New-player quiet start (decided 2026-09-26): someone arriving without a
-  saved `reportScope` gets after-game action reports off (`none`); session
-  stats were off for them too until the panel's removal on 2026-10-20. The
-  session picker stays in the settings row ("session today"). The
-  loss-analysis report stays available from settings, the report ladder's
-  one place since 2026-10-21. A value already saved stays as saved.
-- Motion stats off by default (creator decision 2026-10-17, verbatim: "by
-  default, dynamics shall be off"): both stages of the mouse-dynamics
-  display, the live left panel and the after-game motion charts, defaulted
-  off. Since 2026-10-20 the one motion stats section at the page foot
-  carries the decision by starting closed; the two switches are gone, and a
-  profile that had them on starts with the section closed too.
-- The same 2026-10-17 request asked for "big/thick lettering" by default;
-  the creator withdrew it on 2026-10-19 ("the way it is now, is okay"), so
-  the number display, mine style, and digit size keep their defaults.
-- The schema's `helpFile` "?" popover was removed with the caption purge
-  (2026-08-23): the Guardian Angel explanation already lives in the hint
-  and tooltip. `guardian-angel-help.html` remains in the repo as a
-  standalone document.
+## Goal and ownership split
+
+Keep every persistent preference defined once in `SETTINGS_SCHEMA` (`settings-core.js`, loaded by both the game page and `settings.html`) so validation, defaults, UI rendering, export/import, and the data-format card can never drift. Named `"settings"`, never `"config"` (reserved for board parameters).
+
+Every option lives in **one place** ([UI doctrine](ui-doctrine.md#options-navigation-and-errors)):
+
+- **Global play, look, report, and account (`settings.html`):** daily play limits, Guardian Angel, board look and glyph sizes (`numberDisplay`, `numberSize`, `flagStyle`, `flagSize`, `flagIntensity`, `mineStyle`, `mineSize`), after-game report level (`reportScope`), preferences backup, and archive folder.
+- **Local view and play-surface configuration (game page only):**
+  - Mode choice, board size, and generator in the top setup rows.
+  - Shared session window (`sessionDefinition`), Zoom (`cellSize`), board `position`, pixel ratio, and `configure results` (`<dialog id="results-config">` for `shownThings` and `collapseDuplicateCharts`) in `#settings-row` at the page foot.
+  - Per-surface controls directly on their surfaces: Game Data (`gameDataMetrics`, `gameDataBoardTraits`, `gameDataScopedRows`, `gameDataPool`, `gameDataShowValues`, `gameDataDistributions`), live perf charts (`duringGameRows`, `duringGameAveraging`, `duringGameRelativeScale`), full score-list columns (`scoreListColumns`), replay overlays/path, collapsible openers (`panels.*`), and docked details width (`detailsColumnShare` via drag grip).
+  - Direct right-click → `hide`/`remove` on individual rows, columns, tables, charts, and section heads (Shift+right-click opens the browser menu; never hover-injected chrome).
+
+## Settings page (`settings.html`)
+
+- **Navigation:** opens from the bordered `settings` button at the upper right of the game page's top bar (`daily limits` sits beside it). Displays a slim titlebar with the site name, centered `"Settings"` heading with `"Changes save automatically"` beside it, and `"return to game"` buttons at both top and bottom of the page body (`Esc` and browser Back also return).
+- **Layout:** responsive multi-column panels (`Daily limits` first, then `SETTINGS_GROUPS` in schema order: gameplay / after a game, followed by Preferences backup and Archive). Each group keeps its heading in a left column and controls on the right. Switch rows put name left, optional earned hint middle, checkbox right (full schema description on hover tooltip; never a subtitle that reads like a second list item). Interactive board-look choosers and sliders redraw live preview boards while dragging and save on release. Controls never render disabled (for example, `Choose folder` is omitted where folder access is unsupported; `Archive now` queues another sync if clicked mid-sync).
+- **Daily limits exception:** daily limits sit in the first panel on `settings.html` but are **not** schema preferences — they never auto-save (requiring two confirmations and a 2-minute loosening lock; [Daily play limits](play-limits.md)) and are excluded from preferences export/import.
+
+## Storage, defaults, and transfer
+
+- **Persistence:** stored in IndexedDB `userdata['settings']` as one flat JSON-compatible object ([Storage](storage-and-history.md)). Absent entry or absent/invalid field falls back to schema default; nested values copy before editing. Restoration finishes before startup reveals the board. Changes save automatically on interaction (game page reads fresh on every load).
+- **Game-choice consistency:** preset difficulties (`beginner`, `intermediate`, `expert`) pair strictly with `standard` mode; every other mode pairs with `custom` board dimensions. Saving an invalid pair throws; legacy stored/imported `(preset, non-standard)` pairs migrate to `custom` with that preset's dimensions, preserving history keys.
+- **Separate transfer:** `settings.html` exports and imports plain JSON matching `SETTINGS_SCHEMA`; any invalid or unknown field rejects the whole preferences import with an error. History exports contain only mode-keyed game lists and ignore legacy embedded preferences on import.
+- **Transient vs. persistent state:** browser file handles, held mouse buttons, active drags, hover highlights, tooltips, and unfinished boards are transient (never saved in preferences). Saved Trial progress lives outside preferences. Replay position references a finished game by timestamp; the finished board and trace belong to the `traces` store.
+
+## Key preference defaults
+
+- **Quiet start for new players:** `reportScope` defaults to `none` (after-game action reports off, configurable on `settings.html` to `fatal`, `risk`, or `full`; collection stays independent of display), and `panels.motionStats` defaults closed (motion computation paused while closed).
+- **Board and rules:** `cellSize` = `28`, `guardianAngel` = `true` (frozen at first reveal), `numberDisplay` = `digits`, `numberSize` = `100` (`50–120%` by `5`), `flagStyle` = `classic`, `flagSize` = `45` (`20–100%` by `5`), `flagIntensity` = `100` (`10–100` by `10`), `mineStyle` = `classic`, `mineSize` = `100` (`50–100%` by `5`), `sessionDefinition` = `today`, `detailsColumnShare` = `0.46`, `collapseDuplicateCharts` = `true`.
+- **Dock and result sections:** `panels.duringGame`, `panels.gamePerformance`, `panels.boardTraits`, `panels.resultAnalysis`, and all lower result openers (`sessionSummary`, `recentPlacements`, `gameStats`, `rankTables`, `boardTables`, `perfCharts`, `boardCharts`, `relationships`) default open. `gameDataPool` defaults to `all`, `gameDataScopedRows` to empty, `gameDataDistributions` to off, `duringGameAveraging` to `2 s` rolling, and `duringGameRelativeScale` to `log`.
+- **Standalone help:** `guardian-angel-help.html` stays in the repo as a standalone visual reference (no inline `"?"` help popover in the schema).

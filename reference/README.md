@@ -72,6 +72,9 @@ Research notes and external references. Index: [AGENTS.md](../AGENTS.md).
   and the period-summary scope decision that followed it.
 - `reference/replay-experiment.md` — design notes (unbuilt) for covert
   replays inside ordinary play and the skill/luck decomposition.
+- `reference/stash-review-2026-09-22.md` — archived review of the pre-PR-1
+  stash (recovered reporting work, superseded chart changes, and retired
+  heartbeat proposal).
 - `reference/jsminesweeper.md` — 2026-11-02 review of David N Hill's
   JSMinesweeper solver (exact layout counting, dead squares, 50/50
   detection, its guess heuristic, perfect play below 1,000 layouts) and

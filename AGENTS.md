@@ -2,54 +2,69 @@
 
 Start here. Loaded at startup by every agent. Holds standing rules, runtime
 wiring, and pointers to area docs; open only the area files a task needs. Keep
-this file concise (under 18 KB) so no agent harness truncates it at startup.
+this file under 18 KB (enforced by `tests/agent-docs-test.js`) so no harness
+truncates it at startup.
 
 ## Project
 
-A classic-Windows Minesweeper web app (same standard mechanics, zero
-dependencies, no build step) with solver-aware variants (Guardian Angel,
-Angelic), live coaching modes, rich per-game analytics, and trace-based
-training diagnostics. Long-term vision: [PRODUCT.md](PRODUCT.md).
+A classic-Windows Minesweeper web app (standard mechanics, zero dependencies,
+no build step) with solver-aware variants (Guardian Angel, Angelic), live
+coaching modes, per-game analytics, and trace-based training diagnostics.
+Long-term three-pillar vision: [PRODUCT.md](PRODUCT.md).
 
 ### Runtime architecture & cache-tag rules
 
 - **Game page (`index.html` + `style.css`):** loads `pages-redirect.js`,
-  `page-errors.js`, `storage.js`, `observation-context.js`, `archive.js`; pure
-  logic modules (`rng.js`, `guardian-angel.js`, `coach.js`, `board-shape.js`,
-  `zini.js`, `board-metrics.js`, `endgame.js`, `solver.js`, `generators.js`,
-  `pregen.js`, `odds.js`, `trial.js`, `game-data.js`, `during-game.js`,
-  `board-icons.js`, `settings-core.js`, `preferences-game.js`,
-  `analysis-client.js`, `play-limits.js`, `board-metrics-ui.js`); `fuseki-stats.js`;
-  then `game/*.js` in exact `index.html` load order.
+  `page-errors.js`, `storage.js`, `observation-context.js`, `archive.js`;
+  pure board/solver modules (`rng.js`, `guardian-angel.js`, `coach.js`,
+  `board-shape.js`, `zini.js`, `board-metrics.js`); backfill UI
+  (`board-metrics-ui.js`); pure game/model/settings modules (`endgame.js`,
+  `solver.js`, `generators.js`, `pregen.js`, `odds.js`, `trial.js`,
+  `game-data.js`, `during-game.js`, `board-icons.js`, `settings-core.js`,
+  `play-limits.js`); worker/preference glue (`analysis-client.js`,
+  `preferences-game.js`); `fuseki-stats.js`; then `game/*.js` in exact
+  `index.html` load order.
 - **Companion pages:**
-  - `settings.html` + `settings-page.js` (loads `storage.js`, `archive.js`,
-    `generators.js`, `game-data.js`, `during-game.js`, `board-icons.js`,
-    `settings-core.js`, `play-limits.js`).
-  - `training.html` + `training-page.js` (loads `storage.js`, `board-icons.js`;
-    runs read-only workers `training-worker.js`, `mind-map-worker.js`, and
-    `switch-cost-worker.js` in parallel).
-  - `problems.html` + `problems-page.js` (separate `minesweeper-problems`
-    IndexedDB via `problems-storage.js`; does not load `storage.js`).
-  - `self-check.html` + `self-check-page.js` (`storage.js`,
+  - `settings.html` + `settings-page.js` (`style.css`, `storage.js`,
+    `archive.js`, `generators.js`, `game-data.js`, `during-game.js`,
+    `board-icons.js`, `settings-core.js`, `play-limits.js`).
+  - `training.html` + `training-page.js` (`style.css`, `training.css`,
+    `storage.js`, `board-icons.js`; runs read-only workers `training-worker.js`,
+    `mind-map-worker.js`, `switch-cost-worker.js` in parallel).
+  - `problems.html` + `problems-page.js` (`style.css`, `problems.css`,
+    `board-icons.js`, `problems-core.js`, `problems-storage.js`,
+    `problems-bank.json`; separate `minesweeper-problems` IndexedDB, does not
+    load `storage.js`).
+  - `self-check.html` + `self-check-page.js` (`style.css`, `storage.js`,
     `observation-context.js`, `archive.js`, `self-check-core.js`).
-- **Workers:** `analysis-worker.js` (named queues + `trend-fit.js`),
-  `board-metrics-worker.js`, `archive-worker.js` (`archive-format.js`),
-  `training-worker.js` (`training-core.js`), `mind-map-worker.js`
-  (`mind-map.js`), `switch-cost-worker.js` (`switch-cost.js`).
+  - `guardian-angel-help.html` (static diagrams; loads only
+    `pages-redirect.js` and `fuseki-stats.js`, runs no game code).
+- **Workers:** `analysis-worker.js` (named queues from `analysis-client.js`;
+  `trend-fit.js` + shared modules), `board-metrics-worker.js`
+  (`board-metrics-ui.js`), `archive-worker.js` (`archive.js`;
+  `archive-format.js`, `problems-storage.js`), `training-worker.js`
+  (`training-core.js`), `mind-map-worker.js` (`mind-map.js`),
+  `switch-cost-worker.js` (`switch-cost.js`).
 - **Hard invariants (enforced by tests):**
-  - Every shipped page/worker file must be listed in `deploy/runtime-files.json`
+  - Every shipped page/worker/asset must be listed in `deploy/runtime-files.json`
     (`python3 tests/hosting-release-test.py`).
-  - Every page running game code loads `page-errors.js` right after
-    `pages-redirect.js` (`tests/page-errors-test.js`).
-  - Every page's `storage.js?v=` tag must match (`tests/storage-cache-tag-test.js`).
+  - Every game-code page loads `page-errors.js` right after `pages-redirect.js`
+    (`tests/page-errors-test.js`).
+  - Shared `?v=` tags (`YYYYMMDD-topic`) must match everywhere an asset loads
+    across all HTML pages and workers (`tests/storage-cache-tag-test.js`,
+    `tests/agent-docs-test.js`). All `game/*.js` share one `?v=` tag (including
+    imports in `analysis-worker.js` and `training-worker.js`); whenever a worker
+    or its imports change, also bump that worker's creation URL
+    (`analysis-client.js`, `training-page.js`, `board-metrics-ui.js`,
+    `archive.js`) and the creator script's tag in HTML.
+  - `game/*.js` share one global scope in `index.html` order; `game/main.js`
+    loads last and alone defines `storageFailure` / `userdataReady`
+    (`tests/startup-presentation-test.js`; tests read via `tests/game-source.js`).
+  - UI invariants enforced automatically: `tests/player-words-test.js`,
+    `tests/chart-captions-test.js`, `tests/settings-one-place-test.js`.
   - `fuseki-stats.js` is copied byte-for-byte from `fuseki4_ai`; never edit it
     here. Logging-only failures in play statistics are the sole exception to
     Anti-Fallback (stats must never interrupt play).
-  - `game/*.js` share one global scope in `index.html` order, share one `?v=`
-    tag (including worker imports in `analysis-worker.js` and
-    `training-worker.js`; bump worker creation URLs too), and `game/main.js`
-    loads last and alone defines `storageFailure` / `userdataReady`
-    (`tests/startup-presentation-test.js`; tests read via `tests/game-source.js`).
 
 ### `game/` files (load order)
 
@@ -83,48 +98,59 @@ training diagnostics. Long-term vision: [PRODUCT.md](PRODUCT.md).
 | `backup.js` | history/trace export/import, data-format card |
 | `main.js` | storage hooks, `completePendingGames`, static chrome, `init` (must load last) |
 
-### Local server, hosting, and deploys
+### Local server, verification, and deploys
 
 - **Player origin:** `http://127.0.0.1:8018/` owned on PC by systemd unit
   `minesweeper-friendly.service` (`systemctl --user status/restart`; never
   start a competing manual server or use `localhost` — IndexedDB is per origin).
-- **Test origin:** anything that writes storage during verification runs on
+- **Test origin:** anything writing storage during verification runs on
   `http://127.0.0.1:8099/` in an isolated profile, never `8018`.
-- **Canonical release:** public repo `ernop/minesweeper-friendly`; every push
-  to `master` deploys to `https://minesweeper-friendly.fuseki.net/` once CI
-  passes. Before pushing runtime changes, record the Firefox latency check
-  (`--record`) on the commit being pushed; after pushing, verify CI passes
-  (`gh run watch <id> --exit-status`). A failed deploy is a failed change.
+- **Standard verification:** run CI checks before every push:
+  `python3 tests/hosting-release-test.py && for t in tests/*-test.js; do node "$t"; done`.
+  Run only browser checks covering the changed code (not the whole browser
+  list); stop any stalled command instead of waiting it out.
+- **Canonical release (`ernop/minesweeper-friendly`):** every push to `master`
+  deploys to `https://minesweeper-friendly.fuseki.net/` once CI passes. For
+  gameplay, game-end, storage, startup, or result-layout changes:
+  1. Run Firefox `tests/latency-browser-check.js` unrecorded on `8099` while
+     finishing the change.
+  2. Commit the code changes.
+  3. Run `tests/latency-browser-check.js ... --record` against `HEAD`, then
+     commit the appended `tests/latency-history.jsonl` line alone as
+     `"Record latency for <commit>: ..."`.
+  4. Push and confirm CI passes (`gh run watch <id> --exit-status`). A failed
+     deploy is a failed change.
 
-## Documentation rules (optimized for cold-start agents)
+## Documentation rules (cold-start standard)
 
-- **Save decisions in the same turn:** every product guideline, design
-  decision, requirement, or new idea goes into checked-in files immediately
-  (chat is never the record). Keep specs and code in sync in the same change.
+- **Spec-first and same-turn sync:** read the affected `docs/product/` section
+  before changing behavior. Save every product guideline, decision, or new idea
+  to checked-in files in the same turn (chat is never the record), preserving
+  intent and distinguishing requested behavior from implemented behavior.
 - **Keep `docs/product/` present-tense, goal-first, and scannable:**
-  - Record **goals, principles, user ergonomics, and non-obvious invariants**
-    ("why" things behave as they do so a cold-start agent never regresses them).
+  - Record **goals, principles, user ergonomics, and non-obvious invariants**.
+    Verify every present-tense claim against live code when editing.
   - **Do not** paste verbatim chat transcripts, `"creator request YYYY-MM-DD:"`
     attribution tags, retired-UI history (`"until X it sat in Y"`), or raw
-    implementation lists (pixel step arrays, CSS breakpoints, slider increments)
-    into `docs/product/`. Git holds history; code and `docs/implementation/`
-    hold exact constants and wiring.
-  - **Keep dates only** where time defines data semantics (schema boundaries
-    where older saved records lack fields) or on dated empirical studies in
-    `reference/`.
+    implementation lists into `docs/product/`. Git holds history; code and
+    `docs/implementation/` hold constants and wiring.
+  - **Keep dates only** where time defines data semantics (schema boundaries)
+    or on dated empirical studies in `reference/`.
 - **Single home per kind of fact:**
-  - Product goals & behavioral invariants -> matching `docs/product/<area>.md`
-    (indexed in [PRODUCT.md](PRODUCT.md)).
+  - Product goals & behavioral invariants -> `docs/product/<area>.md`
+    ([PRODUCT.md](PRODUCT.md)).
   - Code wiring, function names, constants, test notes ->
     `docs/implementation/<area>.md`.
-  - Unbuilt ideas, deferred work, open decisions -> [BACKLOG.md](BACKLOG.md)
-    (prune shipped recaps; keep only unbuilt work).
-  - Empirical studies, pro audits, research logs -> `reference/`
+  - Unbuilt ideas, deferred work, open decisions, Step-2 cleanups ->
+    [BACKLOG.md](BACKLOG.md) (no shipped recaps).
+  - Empirical studies, audits, archived reviews -> `reference/`
     ([reference/README.md](reference/README.md)).
-  - One definition per measurement: every performance metric's id, name,
-    definition, format, direction, and formula live once in `GameData.metrics`
-    (`game-data.js`; [docs/product/measurement-catalog.md](docs/product/measurement-catalog.md)).
-  - App-wide UI rules: always read [docs/product/ui-doctrine.md](docs/product/ui-doctrine.md)
+  - Player-facing overview/pitch -> [README.md](README.md) and
+    `promo/PROMO.md` (keep non-technical; update on major UI changes;
+    `tests/promo-screenshots.js` retakes `promo/` images).
+  - One definition per measurement -> `GameData.metrics` in `game-data.js`
+    ([docs/product/measurement-catalog.md](docs/product/measurement-catalog.md)).
+  - App-wide UI rules -> read [docs/product/ui-doctrine.md](docs/product/ui-doctrine.md)
     before building or reshaping any surface.
 
 ## Area index
@@ -159,60 +185,63 @@ training diagnostics. Long-term vision: [PRODUCT.md](PRODUCT.md).
 | Minesweeper problems | [problems.md](docs/product/problems.md) | [problems.md](docs/implementation/problems.md) |
 
 Verification, browsers, and promo screenshots: [docs/implementation/verification.md](docs/implementation/verification.md).
-Research notes: [reference/README.md](reference/README.md). Player pitch: `promo/PROMO.md` (keep non-technical).
+Research notes: [reference/README.md](reference/README.md).
 
 ## Standing engineering rules
 
-### Anti-Fallback Principle
-There is only the primary path. Anywhere a component can fail, raise a loud,
-visible error naming what failed and where — never catch-and-default, retry-loop
-past bugs, chain backup methods/tools/configs, or degrade silently in UI. Fix
-the single upstream source.
-
-### Design requirements
+### Anti-Fallback & Design Requirements
+Follow the global Anti-Fallback Principle strictly (primary path only; fail
+loudly with file/cause; never catch-and-default, chain backup methods/tools, or
+degrade UI; sole exception is `fuseki-stats.js` console logging).
 1. **Zero tolerated defects:** a known flaw is a bug to fix, not a trade-off.
 2. **No dead guards or legacy clutter:** never guard unreachable states. When a
-   history/schema change affects only existing stored records, ship it in two
-   steps (migrate on load, then delete the migration once active browsers load
-   step 1; track step 2 in `BACKLOG.md`).
+   schema change affects only existing stored records, ship in two steps
+   (migrate on load, then delete the migration once active browsers load step 1;
+   track step 2 in `BACKLOG.md`).
 3. **Proper names:** name exact concepts with units/reference points (`timeMs`,
    `endedAt`); one term per concept.
-4. **Store primary facts once; derive stable functions at read time:** store
-   independently measured quantities directly, never reconstructed by subtracting
-   two fields with mismatched edges.
-5. **No lying UI or data:** no sentinel "unknown" values, no rounded copy that
-   disagrees with its source, no display string acting as an identifier.
-6. **Exact values, never estimates:** compute every displayed fact exactly by
-   definition; a note saying "approximately" never fixes a shortcut. Scale the
+4. **Max efficiency & primary-fact storage:** store each independently measured
+   quantity once and derive pure, definition-stable functions at read time; when
+   in doubt, store the straightforward scalar rather than subtracting mismatched
+   fields.
+5. **Concept division:** nothing duplicated, nothing one thing split, nothing
+   two things merged.
+6. **No lying UI or data:** no sentinel "unknown" values, no rounded copy
+   disagreeing with its source, no display string acting as an identifier.
+7. **Exact values, never estimates:** compute every displayed fact exactly by
+   definition; a note saying `"approximately"` never fixes a shortcut. Scale the
    algorithm instead.
-7. **Component independence:** storage emits data, not UI copy; presentation
+8. **Component independence:** storage emits data, not UI copy; presentation
    does not own storage keys.
-8. **Replace, don't accumulate:** when a newly shipped behavior is rejected with
-   no real data on it, remove/replace it outright instead of adding an option
-   beside it.
+9. **Replace, don't accumulate — protect real data:** replace a rejected
+   behavior rather than adding an option beside it; delete brand-new rejected
+   features with no real data outright, **but never delete anything holding real
+   accumulated data or in real use without the creator's decision**.
 
 ### Analysis isolation & latency budgets
 - Heavy analytics run in workers, never in gameplay/input handlers or the UI
   thread; discard stale replies; no main-thread fallback.
-- Run `tests/latency-browser-check.js` in Firefox (~15 s, [verification.md](docs/implementation/verification.md))
-  when finishing any gameplay, game-end, storage, startup, or result-layout
-  change, and with `--record` on the commit being pushed (commit the appended
-  `tests/latency-history.jsonl` line separately as
-  `"Record latency for <commit>: ..."`). Budgets are tight and per machine
-  (`tests/latency-machine.txt`, gitignored).
-- Run only browser checks exercising the change; never let a stalled command
-  hang.
-- Never use environment variables for app config (use gitignored machine files).
+- Latency budgets (`tests/latency-budgets.json`, per machine via gitignored
+  `tests/latency-machine.txt`) sit just above measured Firefox times — never
+  generous round numbers. **A budget failure means the change is unfinished:**
+  fix the slowdown or ask the creator before loosening a budget. Tighten budgets
+  when code gets faster; only full-results timing may loosen while play,
+  win-click, and post-game freeze budgets stay tight. `dirty: true` from another
+  session's edits does not block pushing.
+- Never use environment variables for app config; keep secrets out of the repo
+  (`FUSEKI_DEPLOY_SSH_KEY` lives only in GitHub Secrets).
 
-### Communication & style
+### Communication, code style & efficiency
 - Plain player-known terms; define any technical term inline where first used.
 - Ask questions in plain text with a recommended answer (not modal forms);
-  answer questions before starting long work.
-- No emojis anywhere (files, responses, commits).
-- No relationship fluff, praise, validation, or empty intensifiers (`genuinely`,
-  `really`, `actually` as filler, `honestly`, `heads-up`, `wrinkle`, `lands`
-  for done, `say the word`, `walk you through`, smell words).
-- Code comments explain current "why", never dated changelogs or what the code
-  already says. Filenames: `[A-Za-z0-9._-]` only.
-- Structural fixes over promises: fix code, linters, hooks, or loaded docs so
-  cold-start sessions behave right by default.
+  answer the user's question in the first message before starting long work.
+- When uncertain whether a recommendation suffices, investigate and resolve it
+  before answering; return an answer, not a basic/ironclad menu.
+- No emojis anywhere. No praise, validation, filler intensifiers (`genuinely`,
+  `really`, `actually` as filler, `honestly`, `heads-up`, `wrinkle`, `lands`,
+  `say the word`, `walk you through`), or smell words.
+- Comments explain current "why", never dated changelogs or what code says.
+  Python: type hints, `pathlib.Path`, constants for magic values. Filenames:
+  `[A-Za-z0-9._-]` only.
+- Structural fixes and cheap automation first: if `rg` or a script can do it,
+  don't spend model time on it.

@@ -172,7 +172,7 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   2026-08-20 bug, then in the left stats panel) and satisfies the offline extractor's validation.
   Simulated-input tests must dispatch mousemoves with real delays
   (~12ms sleeps) or they exercise exactly this coalescing path.
-- Capture v1 ([contract](../product/storage-and-history.md#capture-provenance-v1-2026-09-26)):
+- Capture v1 ([contract](../product/storage-and-history.md#capture-provenance)):
   `traceEventSource` preserves browser timestamp/type/trust independently of
   the existing receipt-time fields. `traceMove` merges only equal receipt times:
   it pushes the replaced observation (its sample's index, position, source
@@ -213,7 +213,7 @@ Spec: [docs/product/storage-and-history.md](../product/storage-and-history.md). 
   so the card, the validator, and the writer cannot drift apart. Its last
   paragraph, `statisticsNote`, is the fixed play-statistics disclosure
   ([hosting](hosting.md#play-statistics-2026-10-11)).
-- Archive folder ([Archive folder](../product/storage-and-history.md#archive-folder-creator-direction-2026-09-26)):
+- Archive folder ([Archive folder](../product/storage-and-history.md#archive-folder)):
   - `archive.js` (page side; loaded by index.html, settings.html, and
     self-check.html right after `storage.js`/`observation-context.js`):
     - `archiveState` holds status, detail, worker, and the running, queued,

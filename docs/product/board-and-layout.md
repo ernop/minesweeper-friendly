@@ -14,7 +14,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
 ## Board feel and visual customization
 
 ### Core look and mechanics
-- **Classic readability:** tactile raised bevels, high-contrast chunky numbers in the classic color palette, red seven-segment LCD counters with clear digit separation, inline vector graphics, and a calm dove status button (steady in play, olive branch on win, broken heart on loss).
+- **Classic readability:** tactile raised bevels, high-contrast chunky numbers in the classic color palette, red seven-segment LCD counters with clear digit separation, inline vector graphics, a calm dove status button (steady in play, olive branch on win, broken heart on loss), and a raised classic-cell SVG favicon (`favicon.svg`, blocky blue `M`) linked from every app page.
 - **Standard mechanics:** first click never a mine, flood fill on zeros, flag placed immediately on right press, chording with press preview via left click or both buttons held together (so the 1.5-click works seamlessly; once both buttons are down, releasing only chords and never reveals), and loss showing the hit square plus crossed-out wrong flags.
 - **Honest won state:** winning leaves the board exactly as the player finished it — unflagged mines stay covered and the mine counter reflects mines minus flags actually placed — so play history, markless wins, and flag efficiency remain truthful.
 - **Frictionless restart:** clicking anywhere on the top status panel or pressing `Space` starts a new board immediately (except while typing in a text field or activating a button; a focused link never blocks `Space` or scrolls the page).
@@ -46,7 +46,7 @@ Every visual preference saves automatically, travels with preference exports, an
 - **One-level-deep alternate modes:** Custom and all other play modes live together in one flat `other modes` menu. Board dimensions, generator selection, and mode-specific progress appear cleanly in a single row directly beneath the mode bar only when a non-preset mode is active.
 - **Clear role separation:**
   - **Top bar:** live play context (player state tags and popover editor, score-list access, live daily-limit usage once limits are configured, and entry to Daily limits and Settings).
-  - **Page-foot settings row:** global per-session and display preferences (`session` window, Zoom, board `position`, and pixel ratio), cleanly grouped without mixing in per-mode options.
+  - **Page-foot settings row:** global per-session and display preferences (`session` window, Zoom, board `position`, pixel ratio, and local `configure results` dialog opener), cleanly grouped without mixing in per-mode options.
   - **Footer:** quiet links to companion pages (`self-check`, `training`, `problems`) and the hosted site.
 
 ---

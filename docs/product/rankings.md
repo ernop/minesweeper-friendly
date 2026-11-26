@@ -53,7 +53,7 @@ No-mark (`flagsPlaced === 0`, marked `(m)`) is a solving style on the current bo
 
 ## Session summary and results partition
 
-Heading `"session"` (collapsible opener, gated by `shownThings.sessionSummary`), driven by the single page-wide `sessionDefinition` picker at the page foot ([One session definition](game-data.md#one-session-definition)) with no local picker. Sits left of the board in wide layout (`ranks won in session` on the right), otherwise leads the tables under the board.
+Heading `"session"` (collapsible opener, gated by `shownThings.sessionSummary`), driven by the single page-wide `sessionDefinition` picker at the page foot ([One session definition](game-data.md#one-session-definition)) with no local picker. Leads the full-width overview row directly below the top stage alongside `ranks won in session` (and, after a loss, `this game`).
 
 ### Session summary table
 

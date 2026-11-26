@@ -24,5 +24,5 @@ with current error-handling rules. Its claim that sendBeacon sends no cookies
 is incorrect for same-origin requests; shipping the original implementation
 would violate its own no-cookie requirement. No gameplay history was modified.
 The hosted site's visitor count and
-[play statistics](product/hosting.md#play-statistics) (2026-10-11) have since
+[play statistics](../docs/product/hosting.md#play-statistics) (2026-10-11) have since
 taken the heartbeat's role.

@@ -2,249 +2,51 @@
 
 Product spec section; index: [PRODUCT.md](../../PRODUCT.md).
 
-A minesweeper project growing out of research into solver-aware game modes
-(2026-08-19 session). Reference point: minesweeper.online's "no guessing" (NG)
-mode, where the generator verifies with a logical solver that every board is
-completable without guessing.
+## Ambiguity design axis
 
-The design axis mapped so far, ordered by who bears the burden of ambiguity:
+Ordered by who bears the burden of ambiguity on a board:
 
-1. Naive random — mines fixed, no guarantees.
-2. First-click safe — standard mode today; opening never kills.
-3. No-guess (NG) — a complete logical path is guaranteed at generation time
-   (minesweeper.online NG, Simon Tatham's Mines).
-4. Evil NG — additionally guarantees a difficulty floor (at least one advanced
-   deduction per board).
-5. Graded NG (unbuilt: score by hardest required technique, as Sudoku
-   grading does). Uniform NG, Single-path NG, and Proof-or-die were built
-   2026-08-21 and removed 2026-10-21 with the generate-and-reject method that
-   made their boards ([play-modes.md](play-modes.md), "No-guess modes").
-6. Kaboom (pwmarcz.pl/kaboom) — adversarial: mines stay unfixed; any unforced
-   guess is a mine, forced guesses are always safe. Unbuilt.
-7. The angelic dual of Kaboom: any guess consistent with your information
-   succeeds; you die only by contradicting known facts. Guardian Angel
-   ([guardian-angel.md](guardian-angel.md)) covers clicks into a guess that
-   nothing else on the board could ever settle; open-field gambles and all
-   chords stay deadly. The rest of the dual is the Angelic play mode: any cell
-   that is not a proven mine is made safe.
+1. **Naive random** — mines fixed, no guarantees.
+2. **First-click safe** — Standard mode; the opening never kills.
+3. **No-guess (NG)** — generator guarantees a complete logical path at generation time.
+4. **Evil NG** — adds a minimum deduction-difficulty floor per board.
+5. **Graded NG** — scores boards by hardest required technique (earlier reject-sampled NG modes were removed on `2026-10-21`; [Play modes](play-modes.md#removed-no-guess-modes-legacy-history-compatibility)).
+6. **Kaboom** (unbuilt) — adversarial unfixed mines: unforced guesses kill, forced guesses survive.
+7. **Angelic dual of Kaboom** — guesses consistent with visible information succeed; death occurs only by contradicting known facts. [Guardian Angel](guardian-angel.md) covers clicks into guesses nothing else on the board could ever settle (open-field gambles and chords stay deadly); [Angelic mode](play-modes.md#angelic-angelic) extends protection to every non-proven-mine click.
 
 ## Deduction levels
 
-The deduction levels grade how hard a fact of the visible board is to
-know, and together they define "solvable": what the last level proves is
-every fact common to all layouts consistent with the player's visible
-information. They replace the solver logic tiers of 2026-08-19, whose
-tier (c), exhaustive search joined through the mine total, is split into
-levels 3 and 4.
+Four cumulative, exact complexity grades (`GuardianAngel.DEDUCTION_LEVELS`) defining how hard each fact of the visible board is to know and what `"solvable"` means. Each level includes all facts proved by earlier levels; a fact's level is the first level proving it. Proofs read only open numbers and the board mine total (flags are player notes, never proof) and run with no work limit via exact frontier layout counting ([Play modes](play-modes.md#visible-information-solver)):
 
-Creator request 2026-10-26, verbatim, with the live perf charts' moves
-available ([During the game](during-game.md), "Revision (creator
-2026-10-26)"): "ov erall we need to logicallyc haracterize the difficulty
-of "knowing" different knowable things about the board. t aht is ,
-"marking a 1 which only adjoins oner empty square" is the easiest type.
-2nd level complexity might be for this side shapee:
+1. **Counting:** single-number reasoning repeated to closure. A number whose remaining mine count equals its remaining covered neighbors proves them mines; a number with all mines proven proves its other covered neighbors safe.
+2. **Overlap:** counting plus pairwise comparison of any two overlapping numbers. If number A's remaining need minus number B's remaining need equals A's exclusive covered squares, A's exclusive squares are all mines and B's exclusive squares are all safe (includes subset constraints and `1-2-2-1` walls; a `1-2…2-1` wall with $k$ twos is fully forced unless $k \equiv 0 \pmod 3$, where every third square is a forced mine).
+3. **All numbers:** every consistent mine layout allowed by all open numbers per connected frontier component, ignoring the global mine total — captures arbitrary multi-clue chains and distant contradictions.
+4. **Mine total:** restricts layouts to those matching the board's total mine count, deciding between differing component mine totals and proving squares untouched by open numbers.
+
+Worked examples (`tests/guardian-angel-test.js`):
 
 ```
-unknown ^^^
-1 2 2 1
-0 0 0 0
+2 a 1 .      Level 3 (All numbers). Overlap gives b; the top 1 holds 1 mine in
+b c 2 1      {a, c} and the right 1 holds 1 in {e, f}, supplying both mines of
+2 d e f      the center 2, so d is safe, then c is a mine and a is safe.
+
+. . 1 2 a    Level 4 (Mine total = 2). Counting proves the mine between the 1s;
+. . 1 * b    each 2 needs one more mine: either {b} or {a, c}. Only the global
+. . 1 2 c    mine count of 2 rules out {a, c}.
 ```
 
-the line marked "unkonwdn" is resolvable as "open, mine, mine, open' but
-this is not as simple as t he prior type. we should construct a
-well-bordered complexity leel system and develop ths further. higher
-levels include thins like realizing whole-board implications; middler
-level difficulty would be things like collecting disparate distant facts
-aabout empty/open andnot icing multi-step contradictions. as the
-whole-board calc is np-complette, they can be complex. still, our
-actualboards are small enough that we shan't be put off by that and
-rather should bully our way through."
+- **Where used:** [live perf charts](during-game.md) count available moves across all 4 levels; [game-end evaluation](game-end-evaluation.md#loss-types) persists 3 proof tiers (`counting`, `overlap`, and combined `whole-board` for levels 3–4). Simulated games show ~86–95% of proven facts resolve at Counting, ~5–8% at Overlap, and <1% at All numbers (Mine total ~0.1% on Expert up to ~6% on Beginner).
 
-Each level adds one kind of reasoning to the level before it, so each
-proves every fact the levels below it prove. A fact's level is the first
-level that proves it. The levels read only the open numbers and the
-board's mine count: a flag is the player's note, not proof. Every level is
-computed exactly, the last two from every layout (no estimate, no
-sampling). Since 2026-11-02 the layouts are counted rather than listed,
-with no work limit ([JSMinesweeper review](../../reference/jsminesweeper.md)),
-so every level is always measured; until then a search that reached its
-work limit left its level, and the levels above it, unmeasured.
+## Move hierarchy
 
-1. **Counting**: one number at a time. A number whose covered squares
-   must all be mines (as many as its count, less the mines already proven
-   beside it) proves them mines; a number with all its mines proven proves
-   its other covered squares safe; repeated while it proves more. A 1 with
-   one covered square beside it, or a 2 with two, is counting.
-2. **Overlap**: counting, plus comparing any two numbers whose covered
-   squares overlap. The squares they share hold no more mines than the
-   second number still needs, so the first number's own squares hold at
-   least the difference of the two; when that difference equals how many
-   own squares it has, they are all mines and the second number's own
-   squares are all safe. A number whose squares lie inside another's is one
-   case. The creator's wall is level 2: the
-   left 1 covers the first two squares and the 2 beside it the first three,
-   so the third holds a mine; the right side gives the second the same way;
-   then each 1 has its mine, and the end squares are safe. (A 1 2…2 1 wall
-   with k twos is fully forced unless k ≡ 0 (mod 3), when only every third
-   square is a forced mine; result of 2026-08-19.)
-3. **All numbers**: every layout of mines all the numbers allow together,
-   whatever its mine count. A square that is a mine in every such layout,
-   or safe in every one, is known, however far apart the numbers proving
-   it lie and however many steps its contradiction takes. The count runs
-   per group of covered squares the numbers link, over every layout.
-4. **Mine total**: only the layouts that also hold the board's mine count.
-   It decides between layouts whose mine counts differ, and it can prove
-   squares no number touches.
+Six progressively stronger criteria characterizing every move available at any board state:
 
-Worked examples, from the tests (`tests/guardian-angel-test.js`, "Deduction
-levels"); letters are covered squares, a dot an open zero:
-
-```
-2 a 1 .      Level 3. The two top numbers give b by overlap (a + c = 1
-b c 2 1      inside a + b + c = 2). The middle 2 covers a, c, d, e, f;
-2 d e f      the 1 above it puts one mine in a and c, the 1 at its right
-             one in e and f: that is both of its mines, so d is safe, then
-             c is a mine and a safe. Three numbers together prove d; no
-             two do. e and f stay unknown even with the mine total.
-
-. . 1 2 a    Level 4, with 2 mines on the board. Counting proves the mine
-. . 1 * b    between the 1s; each 2 then needs one more mine, either b
-. . 1 2 c    alone or a and c both. Only the board's 2 mines rule out a
-             and c.
-```
-
-How often each level is needed, measured 2026-10-26 with the prover on
-simulated games (every proven-safe square opened, otherwise a random
-square not proven a mine; each position's facts counted at the first level
-proving them):
-
-| Board | Positions | Counting | Overlap | All numbers | Mine total |
-| --- | --- | --- | --- | --- | --- |
-| Expert, 40 games | 777 | 94.8% | 4.93% | 0.17% | 0.09% |
-| Intermediate, 100 games | 928 | 93.1% | 5.91% | 0.10% | 0.91% |
-| Beginner, 200 games | 858 | 85.8% | 7.73% | 0.11% | 6.34% |
-
-No search reached its work limit (the limit was removed on 2026-11-02): on
-boards this size the exhaustive search is cheap, as the creator expected.
-All four levels, computed in one
-pass, took 0.03 ms per position on average on Beginner and 0.14 ms on
-Expert. Level 3 matched an independent brute-force search at every
-position whose linked groups were small enough for one (2,491 of 2,563).
-
-Where they are used: the live perf charts count the moves available by
-level ([During the game](during-game.md)). The game-end evaluation's
-stored proof tiers keep three grades: `counting` and `overlap` are levels 1
-and 2, and `whole-board` is levels 3 and 4 together
-([Game-end evaluation](game-end-evaluation.md)); telling those two apart
-there is a proposal in [BACKLOG.md](../../BACKLOG.md).
-
-## Move hierarchy (creator request 2026-10-26; built 2026-10-26 but for level 6's tie-break)
-
-Creator request 2026-10-26, verbatim, the day the live perf charts gained
-the moves available: "can you link me to a full description fo the way,
-for any point in teh game, we characterize the availability and hierarchy
-of how we'd classify moves? i.e. "perfect" known mine markings, safe
-clicks, most efficient clicsk/mine markings even within legally valid
-options (beause the game isn't just about only making legal moves, but
-among them even finding the most useful), then among more difficult
-logically proveable options how many and how far away they are from the
-last action they are, and how useful each one is, then further, what
-hyper difficult logical moves csan we derive, then further, what is a good
-"connected guess", from both POV of "highst safe-rate" and also the more
-sophisticated "highest global winrate expected base don per fect play"
-which might willingly take a worst next move survival rate if it increased
-global winrate! and even higher, a move which takes into account the total
-per-hour productivity and usefulness; e.g. anthropic principlpe of move
-choices; all else equal, we should choose moves which either jsut resolve
-teh state quicker so we can start a new game, or choose between otherwise
-equal options based on the usefulness of that info, i.e. take choices to
-help myself."
-
-No single description covered this before; this section is the one. For
-any moment of a game, it lists the levels at which the moves available are
-characterized, each asking more of a move than the level before, with what
-is built at each level and where that is described. The unbuilt parts are
-in [BACKLOG.md](../../BACKLOG.md), "Move hierarchy: the unbuilt levels".
-
-1. **Proven moves**: squares the visible board proves safe to open, and
-   mines it proves. Built: the deduction levels above grade how hard each
-   is to know, and the live perf charts count them at every moment, by
-   level ([During the game](during-game.md), "Revision (creator
-   2026-10-26)").
-2. **The most useful proven moves**: among the proven moves, those that do
-   the most for the fewest clicks, since playing well is choosing among
-   valid moves, not only making them. Built 2026-10-26: at every moment,
-   the most 3BV per click that any one proven move offered, a chord's
-   flags counted as clicks ([During the game](during-game.md), "Revision
-   (creator 2026-10-26, the move hierarchy)"). Not built: judging each
-   move the player made against that best. Related: the count of chordable
-   numbers (same file, "Revision (creator 2026-10-26)"); a whole board's
-   fewest clicks, ZiNi and HZiNi
-   ([Per-game stats](per-game-stats.md)); and, as rules for the player
-   rather than measures, when to flag and chord
-   ([Training](training.md), "The plan", "1. Stop wasting inputs").
-3. **Harder proven moves: how many, how far, how useful**: at each
-   deduction level, how many proven moves there are, how far each is from
-   the last action, and how useful each is. Built: the counts by level,
-   and since 2026-10-26, for each level, the most 3BV per click of its
-   moves and the steps from the last board-changing click to its nearest
-   proven-safe square ([During the game](during-game.md), "Revision
-   (creator 2026-10-26, the move hierarchy)"). Also: one row counts the
-   mines counting proves near the last move (at most 5 steps), and the
-   move events say how far the nearest proven-safe square was and whether
-   the player went to the nearest of several places (same file, "Move
-   characterization and habits").
-4. **The hardest deductions**: levels 3 and 4 above, all numbers and the
-   mine total. Built. Finer grades within them are proposed
-   ([BACKLOG.md](../../BACKLOG.md), "Deduction levels: further grades").
-5. **Guesses**, opening a square the board does not prove safe (the
-   creator asks what makes a good "connected guess"). A connected guess is
-   built as one beside open numbers, the reading proposed to the creator
-   and unanswered when it was built: the live perf charts' guess card says
-   whether each guess was, and the lowest mine risk beside open numbers
-   and away from them ([During the game](during-game.md), "Revision
-   (creator 2026-10-26, the move hierarchy)"). Guesses are judged two ways:
-   - The best chance to survive the click: the lowest mine probability on
-     the board. Built: the guess ledger's ideal-risk and life needless
-     ([Per-game stats](per-game-stats.md), "Guess ledger") and the
-     game-end evaluation's risk rank
-     ([Game-end evaluation](game-end-evaluation.md)).
-   - The best chance to win the game with perfect play afterward, which can
-     take a worse chance on this click for a better chance to win. Built one
-     click deep: the ledger's "perfect" is the chance to survive this click
-     and then the safest next one, averaged over the numbers the click could
-     show (one-move life, the expected remaining life after one guess). Since
-     2026-11-02 it is exact for every guess, compared over every covered
-     square. The whole game's chance to win
-     is built since 2026-10-26 where its exact search finishes: the guess
-     card gives perfect play's chance to win after the guessed square and
-     at best, exact counts of mine layouts won. Since 2026-10-27 the board
-     is first split into groups of squares no number can link, whose
-     chances multiply; since 2026-11-02 the search also skips squares whose
-     number is already known in every layout that leaves them safe, which
-     teach nothing (JSMinesweeper's "dead" squares). The search finishes in
-     endgames and not early in a game, where the unopened area joins most
-     of the board into one group; on the simulated guesses of
-     `tests/win-chances-bench.js` it is computed for 27 of 42 Beginner
-     guesses, 52 of 93 Intermediate, and 116 of 387 Expert. Elsewhere the
-     card says the search stopped at its work limit
-     ([BACKLOG.md](../../BACKLOG.md), "Deeper than one-move perfect play").
-6. **Moves for the player's output per hour** (the creator's "anthropic
-   principle of move choices"): all else equal, the move that settles the
-   game sooner, so that a game headed for a loss ends early and the next
-   one starts; or, between otherwise equal moves, the one whose information
-   is more useful to the player. Built 2026-10-26 for settling sooner: the
-   guess card says when nothing else on the board could ever settle the
-   guess, how long that had been so, and on a loss with fixed mines how
-   much sooner taking it at once would have ended the game
-   ([During the game](during-game.md), "Revision (creator 2026-10-26, the
-   move hierarchy)"). Not built: the tie-break by the information's
-   usefulness, and the objective as a judgment of moves
-   ([BACKLOG.md](../../BACKLOG.md), "Move hierarchy: the unbuilt levels").
-   Recorded as an objective for analyzing the player's guesses, wins per hour
-   beside the chance to win each game ([Measurement](measurement.md),
-   "Behavioral signatures and state research";
-   [BACKLOG.md](../../BACKLOG.md), "Competing optimization objectives"),
-   and as two training rules: restart when the opening corner shows a
-   number, and take a truly forced guess at once
-   ([Training](training.md), "The plan").
+1. **Proven moves:** squares provably safe or mined, graded by the four deduction levels above (built: [live perf charts](during-game.md)).
+2. **Most useful proven moves:** among proven moves, those yielding the highest `3BV / click` (counting required unflagged mines as clicks for chords). Built: per-moment `most 3BV per click`, `chordable numbers`, and whole-board `ZiNi`/`HZiNi` benchmarks ([Per-game stats](per-game-stats.md)). Unbuilt: scoring each individual player click against the best `3BV / click` ([BACKLOG.md](../../BACKLOG.md#analytics-results-rankings-and-limits)).
+3. **Harder proven moves (count, distance, usefulness):** at each deduction level, how many proven moves exist, Manhattan steps from the last board-changing click to the nearest proven-safe square, and best `3BV / click` (built: [live perf charts](during-game.md)).
+4. **Hardest deductions:** levels 3 (`all numbers`) and 4 (`mine total`) (built; finer sub-grades in [BACKLOG.md](../../BACKLOG.md#analytics-results-rankings-and-limits)).
+5. **Guesses (opening an unproven square):**
+   - *Connected vs. disconnected:* beside open numbers vs. away from them (reported with lowest risk in each set on live perf guess cards).
+   - *Immediate survival:* lowest mine probability (`ideal-risk` and `lifeNeedless` in [Per-game stats](per-game-stats.md#action-accuracy-misclicks-and-guess-ledger)).
+   - *Multi-step win probability with perfect play:* may accept higher immediate risk for higher global win chance. Built exact one-move survival (`guessPerfect`) for every guess, plus exact full-game win chance (`Odds.winChances`, factoring independent components and skipping dead squares) on live perf guess cards wherever it finishes within its `10^5` search budget (reporting explicitly if budget-stopped rather than estimating).
+6. **Output per hour ("anthropic principle of move choices"):** among otherwise equal moves, prefer moves that either settle doomed/forced states sooner so the next game starts faster, or yield information that helps the player solve faster. Built for settling sooner: live perf guess cards report when nothing else on the board could settle a guess, how long it waited, and time saved on fixed-mine losses if taken immediately (also reflected in training rules: restart numbered corner openings and take truly forced guesses immediately). Unbuilt: information-usefulness tie-break and output-per-hour move scoring ([BACKLOG.md](../../BACKLOG.md#analytics-results-rankings-and-limits)).

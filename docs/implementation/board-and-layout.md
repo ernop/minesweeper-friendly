@@ -134,8 +134,9 @@ Spec: [docs/product/board-and-layout.md](../product/board-and-layout.md). Index:
   `#mode-options` only while custom, and hides `#board-generator` when
   `generatorAppliesToMode` is false. `activeGenerator` (`game/play.js`)
   returns the uniform generator for presets.
-- Top bar: `div#top-bar` sits inside `header#page-head` (column 3 above
-  1120 px, stacked above `#difficulty-tabs` at `<= 1120px`), holding
+- Top bar: `div#top-bar` sits inside `header#page-head` (column 3 at `>= 1640px`,
+  column 2 at `1040–1639px`, and top row above `#difficulty-tabs` at `<= 1039px`),
+  holding `#top-right` (archive alert + player states), `#scores-nav` (`see scores`),
   `#play-limits-use` (hidden until a limit is set), `a#play-limits-btn`,
   and `a#settings-btn`. `.game-booting` blocks its pointer input like the
   other chrome. `tests/session-placement-layout-fixture.js` checks full-width
@@ -247,8 +248,8 @@ There is no main-thread calculation substitute.
   scatter dots also check the budget every 128 points. DOM work stays on the
   main thread, proportional to the output being presented.
 - Original synchronous primary capture, board updates, and IndexedDB cloning
-  still consume UI time. History persistence still writes the whole history
-  value; this change does not claim constant-time storage or rendering.
+  still consume UI time. (Per-game record writes replaced whole-history writes
+  on 2026-09-26; see [storage implementation](storage-and-history.md).)
 
 Measured locally with synthetic data against `7ca3198526ad345e74fe03fc1b6216c29ace6045`
 (median of three Node runs, `tests/performance-benchmark.js`):
@@ -278,16 +279,19 @@ without waiting for a worker reply. Its first computed values fill that reserved
 space (the box is `.idle`, invisible at full width, until the first live sample
 arrives); worker latency cannot move the board after startup reveals it.
 
-## Click-time evidence cost (2026-09-26)
+## Click-time evidence cost (2026-09-26; moved off-thread 2026-11-03)
 
 Spec: [Input latency](../product/board-and-layout.md#startup-readiness-and-responsiveness).
-Each board action runs, before it mutates the board, the visible-position
-proof (misclick classification, evidence, and Guardian Angel all share one cached
-proof), then guess scoring for reveals or `Odds.analyzeView` for flags and
-chords. These run in the input handler. Measured in the browsers with real
-input and an 80 MB (structured-clone) synthetic history, expert flags,
-chords, and guesses were the slow inputs: in Firefox 10% of expert inputs
-took over 200ms to paint, while ordinary reveals took under 20ms.
+Historically (until 2026-11-03), each board action ran proofs and guess scoring
+in the input handler; since 2026-11-03, all post-hoc judgment and guess scoring
+run after game end in `analysis-worker.js` ([Game-end evaluation](../product/game-end-evaluation.md)),
+leaving only live Guardian Angel certification and Angelic mine relocation on
+clicks. The flattened proof search and mine-count layout join below remain the
+underlying algorithms used by both live rules and off-thread worker judgment.
+Measured in the browsers with real input and an 80 MB (structured-clone)
+synthetic history, expert flags, chords, and guesses were the slow inputs: in
+Firefox 10% of expert inputs took over 200ms to paint, while ordinary reveals
+took under 20ms.
 
 Cause: `analyzeView` rechecked every residual clue at every search node and
 then visited every combination of component layouts, adding every sea cell

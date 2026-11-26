@@ -51,7 +51,7 @@ Spec: [docs/product/results.md](../product/results.md). Index: [AGENTS.md](../..
   blocks keeping their width; `tests/board-time-profile-browser-check.js`
   clicks every opener closed, checking each title stays put, the help tip
   leaves its title uncovered, and the state survives a redraw and a reload.
-- This game's stats (2026-10-26, [spec](../product/results.md#this-games-stats-creator-request-2026-10-26)):
+- This game's stats (2026-10-26, [spec](../product/results.md#this-games-stats)):
   `buildGameStats(record)` in `game/results.js` builds the label/value table,
   a `.rank-list.game-stats` titled "this game" (an opener, panel
   `gameStats`) around a two-column `.game-stats-grid` (label `.stat-label`,
@@ -77,7 +77,7 @@ Spec: [docs/product/results.md](../product/results.md). Index: [AGENTS.md](../..
   measurements to the report worker. Replies can enrich their saved record
   after a restart but cannot overwrite a newer game or score view.
 - Progressive results (2026-11-03,
-  [spec](../product/results.md#results-come-in-as-their-data-arrives-creator-decision-2026-11-03)):
+  [spec](../product/results.md#progressive-delivery)):
   the collector's `append(sectionId, part)` takes a node or a promise of
   nodes; a part is ready once its nodes are built and each node's
   `analysisReady` has resolved, and `ready()` waits for every part.

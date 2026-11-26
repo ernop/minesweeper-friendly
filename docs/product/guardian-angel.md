@@ -2,128 +2,29 @@
 
 Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation notes: [docs/implementation/guardian-angel.md](../implementation/guardian-angel.md).
 
-A solver-aware rule ([design-axis](design-axis.md) entry 7, the angelic dual
-of Kaboom). Principle: the player can lose to their own choices and to the
-field's diffuse odds, but never to an unresolvable forced guess. The separate
-Angelic play mode keeps its own name.
+## Goal and player-facing rule
 
-- Exact player-facing definition: **when you click a square in a guess that
-  nothing else on the board could ever settle, that square is guaranteed
-  safe.**
-- Player words: player-facing text describes covered guesses as "a guess that
-  nothing else on the board could ever settle", "a 50/50", "a chain of
-  50/50s", "1 mine among 3 squares", and "the last squares no number touches";
-  it never uses unapproved internal terms (`pocket`, `sealed`, `certified`,
-  `bare click`, or `sea remnant`). The app-wide rule is in
-  [UI doctrine](ui-doctrine.md), "Player words only". Below, a *group* is
-  the squares of one such guess; the word is this spec's, not the player's.
-- A covered group is a set of still-unknown squares with at least two
-  possible mine layouts, all with the same mine total, such that every
-  possible observation outside the group is identical under every layout.
-  A safe click inside it may reveal a number and settle the rest; the
-  defining fact is that this information could not be earned before
-  clicking. Every square of a covered group is ambiguous and has the same
-  odds.
-- This is structural, de re necessity: winning eventually requires clicking
-  into this particular group. It deliberately excludes merely de dicto
-  necessity ("some gamble is required"), including the early corner 1 and
-  its open field. It also excludes provably safe or mined squares.
-- Guardian Angel applies only to a plain click on a covered square. Chords
-  categorically receive none, even if a chord would open only one square: a
-  flag is the player's unsupported claim, and a wrong one may kill.
-- Qualification is decided from visible numbers and the global mine count
-  before the hidden layout is consulted. Every qualifying click increments
-  `guardianAngel` (named `justice` before 2026-11-23), whether its square was
-  already clear or needed intervention.
-  If mined, only that group is redrawn uniformly from its represented
-  layouts conditioned on that square being clear. Thus Guardian Angel is a count of
-  guaranteed clicks, not counterfactual deaths undone.
-- V1 recognizes only structures carrying short exact proofs: k-of-n groups
-  in which every layout is possible (1 mine among 3 squares), equal-total
-  alternating 50/50 pairs and chains (since 2026-10-26 also a chain with
-  unequal sides that the last squares no number touches complete, below),
-  and a single area of squares no number touches whose mine count is
-  pinned by the rest of the board.
-  Arbitrary asymmetric or structurally exotic ambiguities are outside v1
-  and keep ordinary Minesweeper behavior. This explicit scope replaces the
-  earlier unbounded model-enumeration design.
-- Each group is judged on its own, even when a number it shares links it to
-  other unknown squares (creator report 2026-10-21, with a screenshot of a
-  loss: two 50/50s in the bottom rows, each boxed in, joined by a shared 2
-  and 5; the judge then accepted only a whole connected region of one
-  shape, saw four layouts there, and refused both). Fixed the same day: a
-  50/50 or k-of-n group qualifies when its count is pinned by the numbers
-  (directly, or after subtracting groups already pinned) and every number
-  touching it sees all of its squares alike; a chain qualifies when every
-  number touching it sees its two sides alike (rule v3).
-- A chain of 50/50s with unequal sides qualifies when the last squares no
-  number touches make up the difference (creator report 2026-10-26, with a screenshot of a
-  loss at a board's top edge, in a 2-by-2 block walled off by flags). The
-  clicked square formed one 50/50 with the square above it and another
-  with the square beside it, so either it alone held a mine or both of
-  those did; the block's fourth square, which no number touches, made up
-  the difference, and with the rest of the board solved the mine count
-  left exactly 2 mines for the block: the clicked square and the fourth
-  square, or the other two, a 50/50 over all four. The judge refused all
-  four squares: the
-  chain's sides were one square and two, and a single square no number
-  touches, whose count only the chain decided, met neither the chain rule
-  nor the rule for the last squares no number touches. Fixed the same day:
-  such a chain qualifies when every number touching it sees its two sides
-  alike, every other unknown area on the board has a pinned count, the
-  squares no number touches number exactly the difference between the
-  sides, every square outside that could still be opened sees the two
-  layouts alike, and the mine count leaves the larger side's count to the
-  chain and those squares together. Two layouts remain, the larger side
-  mined, or the smaller side and every square no number touches mined, and
-  a click on any of these squares is covered; the recap names it "a chain
-  of 50/50s over N squares". When more squares no number touches remain
-  than the difference, several layouts remain at unequal odds, and the
-  rule does not cover them ([BACKLOG.md](../../BACKLOG.md), "Guardian Angel v1
-  family expansion"). Records carry `guardianAngelVersion` `guardian-angel-v4`.
-- At game end a single chip appears to the board's right stating the
-  game's Guardian Angel intervention count (creator decision 2026-11-23,
-  updating the post-game reporting to match the Guardian Angel rename;
-  previously "you won a forced coinflip"): "your Guardian Angel intervened
-  once to keep you safe" ("twice" for 2, "N times" for 3 or more). Its
-  tooltip: "Every click into a guess that nothing else on the board could
-  ever settle is guaranteed safe by Guardian Angel." Restoring a finished
-  game or opening an old game shows the same chip when the record has a
-  nonzero count; switching to High scores clears it. Nothing pops up beside
-  the board mid-game (creator request 2026-08-23). Earlier the same day the
-  design was per-event chips plus guess-odds risk chips; later on
-  2026-08-23 the creator withheld the risk chips entirely — they may
-  return once they can be shown with a proper explanation, and the
-  underlying guess measurements are still recorded either way.
-  Since 2026-08-23 there is also an end-game Guardian Angel recap (an explicit
-  creator request reversing the earlier "no separate end-game recap"
-  decision): see [Game-end evaluation](game-end-evaluation.md).
-- The per-game record carries the event count (`guardianAngel`), the frozen
-  `guardianAngelEnabled` state, the 128-bit `seed`, `rngVersion`, `boardVersion`,
-  and `guardianAngelVersion`; see [Per-game stats](per-game-stats.md). Rankings mix Guardian-Angel-on and
-  Guardian-Angel-off games in the same lists: first decided 2026-08-20 as a
-  deferral, confirmed as the product on 2026-08-23 — Guardian Angel stays on
-  and its games rank within these lists; separation is not planned.
-- Setting `guardianAngel` (default on), labeled "guardian angel". Its one
-  visible hint: "a guess that nothing else on the board could ever settle,
-  like a boxed-in 50/50, never kills you". The name's tooltip: "when you
-  click (not chord) a square in a guess that nothing else on the board could
-  ever settle, that square is guaranteed safe, and every number shown and
-  the mine count stay true; it covers 50/50s, chains of 50/50s, groups like
-  1 mine among 3 squares, and the last squares no number touches once the
-  mine count fixes their mines; it never covers chords, guesses that opening
-  other squares could still settle, or squares the numbers already prove"
-  (both 2026-10-21). It remains editable before the first reveal, is frozen
-  for the active game, and unlocks when the game ends or restarts.
-- `guardian-angel-help.html` is a standalone page of mini-board diagrams
-  showing where the rule applies and where it does not, including two
-  50/50s that share a number (rewritten in player words 2026-10-21). No
-  control links to it: the "?" beside the setting's name that raised it was
-  removed in the 2026-08-23 caption purge.
-- The group judge is exact and deterministic; it performs no model
-  enumeration and has no search budget (the proof of what the numbers fix,
-  run before it, counts every layout with no work limit since 2026-11-02;
-  until then it had one, whose overruns withheld the rule, never invented
-  it). Redraw sampling is direct over the group's compact family.
-  Implementation and deterministic scale checks are recorded in
-  [docs/implementation/guardian-angel.md](../implementation/guardian-angel.md).
+A solver-aware rule on the angelic end of the [design axis](design-axis.md): players can lose to their own choices and to diffuse open-field gambles, never to a structurally unresolvable forced guess.
+
+- **Exact player-facing definition:** **when you click a square in a guess that nothing else on the board could ever settle, that square is guaranteed safe.**
+- **Player words only:** player-facing copy describes qualifying guesses as `"a guess that nothing else on the board could ever settle"`, `"a 50/50"`, `"a chain of 50/50s"`, `"1 mine among 3 squares"`, and `"the last squares no number touches"` — never internal solver terms (`pocket`, `sealed`, `certified`, `bare click`, `sea remnant`; [UI doctrine](ui-doctrine.md#numbers-labels-and-visual-clarity)). Below, *group* is spec shorthand only.
+
+## Exact qualification rules (`guardian-angel-v4`)
+
+A covered *group* qualifies when it has `>= 2` valid mine layouts, all with the same mine total, such that every possible observation outside the group is identical across layouts (de re structural necessity: winning requires clicking into this group, every square inside is ambiguous with identical odds, and no information outside can ever settle it).
+
+- **Scope:** applies in `Standard`, `3BV countdown`, `Coach:*`, and `Trial` modes when enabled (`guardianAngel` setting, default on; frozen at first reveal and unlocked on game end/restart). Off in `Angelic` (which already protects every non-proven-mine click).
+- **Plain clicks only — never chords:** chords never receive protection, even when opening one square, because flags are unsupported player claims. Proven-safe, proven-mine, and open-field guesses never qualify.
+- **Deterministic exact v1 families (judged per group from visible numbers + global mine count before consulting hidden mines, with unlimited exact pre-proofs and zero model enumeration):**
+  1. **`k`-of-`n` groups:** pinned mine count (directly or after subtracting already-pinned groups) where every touching number sees all squares in the group identically (e.g., `1 mine among 3 squares`), even when a shared number touches other unknown groups.
+  2. **Equal-side alternating 50/50 pairs and chains:** every touching number sees both sides identically.
+  3. **Unequal-side 50/50 chains completed by untouched squares:** every touching number sees both sides alike, every other unknown area has a pinned count, the untouched squares equal the exact size difference between sides, every still-openable square outside sees both layouts alike, and the global mine count forces exactly two layouts (larger side mined, or smaller side + all untouched squares mined; reported as `"a chain of 50/50s over N squares"`). Unequal-odds cases with extra untouched squares stay outside v1 ([BACKLOG.md](../../BACKLOG.md#play-modes-solver-generators-and-replay)).
+  4. **Single untouched region with pinned mine count:** the last squares no number touches once the rest of the board fixes their exact mine count.
+- **Redraw and strict player-POV accounting:** every qualifying click increments `guardianAngel` whether the square was already clear or needed redrawing. If mined, only that group redraws uniformly from its valid layouts conditioned on the clicked square being clear (preserving all revealed numbers and global mine count). Hidden redraw counts are never recorded or displayed (`justiceSaves` from `2026-08-23` is read-only legacy compatibility).
+
+## Presentation, rankings, and reference page
+
+- **End-of-game chip only (nothing mid-game):** at game end (or on restored/old-game view; cleared in High scores), a single chip beside the board states `"your Guardian Angel intervened once to keep you safe"` (`"twice"` for 2, `"N times"` for 3+) with tooltip `"Every click into a guess that nothing else on the board could ever settle is guaranteed safe by Guardian Angel."` Guess-odds risk chips remain withheld.
+- **End-of-game recap:** when enabled by `reportScope`, [game-end evaluation](game-end-evaluation.md#report-rendering-and-guardian-angel-recap) lists each intervention in plain player words without hinting whether mines moved.
+- **Mixed canonical rankings:** Guardian-Angel-on and Guardian-Angel-off games rank together in one shared list per key (decided against splitting). Records store `guardianAngel`, `guardianAngelEnabled`, `seed`, `rngVersion`, `boardVersion`, and `guardianAngelVersion` (`guardian-angel-v4`; fields named `justice*` prior to `2026-11-23`).
+- **Settings & visual help:** `guardianAngel` lives on `settings.html` with hint `"a guess that nothing else on the board could ever settle, like a boxed-in 50/50, never kills you"` and full tooltip. `guardian-angel-help.html` stays in the repo as a standalone visual diagram reference (unlinked from controls).

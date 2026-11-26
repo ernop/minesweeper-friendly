@@ -2,403 +2,70 @@
 
 Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation notes: [docs/implementation/storage-and-history.md](../implementation/storage-and-history.md).
 
-## Storage (decided 2026-08-20)
+## Storage model
 
-- All persistent data lives in one IndexedDB database
-  (`minesweeper-friendly`, version 8) with five stores: `userdata`
-  (personal preferences, trial sessions, and play limits — one entry per kind),
-  `records` (one game record per finished game), `traces` (one entry per finished game),
-  `selfChecks` (one record per [self-check](self-check.md), keyed by
-  `startedAt`), and `playSpans` (version 6, 2026-10-12: one entry per board
-  put into play, finished or abandoned, keyed by `startedAt`, for
-  [daily play limits](play-limits.md); each tab writes only its own boards'
-  entries, so open tabs add up their play. Since 2026-10-20 each also
-  records its generator and how the board left play, and the game page
-  reads them all at startup for the session results' abandoned boards).
-  Finishing a game writes only its own record (2026-09-26 input-latency
-  review: the whole history had been one value, rewritten twice per game —
-  160 MB for 6,407 games, about a second of blocked input each time). The
-  version-4 upgrade moves each stored record to its own entry once.
-  Creator requirement (2026-09-26): writing all that stored data at every
-  game end "is horrible and we should never do that." A game's writes cover
-  only what that game created or changed; their cost never grows with the
-  size of the history.
-- Version 4 shipped twice on 2026-09-26 with different contents. The public
-  build moved history into `records`; the local player origin's build added
-  `selfChecks`. The version-5 upgrade creates whichever of the two stores a
-  database lacks, moving history into `records` if it is still one userdata
-  value. Every path therefore ends with the same four stores, and nothing is
-  moved twice.
-- Version 7 (2026-10-27) gives three record fields their measurement's
-  name ([Measurement catalog](measurement-catalog.md), "Divergences
-  resolved 2026-10-27"): `clicks` becomes `boardChangingClicks`,
-  `wastedClicks` becomes `noOpClicks`, and `movesRanOut` becomes
-  `movesMovedOn`. Version 8 (2026-11-23) renames the Guardian Angel fields
-  ([Guardian Angel](guardian-angel.md)): `justice` becomes `guardianAngel`,
-  `justiceEnabled` becomes `guardianAngelEnabled`, `justiceVersion` becomes
-  `guardianAngelVersion`, and `actionEvaluations[].evidence.justiceProtected`
-  becomes `guardianAngelProtected`. The upgrade rewrites every saved record
-  and the trial session's attempts once, on the first load of the release,
-  and importing a backup that still uses the old names renames them in its
-  records. A database moving history out of userdata in the same upgrade
-  renames each record as it moves it.
-- Open game tabs never erase each other's games. Found 2026-09-26: with the
-  game open in two windows, the whole-history value was rewritten from one
-  tab's older copy, dropping the 11 games finished in the other tab between
-  12:59 and 14:41 (their traces survived; the records were restored from a
-  same-day snapshot by import). Per-game records remove that failure:
-  every write, including load-time normalization, touches only the records
-  it changes.
-  The traces store indexes `[mode, finalBoard.cells.length]` as
-  `boardsByModeAndSize`, so backfill can find source boards without loading raw
-  input payloads. The version-3 upgrade indexes existing traces in place; no
-  game records or traces are rewritten. Blocked upgrades explicitly ask the
-  player to close other game/settings tabs and reload.
-- Userdata and records are RAM-first: every kind and record is read into
-  RAM once at startup, all reads and mutations work on the RAM copy
-  synchronously, and each mutation immediately persists that kind's whole
-  RAM object, or only the changed game records, with an async
-  fire-and-forget write. Everything the player sees is rendered
-  from RAM; nothing waits on the disk. Keeping all userdata in RAM rests
-  on scalar records being small. Their action evaluations broke that: on
-  2026-10-26 the creator's 8,203 games were 58 MB as JSON, and every load
-  froze the page for 1.0-1.05 s while reading them in Firefox. Saved boards
-  and square lists became strings that day (next item), which brought the
-  history to 45.7 MB and the longest freeze of a load to 0.29-0.39 s.
-  Traces are far too large for RAM and are written straight to their store
-  (see Raw input traces).
-- Saved boards and square lists (2026-10-26). An action evaluation's board
-  (`position.cells`) is one character per square in index order: '.'
-  covered, 'F' flagged, '0' to '8' an open square's number. Each
-  alternative's or choice's squares (`cells`) are one comma-joined string.
-  Before, a board was [square, number] pairs plus a list of flags, and each
-  square list an array. Reading those back cost 0.82-0.84 s of the 1.0-1.05
-  s freeze, because the browser rebuilds every pair and number as a separate
-  value. The conversion loses nothing: all 20,666 boards and 30,323 square
-  lists in the creator's history convert exactly. It follows the two-step
-  rule below. Step 1 converts each record as it loads or is imported (once,
-  then persisted; that load of the creator's history froze for 0.95 s and
-  then 0.68 s), and each trace saved before capture version 2 whenever the
-  page reads it. Step 2 removes the conversion (BACKLOG.md, "Board strings:
-  step 2").
-- Page assets download in parallel with deferred scripts, with storage first
-  so IndexedDB opens concurrently. Because an IndexedDB open can finish while
-  later deferred scripts are still executing, storage announces readiness
-  only after the page's `userdataReady` callback exists; `readyState` is not
-  used as that signal because it is already `interactive` during deferred
-  execution.
-- A failure to open the database or to persist anything is announced in
-  the backup status line and thrown — never tolerated silently.
-- Persistent storage (2026-09-26): browsers may evict a site's storage under
-  disk pressure unless the site's storage is persistent. Every page therefore
-  asks, via `navigator.storage.persist()`, once the database opens. The browser
-  decides: Chrome from site engagement without a prompt, Firefox by asking.
-  The Settings Archive group states the answer. When it is no, it says the
-  browser may delete the data when disk space runs low, and that the archive
-  folder keeps a copy, or asks for one.
-- Size (measured 2026-09-26, three scripted Expert games of about 230 actions):
-  - A trace is about 750 KB as JSON. The board snapshot before every action
-    is half of it (about 375 KB), the rest of the per-action evidence about a
-    quarter, and cursor samples about 55 KB.
-  - Chrome's database stores it in about 160 KB on disk; the gzip archive
-    copy is about 40 KB.
-  - Values stay uncompressed in the browser. Compressing them would slow
-    every replay, analysis, and backfill read and hide indexed fields, to save
-    about 120 KB per game. Storing board changes instead of full snapshots is
-    the larger saving and belongs with the next trace format change.
-- Before 2026-08-20 the userdata lived in localStorage; the version-2
-  database upgrade carries those keys over exactly once and then removes
-  them, so existing players (including on the public GitHub Pages origin)
-  keep their history without doing anything.
-- Changes to saved history (creator decision 2026-10-26): "we are okay with
-  changes to history as long as we make reasonable steps; but we don't want
-  to make any extremely painful patches which new users from this point on
-  wouldn't have." A change that only histories saved before it need ships in
-  two steps, because the game has two active players, the creator and one
-  other ("we can do the cleanup in two steps; there aren't many active users
-  (basically only me another guy)"). The first release changes each history
-  as it loads or is imported. A later release deletes that code once the
-  creator confirms that every browser either player uses has loaded it.
-  [BACKLOG.md](../../BACKLOG.md) lists each pending second step. The first
-  such change deletes fastclick gaps of the definition before planned pairs
-  ([Per-game stats](per-game-stats.md), "Fastclick gap"). The second renames
-  three record fields (version 7, above); its upgrade step and the import's
-  renaming are the code a later release deletes. The creator set that
-  deletion for 2026-11-05 or any later day (2026-10-29;
-  [BACKLOG.md](../../BACKLOG.md), "Record field names: step 2"). The third
-  renames the legacy Guardian Angel record fields (version 8, above); its
-  step 2 cleanup is tracked in [BACKLOG.md](../../BACKLOG.md), "Guardian Angel
-  rename: step 2".
+All persistent game-page data lives in one IndexedDB database (`minesweeper-friendly`, version `8`) with five stores:
 
-## Raw input traces (decided 2026-08-20)
+- **`userdata`:** single entries by kind — personal preferences (`settings`), trial sessions, daily play limits, and archive folder handle (`archive`).
+- **`records`:** one entry per finished game (win or loss), keyed by `endedAt`. Finishing a game writes only its own record (never rewriting full history, so write cost stays constant and open tabs never overwrite each other's finished games).
+- **`traces`:** one raw input trace per finished game, keyed by `endedAt`, indexed on `[mode, finalBoard.cells.length]` as `boardsByModeAndSize` so board-metric backfill finds source boards without loading raw pointer arrays. Never loaded in bulk during play.
+- **`selfChecks`:** one entry per [self-check](self-check.md), keyed by `startedAt`.
+- **`playSpans`:** one entry per board put into play (finished or abandoned), keyed by `startedAt`, feeding [daily play limits](play-limits.md) and abandoned-board session counts. Each tab writes only its own spans.
 
-- Every finished game (win and loss) keeps its sampled input stream as
-  the ground truth behind motion and decision analysis: cursor samples
-  (relative ms timestamp, x, y; equal receipt times merge as specified below), button events
-  ('ldown'/'lup'/'rdown' with position and the board cell index hit, or null
-  for a press released off the cells; `chordGesture: true` marks a right
-  press that was half of a both-button chord and the left release that made
-  the chord attempt, since 2026-09-26), layout events (the board's bounding
-  rect and dimensions, re-recorded on scroll, resize, and zoom, so every
-  sample maps to a board cell forever), and one decision event per accepted
-  board action. A decision event keeps the exact pre-action visible position,
-  selected cell(s), measured reasonable-choice set, evidence, and outcome.
-  This is the durable source for faithful choice replay and later analytics;
-  the scalar history record still keeps only reportable mistake evidence.
-- The board also moves without any scroll/resize/zoom event when content
-  around it changes — found 2026-08-23: the left stats panel's first
-  render during init (the panel was removed 2026-10-20) shifted the
-  centered board ~880px after the trace's opening layout event, so warmup
-  samples mapped through stale geometry. The recorder therefore also
-  compares the live rect to the last recorded one and re-records on any
-  difference: before every button event (every click maps exactly), and
-  after layout passes scheduled by ResizeObserver when surrounding
-  controls change size. Motion stats sampling does not run page layout. Traces
-  saved before the fix retain the defect for the first game of each
-  page load: their samples map through the stale opening rect (button
-  events are unaffected — they store the hit cell index directly). The
-  true geometry was never measured, so those traces cannot be repaired;
-  offline sample-to-cell mapping of a session's pre-fix first game is
-  suspect.
-- A trace runs from board creation to finish: pre-first-click movement is
-  warmup and is real data, so capture covers the ready state, not just
-  play. Post-game movement belongs to no game and is not captured.
-  Abandoned boards (restarted mid-game) produce no record and no trace.
-- `rdown` is the board's right press, which flags a covered cell: the press
-  itself since 2026-09-26, before that the context-menu event (fired on the
-  press on Linux and macOS, on the release on Windows). Existing calculations
-  continue using this action boundary and handler-time samples; capture
-  provenance v1 below separately records physical right-button transitions,
-  event times, and page-state observations. Full source-sample preservation
-  and complete-attempt retention remain unbuilt; see the
-  [lifelong self-measurement roadmap](../../BACKLOG.md#lifelong-self-measurement-and-longitudinal-research).
-- Sample timestamps are strictly increasing, by construction (decided
-  2026-08-20): browsers reduce performance.now() precision (Chromium
-  quantizes to ~100µs), so two mousemove events can read the same
-  timestamp. Such events are one sample — the latest position at that
-  instant. Their delivery order is known but elapsed time within the tie
-  is not resolved; a zero time step would put Infinity into every
-  rate computed from this computation stream. Since capture version 3
-  (2026-10-27) the positions a sample replaced are kept beside the samples,
-  so the cursor's travel through them counts (Capture provenance, below);
-  earlier traces lost them, versions 1 and 2 keeping only how many. Every
-  consumer (motion stats, the offline extractors) may rely on this
-  invariant.
-- Traces live in their own store (`traces`, keyed by endedAt exactly like
-  history records; see Storage). The active trace stays in RAM; the full
-  historical trace collection is not loaded during play. Nothing is pruned.
-- Each trace also stores the finished board (`finalBoard`: every cell's
-  mine, revealed, and flagged state, plus a loss's hit cells), which redraws
-  the last finished game after a reload. Its flags are the player's own
-  flags at the end, except on wins saved before 2026-10-10: the win then
-  flagged every remaining mine before the save (removed that day, see
-  [Won board](board-and-layout.md)), so those wins store every mine as
-  flagged. For them the player's final flags are the last decision event's
-  pre-action position (a win comes from a reveal or chord, which changes no
-  flag), and their count is `flagsPlaced − flagsRemoved`.
-- Scalar record fields are summaries; the trace is what lets any future
-  metric be computed over past games retroactively. Failure to capture or
-  save a trace is announced visibly and thrown, never tolerated.
-- A finished game's record and trace are saved together in one write the
-  moment it ends, marked `evaluationPending`, and saved again, complete,
-  when the reports worker has judged the game (since 2026-11-03;
-  [Game-end evaluation](game-end-evaluation.md), "When it is judged"). A
-  page closed in between loses nothing: the next load judges each pending
-  game from its saved trace before the history loads. A
-  pending game is not in the history the page shows, the archive folder,
-  the training page's games, the switch cost line, or a trace export.
-- An "export traces" button beside the backup controls downloads all
-  traces as one JSON file (download only — far too large for the
-  clipboard) for the offline analysis pipelines under `analysis/`.
-- Historical recording overhead, measured 2026-08-20 before capture v1: ~100ns per mousemove event and
-  <0.5ms of typed-array conversion at save time — imperceptible.
-- Since 2026-09-26 each new trace also stores `environment`: device pixel
-  ratio, screen and viewport size, and the browser's user-agent string at trace
-  start, which change cursor pixels and input timing. Physical device facts are
-  not observable and are not guessed. Older traces lack the field (not
-  measured). See [Lifelong self-measurement](measurement.md#lifelong-self-measurement-creator-direction-2026-09-26).
+### Storage invariants and migrations
+- **RAM-first reads:** `userdata` and scalar `records` load once at startup into RAM so all reads and UI renders are synchronous; mutations fire-and-forget async writes touching only changed entries. Traces stay on disk except for the active game.
+- **Compact string encoding:** inside saved `actionEvaluations` and capture-v2+ traces, visible board snapshots (`position.cells`) store as one character per square (`.`, `F`, `0`–`8`) and square lists (`cells`) as comma-joined strings rather than nested arrays, avoiding multi-hundred-millisecond deserialization stalls on load.
+- **Concurrent startup open:** `storage.js` loads deferred right after `page-errors.js` so IndexedDB opens in parallel with remaining scripts, invoking `userdataReady` only once `game/main.js` defines it. Database open/write failures announce loudly and throw (never tolerated silently); blocked upgrades prompt closing other open tabs.
+- **Persistent storage request:** every page calls `navigator.storage.persist()` once the database opens and surfaces the browser's answer in the Settings Archive panel (warning when non-persistent storage risks eviction under disk pressure).
+- **Two-step history cleanups:** schema changes needed only by pre-existing records ship in two steps — Step 1 migrates on load/import, and Step 2 deletes the shim once active browsers have loaded Step 1 (tracked in [BACKLOG.md](../../BACKLOG.md#pending-step-2-cleanups-delete-once-active-browsers-have-loaded-step-1)).
 
-### Capture provenance v1 (2026-09-26)
+### Schema-boundary dates
 
-The creator's instruction to continue the profiling work starts with better
-observations. This implemented slice adds provenance to new finished-game
-traces; it does not change the numerical definitions of existing statistics.
+| Date | DB / format boundary | Semantic change |
+| --- | --- | --- |
+| `2026-08-20` | DB v2 | Moved history and settings from `localStorage` into IndexedDB (one-time migration). |
+| `2026-08-21` | Mode keys | Keys include `@<playMode>` (`9x9/10@standard`); earlier bare `9x9/10` keys mean Standard. |
+| `2026-09-26` | DB v4/v5, Capture v1 | Per-game `records` store + `selfChecks` store; traces add `environment`, `clock`, `sourceT`, `sourceType`, `isTrusted`, `buttons`, `right-button-down/up`, and `page-state` events. |
+| `2026-10-10` | `finalBoard` flags | Wins stop auto-flagging remaining mines; pre-boundary traces store all mines flagged (derive true player flags from the last decision event's pre-action board). |
+| `2026-10-12` | DB v6 | Added `playSpans` store (`generator` and exit reason added `2026-10-20`). |
+| `2026-10-26` | Capture v2 | Evaluation and trace boards/square lists switch from nested arrays to compact strings. |
+| `2026-10-27` | DB v7, Capture v3, Archive v2 | Renamed `clicks` → `boardChangingClicks`, `wastedClicks` → `noOpClicks`, `movesRanOut` → `movesMovedOn`; traces store merged co-timestamped cursor observations (`mergedSample/X/Y/SourceT/Trusted`) and float32 cursor coords. |
+| `2026-11-03` | Pending save | Finished record + trace save atomically marked `evaluationPending`, then re-save complete after worker judgment; pending games stay excluded from UI, archive, training, and exports until complete. |
+| `2026-11-23` | DB v8, Archive v3 | Renamed `justice*` → `guardianAngel*` (`justice`, `justiceEnabled`, `justiceVersion`, `justiceProtected`). |
 
-- `captureVersion` identifies this acquisition contract. Version 3
-  (2026-10-27) keeps the cursor observations a sample replaced in place of
-  their count (below). Version 2 (2026-10-26) keeps each decision's board
-  and square lists as strings (Storage, "Saved boards and square lists");
-  version 1 kept them as arrays.
-  `clock` retains
-  `timeOriginMs` and `traceStartMs` from the browser monotonic clock; their sum
-  anchors relative trace time to the browser's epoch estimate. Existing
-  `startedAt` remains the separately observed `Date.now()` value used by current
-  history/session code. A wall-clock adjustment is not a change in elapsed
-  monotonic time; existing wall-time-based summaries are not redefined here.
-- Existing input events keep handler-recorded `t` and gain `sourceT` (browser
-  `Event.timeStamp` minus trace start), `sourceType`, `isTrusted`, and `buttons`.
-  Both times are milliseconds on the same relative clock. Source time is browser
-  event creation time, not measured hardware activation. Do not clamp negative
-  source times: a queued event may predate board creation. Layout and decision
-  events are app observations and do not invent browser-source timestamps.
-- Mouse samples gain parallel `sampleSourceT` and `sampleTrusted` (0/1)
-  arrays. On a tie, the latest position and its source time/trust become the
-  sample. Since version 3 (2026-10-27) every observation a sample replaced
-  is kept, in delivery order, in five parallel arrays: `mergedSample` (the
-  index of the sample that replaced it), `mergedX`, `mergedY`,
-  `mergedSourceT`, and `mergedTrusted`. A sample's cursor travel runs from
-  the sample before it through those observations to the sample, and every
-  path and every speed taken as travel over time reads that one travel: the
-  record's mouse path, the live perf charts, motion stats' path, wander,
-  and movement-bout speeds and straightness, the trial overlays, the
-  replay's movement speed and rough movement, and the offline extractors
-  ([Measurement catalog](measurement-catalog.md), "Divergences resolved
-  2026-10-27"). The Hevelius measures in motion stats run
-  their published algorithm over the timestamped samples alone, since a
-  merged observation has no time of its own. Versions 1 and 2 stored only a count per sample
-  (`sampleMergeCount`), so the travel through the observations they
-  replaced is lost. Neither recovers browser-coalesced points, and no claim
-  of a complete device stream or polling rate follows from these arrays.
-- Cursor positions are captured at the precision the trace saves them,
-  single-precision floats (since 2026-10-27), which moves a position by
-  under a thousandth of a pixel. Keeping more digits during the game than
-  the saved trace keeps would let the record's mouse path, worked out
-  during the game, differ in its last digits from the same path worked out
-  from the saved trace.
-- Document-level mouse down/up listeners independently record
-  `right-button-down` and `right-button-up`, including off-board events, with
-  position, cell index (null off cells), browser button state, and source
-  provenance. They never toggle flags or count as additional game actions.
-  Existing left down/up coverage is unchanged. A button held outside the
-  trace's window may have only one observed transition; no counterpart is invented.
-- `initialPageState` records document visibility and focus at trace start.
-  `page-state` events record `visibilitychange`, window focus/blur, and
-  `pagehide`/`pageshow`, with both times, source trust, and the observed state.
-  Page lifecycle events also retain `persisted`. These identify observed context
-  changes, not proof of distraction, sleepiness, a pause, or a missing input.
-  An abrupt exit may emit no event. A pagehide observation is durable only if
-  that trace later reaches the existing finished-game save path.
-- Capture stops at game end. Export includes all new observations and converts
-  every sample array to a JSON array. Earlier traces remain explicitly
-  unmeasured for these fields; export does not manufacture them.
+## Raw input traces
 
-Still pending: one full Pointer Events acquisition stream with coalesced and
-ordered equal-time samples, every button/cancellation, input-to-action links,
-setup identity, viewport/device context, and partial-attempt checkpointing.
-These remain in the [lifelong self-measurement roadmap](../../BACKLOG.md#lifelong-self-measurement-and-longitudinal-research).
+Every finished game (win or loss) saves its complete input stream as ground truth for replay, motion stats, and retroactive analytics. Failure to capture or save a trace surfaces visibly and throws.
+
+- **Scope:** captures from board deal through finish (pre-first-click warmup is real data; post-game movement is excluded; abandoned boards currently save no trace).
+- **Contents:** strictly increasing cursor samples (`t`, `x`, `y`), button events (`ldown`/`lup`/`rdown` with coordinates, cell index or `null`, and `chordGesture`), layout snapshots (board rect + dimensions re-recorded on scroll, resize, zoom, layout shift via `ResizeObserver`, and before every button event if changed), decision events (exact pre-action visible board, selected cells, evidence, outcome), `finalBoard` (enabling post-reload restoration), and `environment` (`devicePixelRatio`, screen/viewport dimensions, user agent).
+- **Strictly increasing sample timestamps:** equal-timestamp `mousemove` observations merge into one sample (latest position wins) so consumers never encounter zero `dt` / `Infinity` speed; since capture v3 (`2026-10-27`), replaced intermediate observations persist in parallel `merged*` arrays so cursor travel includes them (while Hevelius algorithms run strictly on timestamped samples). Pre-`2026-08-23` traces may map warmup samples through a stale opening rect on the first game of a load.
+- **Uncompressed in IndexedDB:** traces remain uncompressed inside IndexedDB so replay, analysis, and backfill reads stay fast and indexed fields remain queryable (archive copies are gzip-compressed).
+
+### Capture provenance
+- `captureVersion` (`1` = provenance fields, `2` = string boards/cells, `3` = `merged*` co-timestamped points + float32 coordinates matching in-game capture precision).
+- `clock` keeps `timeOriginMs` and `traceStartMs` from the monotonic clock alongside wall-clock `startedAt`.
+- Input events retain handler time `t` plus `sourceT` (`Event.timeStamp - traceStartMs`, never clamped if negative from queued events), `sourceType`, `isTrusted`, and `buttons`; layout and decision events are app observations without fabricated browser timestamps.
+- Document-level `right-button-down` and `right-button-up` record physical right-button transitions (including off-board) without affecting flag actions (`rdown` marks the flag trigger itself).
+- `initialPageState` and `page-state` events record `visibilitychange`, focus/blur, and `pagehide`/`pageshow` (with `persisted`), treated strictly as observed browser state rather than inferred distraction.
 
 ## Play history and backup
 
-- Every finished game (win and loss) is kept forever (one `records` entry
-  each; see Storage), grouped by mode; nothing is pruned. A mode is identified
-  by board parameters plus play mode (e.g. `9x9/10@standard`). Keys
-  written before 2026-08-21 as `9x9/10` mean Standard.
-- Export/import game history as a JSON map of mode to game records,
-  without preferences: copy to clipboard, save to
-  file, paste in, or open from file — subtle controls out of the way of
-  play. Export applies the importer schema first, discarding invalid
-  optional fields and omitting irreparable records or lists so it never
-  emits data this build would reject. Import recovers every usable sibling:
-  invalid optional fields are discarded, irreparable records/lists are
-  skipped; the status reports each kind of cleanup. Embedded settings in
-  older combined exports are ignored.
-  Records dedupe by end timestamp, so repeated imports are no-ops.
-- The backup row under the board holds these controls as shared buttons
-  ([One look per kind of thing](ui-doctrine.md)): export history, export
-  traces, import history, data format, and the save-to-file links an export
-  adds. Import history and data format each open a panel below the row and
-  stay pressed while it is open.
-- A "data format" button beside the backup controls raises a reference
-  card: the export's overall shape (one mode-keyed
-  list per board) and a field-by-field table of the per-game record fields
-  with example values and units, plus the note that every other displayed
-  stat is derived from them at display time. The card is generated from
-  the same field definitions the importer validates against, so it cannot
-  lie about the real format. Its last line states which play statistics the
-  hosted site records ([Play statistics](hosting.md#play-statistics)).
+- **Retention:** every finished game is kept permanently, grouped by mode key; nothing is pruned.
+- **Backup controls:** shared bordered buttons in `#backup` under the board — `export history`, `export traces` (file download only, too large for clipboard), `import history` (paste or file open), and `data format` (inline reference card generated directly from importer validation definitions, ending with a summary of hosted [play statistics](hosting.md#play-statistics)).
+- **Clean transfer:** history exports contain only mode-keyed game lists (no preferences), validated through the importer schema before emission. Imports dedupe by `endedAt`, ignore legacy embedded settings, recover valid siblings while stripping invalid optional fields or irreparable records, and report every cleanup in the status line.
 
-## Archive folder (creator direction, 2026-09-26)
+## Archive folder
 
-For [lifelong self-measurement](measurement.md#lifelong-self-measurement-creator-direction-2026-09-26),
-the browser database is a working copy. Every primary item is also written
-to a folder the player chooses, as documented open files that outlive the
-browser, its profile, and this origin.
+For [lifelong self-measurement](measurement.md#lifelong-self-measurement), IndexedDB acts as a working copy while every primary item also writes once as an open, documented gzip file to a user-chosen local folder that outlives any browser profile or origin.
 
-- **Choose.** Settings, group "Archive": "Choose folder" opens the browser's
-  folder picker; "Change folder" picks another, and the new folder then
-  catches up on everything. The handle is stored as userdata kind `archive`.
-  Browsers without folder access (the File System Access API) show that fact
-  and no picker.
-- **Automatic writes.** After each finished game's trace is saved, after
-  each self-check, after a history or self-check import, on each page load
-  (after the game page's startup), and on "Archive now", a sync writes every
-  record, trace, and self-check the folder does not hold yet, and every
-  problem attempt, pointing run, and drill attempt from the problems page's
-  own database (added 2026-09-27: they are primary items too). The problems
-  page does not open the game database, where the folder is stored, so its
-  items are written by the next sync of the game, settings, or self-check
-  page. A sync never creates the problems database: until the player opens
-  that page there is nothing of it to archive.
-  - The sync runs in a worker that reads the database itself, so the page
-    thread does no archive work. A measured first sync of 500 seeded games
-    wrote 1,000 files in about 5 s with no long main-thread task.
-  - The worker keeps directory listings between syncs, so a sync after one
-    game checks only new files (about 10 ms with 1,000 files archived).
-    Each page load lists the folder afresh.
-  - A Web Lock serializes syncs from every open tab.
-- **Write-once.**
-  - Each item file is written once, atomically, and never changed or deleted.
-    `README.txt` is the one exception (2026-09-27): a sync rewrites it when
-    its text differs from the current layout's description, because a README
-    that omits directories would mislead its reader.
-  - A record is archived as stored when a sync first finds it. Since
-    2026-11-03 a sync leaves out a game still pending judgment, and the sync
-    after a game starts once its judged record is saved, with the board
-    measurements the same worker job computed. Until then the sync started
-    once the trace was saved, while the board measurements were still being
-    computed, so the archived copy held them only when they were stored
-    first (found 2026-10-26 and kept then, rather than store the
-    measurements apart from the record; the pending mark ended it). Values
-    added after the sync (evidence corrections) are recomputable from the
-    trace and seed.
-  - Deleting data in the browser never deletes archive files.
-- **Layout** (UTC year and month; every name uses only `[A-Za-z0-9._-]`):
-  - `games/YYYY/MM/<endedAt>-<mode>.json.gz`: one finished game's record.
-    Each character of the board key outside `A-Za-z0-9.-` is written as `_`
-    plus four hex digits, so distinct keys never collide.
-  - `traces/YYYY/MM/<endedAt>.json.gz`: that game's raw input trace, with
-    typed arrays as plain number arrays.
-  - `self-checks/YYYY/MM/<startedAt>.json.gz`: one self-check.
-  - `problem-attempts/`, `pointing-runs/`, and `drill-attempts/`, each
-    `YYYY/MM/<startedAt>.json.gz`: one item of the problems page
-    ([problems.md](problems.md)). Attempts name their problem bank by
-    `bankId`; every bank is `problems-bank.json` in the repository history.
-  - `README.txt` describes all of this for a reader without the app.
-- **Format.** Each item is gzip-compressed UTF-8 JSON holding `format`,
-  `formatVersion`, and the item. Version 2 (2026-10-27) renamed three game
-  record fields (Storage, "Version 7"); version 3 (2026-11-23) renamed the
-  Guardian Angel game record and trace fields (Storage, "Version 8"). Items
-  written before keep their earlier format versions and field names, which
-  `README.txt` lists. The formats are
-  `minesweeper-friendly-game-record` with `{ mode, record }`,
-  `minesweeper-friendly-trace` with `{ trace }`,
-  `minesweeper-friendly-self-check` with `{ selfCheck }`,
-  `minesweeper-problems-attempt` with `{ attempt }`,
-  `minesweeper-problems-pointing-run` with `{ run }`, and
-  `minesweeper-problems-drill-attempt` with `{ attempt }`.
-- **Status counts.** The status sentence counts game records, traces, and
-  self-checks, then each problems-page kind once the folder holds any.
-- **Permission.**
-  - Browsers may require the player to renew write permission on a later
-    visit. Until then the archive is paused: the settings page says so, the
-    self-check page offers "Allow archive writing", and the game page shows
-    an "archive paused" chip that resumes on click.
-  - Nothing is lost meanwhile: the data stays in the database, and the next
-    sync writes it.
-- **Failures.** A failed sync (for example a folder deleted or moved) shows
-  "archive failed" with the browser's error on the game page chip, in the
-  backup status line, on the settings page, and on the self-check page. It
-  is retried by a click or the next save, and stays visible until a sync
-  succeeds.
-- **Timed tests.** While a self-check test runs, archive work is suspended.
-  A running sync stops, and it restarts after the result is saved.
+- **Setup:** configured in Settings → `Archive` via File System Access API (`Choose folder` / `Change folder`, handle stored in `userdata['archive']`; browsers without folder access state that fact and omit the picker).
+- **Automatic off-thread sync:** `archive-worker.js` reads IndexedDB directly (serialized across tabs via Web Locks, keeping cached directory listings between syncs and refreshing on page load). Syncs trigger after each finished game's judged record saves, after each self-check, after imports, after page startup, and on `Archive now`. Syncs also archive `minesweeper-problems` items when that database exists (never creating it if unused) and suspend while a timed self-check is running.
+- **Write-once guarantee:** every item file writes atomically once and is never modified or deleted (deleting browser data never deletes archive files). Only `README.txt` updates automatically when its format description changes. Games marked `evaluationPending` wait until worker judgment finishes so archived records include complete evaluations and board measurements.
+- **Directory layout** (UTC `YYYY/MM`, filenames restricted to `[A-Za-z0-9._-]`, non-safe key chars hex-escaped as `_XXXX`):
+  - `games/YYYY/MM/<endedAt>-<mode>.json.gz` (`minesweeper-friendly-game-record`: `{ mode, record }`)
+  - `traces/YYYY/MM/<endedAt>.json.gz` (`minesweeper-friendly-trace`: `{ trace }`, typed arrays as JSON arrays)
+  - `self-checks/YYYY/MM/<startedAt>.json.gz` (`minesweeper-friendly-self-check`: `{ selfCheck }`)
+  - `problem-attempts/`, `pointing-runs/`, `drill-attempts/` under `YYYY/MM/<startedAt>.json.gz` (`minesweeper-problems-*`, referencing `bankId`)
+  - `README.txt` (self-contained format guide including historical archive format versions `1`/`2`/`3`)
+- **Permissions and errors:** when the browser requires renewed folder write permission, syncing pauses with no data loss and surfaces a one-click resume control (`archive paused` chip on game page, status on Settings, `Allow archive writing` on self-check). Sync failures surface `"archive failed"` with the browser error across game chip, backup status, Settings, and self-check until a retry succeeds.

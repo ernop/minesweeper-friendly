@@ -1,23 +1,22 @@
 # minesweeper-friendly — Product & UI Decisions
 
-Canonical record of every product and UI decision made to date, one file
-per area under `docs/product/`. If behavior and a section file disagree,
-one of them is a bug: fix the code or fix that file in the same change.
-Implementation notes (function and key names) live in the matching
-`docs/implementation/` file; [AGENTS.md](AGENTS.md) maps every area to
-both. Player-facing pitch in `promo/PROMO.md`; unbuilt work in
-[BACKLOG.md](BACKLOG.md).
+Canonical record of every product and UI decision, one file per area under
+`docs/product/`. If behavior and a section file disagree, one of them is a bug:
+fix the code or fix that file in the same change. Implementation notes (function
+and key names) live in the matching `docs/implementation/` file;
+[AGENTS.md](AGENTS.md) maps every area to both. Player-facing pitch in
+`promo/PROMO.md`; unbuilt work in [BACKLOG.md](BACKLOG.md).
 
 ## Product goals
 
-Long-term vision (creator direction 2026-11-26):
+Long-term vision:
 
 1. **The world's best play-mode Minesweeper for players:** faithful standard
    mechanics and crisp classic-Windows feel, ultra-low latency, effortless
    clarity, and solver-aware play variants (the design axis is mapped in
    [docs/product/design-axis.md](docs/product/design-axis.md); Guardian Angel
    is specified in [docs/product/guardian-angel.md](docs/product/guardian-angel.md);
-   the earlier no-guess modes were removed 2026-10-21,
+   removed no-guess modes are noted in
    [docs/product/play-modes.md](docs/product/play-modes.md)).
 2. **Integrated intelligence and inventive self-training:** continually
    research, discover, and invent better methods to model how a player reads,
@@ -33,57 +32,52 @@ Long-term vision (creator direction 2026-11-26):
 Standing defaults and hosting:
 
 - The public game is https://minesweeper-friendly.fuseki.net/ . Every push
-  to master releases that site. GitHub Pages still publishes the repository
-  and redirects visitors there. The page links back to the repo via a subtle
-  footer.
+  to `master` releases that site. GitHub Pages redirects visitors there. The
+  page footer links back to the hosted site.
 - Default difficulty is Beginner.
 
 ## Sections
 
-Quoted names are the headings each file took over from the former
-single-file spec; older references cite them as `PRODUCT.md "Heading"`.
-
 ### Foundations
 
-- [docs/product/hosting.md](docs/product/hosting.md) — Independent Fuseki application hosting, browser-origin isolation, release boundaries, and the hosted site's play statistics.
-
-- [docs/product/design-axis.md](docs/product/design-axis.md) — The ambiguity design axis from naive random to the angelic dual of Kaboom, and the deduction levels (counting, overlap, all numbers, mine total) that grade how hard each fact is to know and define "solvable"; the move hierarchy: how the moves available at any moment are characterized, from proven moves through guesses to the player's output per hour, and what is built at each level.
-- [docs/product/ui-doctrine.md](docs/product/ui-doctrine.md) — App-wide directives (simplicity first, defaults show nothing extra, global configuration in one place, useful optional help, no hover reflow, unshortened legend labels, layout stability). Read before building or reshaping any surface. Section: "UI doctrine".
-- [docs/product/board-and-layout.md](docs/product/board-and-layout.md) — The classic skin and board chrome, the game setup rows, top bar, settings row, and footer, and the page columns around a board that never moves. Sections: "Board and chrome", "Game setup, top bar, settings row, and footer", "Layout: the board never moves".
+- [docs/product/hosting.md](docs/product/hosting.md) — Independent Fuseki application hosting, browser-origin isolation, release boundaries, and hosted play statistics.
+- [docs/product/design-axis.md](docs/product/design-axis.md) — Ambiguity design axis from naive random to the angelic dual of Kaboom, exact deduction levels (counting, overlap, all numbers, mine total), and the six-level move hierarchy.
+- [docs/product/ui-doctrine.md](docs/product/ui-doctrine.md) — App-wide UI principles and invariants (simplicity first, visual grammar, pure black text, compact aligned numbers, player words, no narrated marks, optional hidden help, hover/layout stability, one-step global vs. local options, visible errors). Read before building or reshaping any surface.
+- [docs/product/board-and-layout.md](docs/product/board-and-layout.md) — Classic skin and board ergonomics, startup readiness and latency budgets, navigation rows, and the board-first adaptive layout where the board never moves.
 
 ### Play
 
-- [docs/product/play-modes.md](docs/product/play-modes.md) — Choosing a mode (preset links, the other modes menu) and every mode (Standard, Angelic, Endgame drill, trials, 3BV countdown, Board lab) and the removed no-guess modes, with the visible-information solver. Section: "Play modes".
-- [docs/product/board-generators.md](docs/product/board-generators.md) — The Generator menu, each generator, and the top score keys that rankings are stored under. Section: "Board generators and top score keys".
-- [docs/product/guardian-angel.md](docs/product/guardian-angel.md) — A click into a guess that nothing else on the board could ever settle (a boxed-in 50/50 and the like) is safe; open-field gambles and chords stay deadly. Section: "Guardian Angel".
+- [docs/product/play-modes.md](docs/product/play-modes.md) — Mode selection and every mode (Standard, 3BV countdown, Angelic, Endgame drill, Coaching practice modes, Trials, Board lab, removed no-guess compatibility) plus the visible-information solver.
+- [docs/product/board-generators.md](docs/product/board-generators.md) — Generator selection, placement algorithms, and top score keys.
+- [docs/product/guardian-angel.md](docs/product/guardian-angel.md) — Exact structural forced-guess protection (plain clicks into guesses nothing else on the board could ever settle; open-field gambles and chords stay deadly).
 
 ### After a game
 
-- [docs/product/game-end-evaluation.md](docs/product/game-end-evaluation.md) — Every action judged against the position visible before it, with the evidence ledger, verdicts, and reported endings. Section: "Game-end evaluation".
-- [docs/product/results.md](docs/product/results.md) — The one order for post-game and score-view output (outcome, tables, then point charts). Section: "Result presentation and ordering".
-- [docs/product/game-data.md](docs/product/game-data.md) — The performance chart beside the board, its shared session definition, ranking direction, catalog, removed fields, and the optional switch cost line.
-- [docs/product/during-game.md](docs/product/during-game.md) — How the game just played unfolded on its own clock: a progress chart, one chart of every measured line against its own whole-game value, and event tracks (clicks, jumps, pauses) on one time axis, with the hovered line's value, the board at that moment, and a replay link. The block "live perf charts" at the head of the game data column.
-- [docs/product/rankings.md](docs/product/rankings.md) — Time-window and day-category rank lists, row highlights, the recent-placements summary, relative ages, and streaks. Sections: "Rank lists", "Rank highlights", "Recent placements", "Relative age display", "Streak lists".
-- [docs/product/charts.md](docs/product/charts.md) — Grouped average-time scatters, the relationship scatter plots, and the retired rankaverage tables. Sections: "Average-time charts", "Scatter plots", "Retired rankaverage charts".
-- [docs/product/replay.md](docs/product/replay.md) — After-game path and choice replay (overlays, history slider, solver overlays, legends, chords, off-screen durations). Section: "Path and choice replay views".
+- [docs/product/game-end-evaluation.md](docs/product/game-end-evaluation.md) — Off-thread action judgment against pre-click visible positions, independent evidence dimensions, exclusive report taxonomy, loss types, win types, and session result kinds.
+- [docs/product/results.md](docs/product/results.md) — Canonical presentation order (exact pagetables before point charts), collapsible openers, local view configuration, score/old-game views, and progressive worker delivery.
+- [docs/product/game-data.md](docs/product/game-data.md) — Percentile band and distributions chart in the details dock, comparison pools, scoped rows, hover cards with example boards, and the shared session definition.
+- [docs/product/during-game.md](docs/product/during-game.md) — Live perf charts heading the details dock: progress, moves available, event tracks (clicks, jumps, pauses), relative-to-whole-game lines, hover board scrubbing, and replay locking.
+- [docs/product/rankings.md](docs/product/rankings.md) — Time-window, day-category, board-family, and streak rank tables, full score lists with old-game review, no-mark filtering, rank highlights, session summary and 3-band results partition, ranks won in session, and relative ages.
+- [docs/product/charts.md](docs/product/charts.md) — Property charts (`your perf` in `ms / 3BV` and `board traits` in seconds with average/distribution/winrate modes), relationship scatters, and exact worker-run Theil–Sen fits.
+- [docs/product/replay.md](docs/product/replay.md) — Post-game video-style replay transport, six solver/click board overlays, six cursor path views, and the interpretive legend.
 
 ### Measurement
 
-- [docs/product/measurement.md](docs/product/measurement.md) — Why games are measured (comparison within one player, no causal inference), the lifelong self-measurement design, and the behavioral-signature research. Section: "Measurement purpose".
-- [docs/product/self-check.md](docs/product/self-check.md) — The frozen reference check (sleepiness rating plus a 10-counter alertness test) for comparison over years: protocols, versioning, stored record, result, history, and backup.
-- [docs/product/measurement-catalog.md](docs/product/measurement-catalog.md) — The one definition of every performance measurement (id, name, definition, format, direction, games covered, formula) that every surface reads, the same whole-game value in game data and the live perf charts, and the hover link between them.
-- [docs/product/per-game-stats.md](docs/product/per-game-stats.md) — The fields recorded per finished game, derived rates, board measurements and backfill, the guess ledger, and music playing. Section: "Per-game stats".
-- [docs/product/motion-stats.md](docs/product/motion-stats.md) — Mouse-dynamics features computed from the trace, live during the game and final after it, in one open/close section at the page foot. Section: "Motion stats".
-- [docs/product/session-stats.md](docs/product/session-stats.md) — The left stats panel's session charts, removed 2026-10-20: the creator's decision, where each part went, and the chart ideas worth reusing. Section: "Session stats".
-- [docs/product/player-states.md](docs/product/player-states.md) — Self-reported context tags stored on finished games. Section: "Player states".
+- [docs/product/measurement.md](docs/product/measurement.md) — Within-player measurement doctrine, lifelong self-measurement rules, and behavioral-signature research requirements.
+- [docs/product/self-check.md](docs/product/self-check.md) — Frozen ~30 s reference check (`kss-9-v1` sleepiness + `alertness-10-v1` 10-counter alertness test) for multi-decade comparability.
+- [docs/product/measurement-catalog.md](docs/product/measurement-catalog.md) — Single canonical definition (`GameData.metrics`) for every performance measurement across all surfaces plus bidirectional Game Data ↔ live perf hover links.
+- [docs/product/per-game-stats.md](docs/product/per-game-stats.md) — Stored primary counters, schema-boundary dates, derived rates, board benchmarks and backfill, timing/movement stats, misclicks, exact guess ledger, reproducibility, and local music polling.
+- [docs/product/motion-stats.md](docs/product/motion-stats.md) — Collapsible page-foot mouse-dynamics systems (closed by default, computed off-thread only while open) plus finished-game Fitts curve and Spatial Bias heatmap.
+- [docs/product/session-stats.md](docs/product/session-stats.md) — Archive of the retired left session panel, where each component moved, and reusable time-series chart ideas.
+- [docs/product/player-states.md](docs/product/player-states.md) — Self-reported context tag pills, `edit states` floating popover, and 45-minute quick state sampling (`focus` / `pace`).
 
 ### Training
 
-- [docs/product/training.md](docs/product/training.md) — The plan toward an Expert win under 60 seconds (stages, rules, targets, session routine) and the read-only training page that measures the player against it; the situation and memorization comparison with players at every level.
-- [docs/product/problems.md](docs/product/problems.md) — Minesweeper problems: timed real moments from strong players' games, classed by the rule the new number needs, with the player's thinking time against every level.
+- [docs/product/training.md](docs/product/training.md) — Sub-60 Expert training plan, cumulative stages and targets, read-only `training.html` dashboard (traits, cross-size trace mind-map, coaching transfer, time breakdown, pooled button switch cost, openings, and paired state-tag experiments).
+- [docs/product/problems.md](docs/product/problems.md) — Timed corpus pattern problems (`problems-v2`) with skill-level ladders, `last-flag-v1` 1.5-click drill, and frozen `pointing-v1` Fitts pointing test on `problems.html`.
 
 ### Settings and data
 
-- [docs/product/settings.md](docs/product/settings.md) — The settings page and every preference. Section: "Personal settings".
-- [docs/product/play-limits.md](docs/product/play-limits.md) — Daily play limits the player sets on themself (play time, games, games per level, a stop time) per 4:00 play day, with two confirmations and the 2-minute loosening lock; reaching one first takes away flags for half the limit again by default, then closes the board.
-- [docs/product/storage-and-history.md](docs/product/storage-and-history.md) — The IndexedDB stores, raw input traces, play history with backup, and the automatic archive folder outside the browser. Sections: "Storage", "Raw input traces", "Play history and backup", "Archive folder".
+- [docs/product/settings.md](docs/product/settings.md) — Schema-driven preferences (`SETTINGS_SCHEMA`), global (`settings.html`) vs. local (game page) option split, defaults, and separate preference transfer.
+- [docs/product/play-limits.md](docs/product/play-limits.md) — Voluntary daily play limits per 4:00 play day with two confirmations, 2-minute loosening lock, and default half-again no-flags-first penalty.
+- [docs/product/storage-and-history.md](docs/product/storage-and-history.md) — IndexedDB stores, schema boundaries, raw input traces and provenance, history backup, and automatic write-once archive folder sync.

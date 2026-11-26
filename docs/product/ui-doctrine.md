@@ -39,17 +39,20 @@ principles and invariants. Read before building or reshaping any surface.
   rather than heavy bolding.
 - **Pure black neutral text and fluid width:** neutral text is `#000` on light
   backgrounds and `#fff` on dark ones (including SVG ticks, axis labels, and
-  notes). No gray labels, gray placeholders, or opacity-dimmed text. Headings
-  outrank body text, data values are the most legible element in their region,
-  and primary containers use fluid widths without artificial pixel caps.
+  notes). No gray labels, gray placeholders, or opacity-dimmed text (series
+  focus may fade sibling lines, dots, and leaders, never text or value labels).
+  Headings outrank body text, data values are the most legible element in their
+  region, and primary containers use fluid widths without artificial pixel caps.
 - **One standing scale, one this-game color:**
   - Standing within a pool runs muted green (better) through light gray/white
     to red (worse) everywhere. Omit standing tint when every value shares one
     standing (for example, top-tenth session highlights stay plain text).
   - Light blue (`--this-game`, `#87cefa`) marks **this game** exclusively
     (table rows, chips, chart strips/dots, hover-linked rings, problem marks).
-    Give it a black border on white backgrounds for contrast; never apply it as
-    a hover fill.
+    Keep it deeper than pressed-toggle and session-day pale blues (`#dcecf5`,
+    `#d3e7f5`) so a this-game row never reads as a pressed control; give it a
+    black border on white backgrounds for contrast; never apply it as a hover
+    fill.
   - Semantic palettes (cell numbers, age-unit colors, verdicts, errors) remain
     distinct from the standing scale.
 
@@ -129,4 +132,6 @@ principles and invariants. Read before building or reshaping any surface.
   (file, line, count, dismiss) without shifting layout. Internal calculation
   failures raise loudly rather than degrading silently (sole exception:
   `fuseki-stats.js` logs failures to console so statistics never interrupt
-  play).
+  play). `"Not measured"` is reserved for unavailable external sources (such as
+  local music polling while offline) and documented search limits (perfect-play
+  win chance past its `10^5` budget), never for swallowing internal failures.

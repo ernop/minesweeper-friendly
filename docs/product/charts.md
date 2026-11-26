@@ -2,186 +2,38 @@
 
 Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation notes: [docs/implementation/charts.md](../implementation/charts.md).
 
-## Average-time charts
+## Property charts (`your perf` and `board traits`)
 
-Two groups, matching the game-data sides (creator decision 2026-09-23).
-Calendar, day-category, and streak leaderboards stay above both. This board's
-exact-value time tables stay with the other pagetables, ahead of every
-point chart. Then **your perf**, then **board traits**.
+Two groups following all exact pagetables (`rankings` and `This board`), matching [Game data](game-data.md)'s left/right split:
 
-- **Your perf** (`PERF_CHART_SPECS`, pruned 2026-11-19 to ten orthogonal
-  measurements): IOE, HZiNi efficiency, board-changing click share, click
-  rate, fastclick gap, mouse speed, cadence spread, misclicks (exact count),
-  unused flag share, and unflagged mine share (added 2026-10-10 with its
-  game data measurement). Redundant transforms (clicks, mouse path, clicks
-  over 3BV, efficiency, path / 3BV, path / click, ZiNi efficiency, IOS,
-  STNB), 3BV/s (deterministic inverse of the `ms / 3BV` vertical axis), and
-  per-time error rates (misclick rate, no-op rate — which created `k / time`
-  hyperbolas against time) were retired from these scatter plots while
-  remaining in `GameData.metrics` and exports.
-  Every chart of a game data measurement takes its name, values, and games
-  from the measurement catalog ([Measurement catalog](measurement-catalog.md)).
-- **Board traits** (`BOARD_CHART_SPECS`): 3BV, ZiNi, HZiNi, 3BV spread, max
-  number, islands, largest island, zeros, 0–1 share, and zero-opening
-  coverage. A board chart follows its tablechart switch, so 3BV spread and
-  largest island stay off until those tables are on.
+- **`Your perf` (`PERF_CHART_SPECS`, 10 orthogonal measurements):** `IOE`, `HZiNi efficiency`, `board-changing click share`, `click rate`, `fastclick gap`, `mouse speed`, `cadence spread`, `misclicks` (exact count), `unused flag share`, and `unflagged mine share`. Plots **ms / 3BV** (`timeMs / solvedBv3`) on y so `"lower is faster"` holds without 3BV board-size confounding. Redundant transforms (`3BV/s`, raw `clicks`, `path`, `efficiency`, `IOS`, `STNB`, per-time error rates) stay in `GameData.metrics` and exports rather than duplicating scatter axes.
+- **`Board traits` (`BOARD_CHART_SPECS`, 10 traits):** `3BV`, `ZiNi`, `HZiNi`, `3BV spread`, `max number`, `islands`, `largest island`, `zeros`, `0–1 share`, and `zero-opening coverage`. Plots raw win time in seconds on y; each board chart follows its tablechart switch (`3BV spread` and `largest island` off by default).
+- **Catalog parity:** every chart of a catalog measurement takes its name, values, and game scope directly from `GameData.metrics` ([Measurement catalog](measurement-catalog.md)). Charts require `>= 2` eligible wins (with positive solved 3BV for `ms / 3BV`); records lacking a measurement are excluded.
+- **Grouping & axes:** integer counts (`misclicks`, board counts, `unflagged mine share`) group exactly; continuous/ratio metrics bucket cleanly (`IOE` `0.01`, `HZiNi efficiency` & `board-changing click share` `1 pp`, `fastclick gap` `10 ms`, `mouse speed` `50 px/s`, `click rate` & `cadence spread` `0.1`, `unused flag share` `5 pp`, `0–1 share` & `zero-opening coverage` whole %, `3BV spread` `0.5` cells). Headers name reading and grouping (`"ms / 3BV by IOE"`, `"time by 3BV"`, `"winrate by …"`), y-ticks carry units (`25s`, `600ms`, `40%`), percentage axes append `"%"`, and rotated y-axis captions are omitted.
+- **Three-way mode switcher per group (`perfChartMode`, `boardChartMode`, beside each section title when open; [Results](results.md#collapsible-openers-and-local-configuration)):**
+  - `average` — bucket average `ms / 3BV` or win time (dots colored by newest win in the bucket).
+  - `distribution` — every win plotted individually with the same trend pair and Tukey y-outlier trimming as raw scatters.
+  - `winrate` — percentage won across wins and losses; automatically omits `winBound` measurements (`IOE`, `HZiNi efficiency`, `unused flag share`, `unflagged mine share`).
+- **Help `(? )` tips:** state only what titles/axes leave open (age color palette, teal/blue trend fits, small-sample `0%/100%` swings in winrate mode) without narrating dots or axes ([UI doctrine](ui-doctrine.md#numbers-labels-and-visual-clarity)).
 
-Integer measurements (including misclicks and board-trait counts) group
-exactly. IOE uses 0.01 buckets, HZiNi efficiency and board-changing click
-share use 1 percentage point, fastclick gap 10ms, mouse speed 50px/s, click
-rate and cadence spread 0.1, and unused flag share 5 percentage points.
-Unflagged mine share groups exactly: its values are already one per count
-of unflagged mines. 0–1 share and
-zero-opening coverage use the same whole-percentage groups as their time
-tables; 3BV spread uses the same 0.5-cell groups. The grouped value is on x.
-On **board traits**, y is raw win time in seconds; on **your perf** (creator
-decision 2026-11-19), y is **ms / 3BV** (`timeMs / solvedBv3`), keeping
-"lower is faster" while removing 3BV board-size confounding from play
-measurements. Dots are colored by the age of the
-group's newest win. A chart appears only when at least two wins have a finite
-value (and positive solved 3BV for `ms / 3BV`). Older records missing a
-measurement are excluded.
+## Relationship scatter plots
 
-- Each chart header names its reading and grouping: `"time by 3BV"` /
-  `"times by 3BV"` on board traits, `"ms / 3BV by IOE"` /
-  `"game ms / 3BV by IOE"` on your perf, and `"winrate by …"` on both. Y
-  ticks carry the unit (`"25s"`, `"600ms"`, `"40%"`). Share and efficiency
-  percent charts (HZiNi efficiency, board-changing click share, unused flag
-  share, unflagged mine share, 0–1 share, zero-opening coverage) plot in
-  percent and add `"%"` on the x ticks; unused flag share read 0–1 without
-  `"%"` until 2026-10-10, and HZiNi efficiency and board-changing click share
-  joined percent x ticks on 2026-11-19.
-  The rotated y-axis caption stays gone. The x axis label remains.
-- Each group has its own three-way **mode** selector on the section heading,
-  beside the title that opens and closes the group, shown while the group is
-  open (2026-10-26, [Openers](results.md#openers-creator-request-2026-10-26))
-  (`settings.perfChartMode` and `settings.boardChartMode`):
-  - **average** — each dot is a group's average `ms / 3BV` (your perf) or
-    average win time in seconds (board traits).
-  - **distribution** — every win is its own dot (value on x, that game's
-    `ms / 3BV` or win time on y), showing the full spread at each value,
-    with the same trend pair and outlier trimming as the raw scatters.
-  - **winrate** — all finished games (wins AND losses) group by the value;
-    each dot is the percentage won. Measurements defined only for wins
-    sit this mode out (`winBound`): exactly the
-    measurements game data compares on wins only
-    ([Measurement catalog](measurement-catalog.md), "Which games"): IOE,
-    HZiNi efficiency, unused flag share, and unflagged mine share. Their
-    winrate would read 100% everywhere
-    (unused flag share's did until 2026-10-10).
-    Loss records carry board-changing click share, click rate, fastclick gap,
-    mouse speed, cadence spread, misclicks, and board-shape facts, so the
-    other specs stay measurable.
-- Each header also carries a (?) help button with only what the title and
-  axes leave open: in average and distribution modes the dot colors (the
-  win's age, or the age of the newest win at that value, keyed under the
-  relationship charts) and the trend lines (teal over all wins, blue over
-  today's); in winrate mode, that a value seen in only a game or two swings
-  to 0% or 100%. Since 2026-10-08 it no longer narrates the dots and axes
-  ("Every win is its own dot: across is …"; [UI doctrine](ui-doctrine.md),
-  "No narrated marks").
-- Trend lines (decided 2026-08-22, chosen by eye from a five-fit
-  sampling): the Theil–Sen line y = a + b·x — b is the median slope over
-  all point pairs, a the median of y − b·x. Chosen over least squares
-  because outlier games barely move it, and over a through-origin ratio
-  line because solve time has a fixed per-game component. The line draws
-  twice, both dashed (dashing marks them as fits, not data), colored by
-  the same color:recency sense as the age dots: the fit over all plotted
-  bucket averages in the years teal (deep history), the fit over bucket
-  averages recomputed from today's wins only (local midnight, as
-  everywhere) in the hours blue — today's line only appearing once today
-  has at least 2 buckets.   Lines clip to the plot frame and span only
-  their own fit's x-range (a fit is never extrapolated beyond its data).
-  No caption: the fit-name/math caption and the color-key note ("teal =
-  all data, blue = today only") were both dropped 2026-08-22 — the
-  dashing marks the lines as fits and the color:recency sense already
-  matches the age dots. The date, 3BV/time, and 3BV/clicks raw plots
-  carry the same pair (see "Scatter plots").
+Eight raw-win plots in fixed order (gated by `shownThings.relationshipCharts`, requiring `>= 2` wins; measurement-gated plots require `>= 2` eligible wins and compute fits on their own subset):
 
-## Scatter plots
+1. `win time` vs. `date` (local calendar ticks: `HH:mm` below a day step, `M/D` above)
+2. `win time` vs. `time of day` (`0–24` local clock; no trend line on circular axis)
+3. `3BV` vs. `time`
+4. `clicks` vs. `3BV` (dashed `y = x` minimum-click floor)
+5. `no-op clicks` vs. `time` (no trend line on tied small integers)
+6. `guesses` vs. `time` (no trend line)
+7. `life lost` vs. `time` (guess-ledger wins)
+8. `cadence spread` vs. `date`
 
-- The relationships section has eight plots in fixed order: win time vs date
-  (local date/time x-axis: minute-to-day calendar ticks, HH:mm labels below
-  a day step, M/D above), win time vs hour of day (0–24 local), 3BV vs time,
-  clicks vs 3BV (with the y = x floor drawn as a dashed line — a game on the
-  line used only the board's minimum clicks), no-op clicks vs time (only
-  wins carrying the `noOpClicks` measurement; appears once at least 2 do),
-  and (2026-08-30, the guess-ledger and cadence scatters) guesses vs time
-  (tied small-integer x, so no trend line, like no-op clicks), life lost
-  vs time (guess-ledger wins only), and cadence spread over date. Each
-  measurement-gated plot appears once at least 2 wins carry its field and
-  computes its Theil–Sen trends on its own eligible subset, not the full
-  win list. The section requires at least 2 wins.
-- Every win is a dot colored by its relative-age unit, reusing the age
-  palette (seconds = fluorescent green, minutes = green, hours = blue,
-  days = red, weeks = navy, months = maroon, years = teal), so time
-  trends are scannable at a glance. Within its unit color each dot also
-  fades with age — full opacity on entering the unit down to 30% at its
-  far edge, so a 6-day-old red dot is visibly paler than a 1-day-old one
-  (2026-08-20). A shared legend below the plots spells out the mapping.
-- The just-finished game is a larger black-ringed dot in the page-wide
-  this-game light blue (since 2026-10-15; from 2026-10-08 it was colored
-  like the rest, fluorescent green since it is seconds old, and that green
-  was the page-wide this-game color; see [UI doctrine](ui-doctrine.md)),
-  tagged with its
-  rank among today's wins ("#N today"); the tag flips to the left when
-  the dot is near the right edge.
-- No chart titles (2026-08-20): the axis labels name the chart. Labels
-  are terse — one or two words, no units or asides ("→ time", "→ 3BV",
-  "→ mouse speed"); the tick values carry the scale. The two time charts
-  are labeled "date" (calendar spread) and "time of day" (all wins folded
-  onto one 24-hour clock).
-- The whole section (plots and legend) is the "relationship charts"
-  shown-thing. The switch had described these plots all along but never
-  actually gated them (it only trimmed a trial summary line); repaired
-  2026-08-23.
-- Both axes carry real scales: tick labels at nice 1/2/5-step intervals
-  with light gridlines. Ticks and axis labels render at heading size
-  (12px bold, 2026-08-20), so the x axis caps at 6 ticks (5 on the date
-  axis, whose HH:mm labels are widest) while y takes up to 7.
-- Trend lines (2026-08-22): the date, 3BV/time, and 3BV/clicks plots
-  carry the same Theil–Sen pair as the average-time charts (all data in
-  the years teal, today only in the hours blue, both dashed, same
-  caption). Fits always use the untrimmed values even where the trimmed
-  axis hides outliers — Theil–Sen resists them by construction — and a
-  line spans only its own data's x-range, never extrapolated beyond it,
-  so today's line on the date plot is a short segment at the right edge
-  (today's trajectory; the all-data slope there is seconds per day of
-  practice). On 3BV/clicks the trend's gap above the y = x floor is the
-  average click overhead per unit of board difficulty. No line on "time
-  of day" (a straight line on a circular axis would mislead) or "wasted
-  clicks" (tied small-integer x leaves too few effective slopes).
-- Minor tickmarks (2026-08-22) sit on the axis edges between the labeled
-  divisions so inner positions are readable: each labeled step splits into
-  round parts (quarters for a 2- or 4-mantissa step, else fifths), also
-  covering the padded range beyond the outermost labels. The date axis
-  skips them (calendar steps don't subdivide into round parts).
+- **Visual grammar:** no chart titles — terse axis labels (`→ time`, `→ 3BV`) and `12 px` bold ticks on `1/2/5` steps (up to 6 x-ticks, 5 on `date`, 7 on y) with minor tickmarks (omitted on `date`). Every win uses the relative-age palette (`s` fluorescent green, `m` green, `h` blue, `d` red, `w` navy, `mo` maroon, `y` teal) fading from `100%` to `30%` opacity across its unit span, keyed by a shared legend below. The current win renders as a larger black-ringed `--this-game` light-blue dot tagged `"#N today"` (flipping left near the right edge).
 
-## Retired rankaverage charts
+## Exact Theil–Sen trends and scaling
 
-The sortable rankaverage tables were replaced by the average-time
-scatterplots: the plots retain the useful grouped-value/average-time
-relationship with substantially less standing table ink. Their old
-`rankavgSort` userdata kind remains recognized by the storage migration so
-an existing database is not damaged, but it has no current visible control,
-runtime state, export field, or result section.
-
-## Computation and responsiveness (2026-09-25)
-
-The requested fitter improvement keeps the exact all-pairs median definition,
-including tied x values, duplicate observations, and the mean of both middle
-slopes for an even count. It must not replace the fit with a sampled estimate.
-The same fitter serves property, relationship, Fitts, and spatial-bias fits.
-Calculations run in workers under the [analysis isolation rule](board-and-layout.md#startup-readiness-and-responsiveness).
-
-
-### Lifetime growth concern (2026-09-26)
-
-The user asked whether trend fitting includes every game retained in the memory
-system and pointed out that O(n log n) still grows with that history. This is an
-open scaling concern after worker isolation and the exact fitter improvement.
-The current lifetime scope remains the eligible wins within one board-parameter,
-play-mode, and generator history key. Today's fit is a separate subset; average
-charts fit bucket averages. Retention remains unlimited. No history cap, sampled
-estimate, changed estimator, or less-frequent refresh has been selected.
-Follow-up work is tracked in [BACKLOG.md](../../BACKLOG.md#bugs-performance-and-infrastructure).
+- **Exact all-pairs median fit:** $y = a + b x$ where $b$ is the median slope across all pairs (mean of middle pair on even counts, honoring tied x and duplicate observations) and $a = \text{median}(y - b x)$, fit on untrimmed values (resisting outliers). Served by one shared fitter across property, relationship, Fitts, and spatial-bias plots in workers ([Board and layout](board-and-layout.md#startup-readiness-and-responsiveness)).
+- **Dual dashed lines:** teal (`years` hue) over all eligible data and blue (`hours` hue) over today's wins since local midnight (requiring `>= 2` buckets/points), clipped to the plot frame and spanning strictly their own x-range (never extrapolated). No math or color-key captions.
+- **Scaling:** fits retain full unlimited per-key lifetime scope (never sampled approximations). Incremental scaling optimizations are tracked in [BACKLOG.md](../../BACKLOG.md#bugs-performance-and-infrastructure).
+- **Retired rankaverage tables:** replaced by property scatter plots (`rankavgSort` remains recognized only by storage migration with no UI or runtime state).

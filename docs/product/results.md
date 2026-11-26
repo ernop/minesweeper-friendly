@@ -1,265 +1,54 @@
-# Result presentation and ordering (unified 2026-08-27)
+# Result presentation and ordering
 
 Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation notes: [docs/implementation/results.md](../implementation/results.md).
 
-Post-game and score-view output share one semantic presentation model. Order
-answers progressively deeper player questions; it is never inferred from DOM
-append timing or from how many cards fit on a row. Each part shows as soon as
-its data has arrived, in this order
-([Results come in as their data arrives](#results-come-in-as-their-data-arrives-creator-decision-2026-11-03)):
+## Core principles
 
-1. **Outcome** — win/loss, High scores, or Old game, board, mode, generator, date.
-   Two lines (2026-09-23; formerly one item per line): the larger bold
-   outcome followed by board · mode · generator in regular weight, then
-   the date and time in bold tabular digits. A no-mark win adds "no-mark"
-   on that context line ([No-mark wins](rankings.md#no-mark-wins)).
-2. **Facts / game data** — the adaptive details dock beside the board (or directly below it at full width when neither flank holds 320 px): "live perf charts" after any game, outside the score viewer and trials ([During the game](during-game.md)), then the winning-game chart ("game summary perf" and "board traits"). A loss's or a trial game's label/value stats are not in this column: they are the "this game" table (item 4; [This game's stats](#this-games-stats-creator-request-2026-10-26)).
-3. **Analysis** — post-game action interpretation only, framed under its own full-width "after-game report" opener (2026-11-19).
-4. **Tables** — the session summary first, then the "ranks won in session"
-   time-period summary, then after a loss that game's "this game" stats
-   (2026-10-26), then time/category and all consecutive/loss-tolerant
-   streak tablecharts (session summary added 2026-10-07). Since 2026-11-19
-   the overview tables (`session`, `ranks won in session`, and on losses
-   `this game`) share a clean full-width wrapping row above the full-width
-   `rankings` group (superseding the 2026-10-07 beside-board snapping and
-   `.session-tables` floats; [Layout](board-and-layout.md)). The time,
-   category, and streak tables share one opener, "rankings"
-   ([Openers](#openers-creator-request-2026-10-26)). Each table retains
-   its own identifying label. A no-mark win's tables, and the charts under
-   them, list only no-mark games of that same board, mode, and generator;
-   the lifetime time list is named "top expert no-mark times" (or that
-   board's equivalent). Losses retain existing win history without
-   marking the loss as a ranked win, and a loss keeps the shared lists.
-5. **This board** — the selected reference board's exact-benchmark and
-   shape time tablecharts, in a separate titled, left-aligned wrapping section.
-   Empty sections are omitted. The period-wide ranks-won summary above still
-   includes all qualifying board categories from its selected period.
-6. **Your perf** — property charts for the left-side measurements, with that
-   group's average / distribution / winrate control.
-7. **Board traits** — property charts for the right-side measurements, with
-   that group's own control. Exact-value time tables stay in This board, above
-   both chart groups.
-8. **Relationships** — raw-win scatterplots.
-9. **Diagnostics** — post-game motion systems.
+- **First screen carries the result:** most play loops inspect only what fits without scrolling, then start the next board. The top stage (board, replay transport, and docked live perf charts + Game Data) holds the immediate post-game signal; full-width lower sections serve deeper review.
+- **Exact pagetables before point charts:** every row-based lookup table (overview tables, time/day/streak rankings, `This board` tables) must precede every point-based chart (`your perf`, `board traits`, `relationships`) in both DOM and visual order. Responsive wrapping stays within each semantic section and never interleaves tables with point charts.
+- **Semantic order, never arrival order:** section order answers progressively deeper player questions and is never inferred from async completion order or card width. `displayOrder` (full tables), `dedupePriority` (duplicate collapsing), and `summaryOrder` (ranks won) are independent concepts.
 
-During the game's first build (2026-10-15) was a section here between This
-board and your perf; the creator moved it the same day to lead the game data
-column.
+## Canonical presentation order
 
-The compact percentile overview occupies the winning-game sidebar. All pagetables
-and row-based data displays still precede the historical scatterplots.
-This includes time/category tables such as "on
-weekends", board-shape rankings, recent placements, streak, near-streak, and
-near-near-streak; all of them appear before grouped average-time scatters and
-raw relationship scatters. Keeping the denser lookup-oriented tables together
-before visual correlation charts gives the page a stable transition from exact
-records to graphical analysis.
+1. **Outcome header (High scores and Old game views only):** board, mode, generator, no-mark tag (when applicable), and tabular timestamp. Current finished games omit a redundant `"Win beginner."` banner in the details dock ([Board and layout](board-and-layout.md#board-first-adaptive-layout)).
+2. **Adaptive details dock (beside or directly below the board):**
+   - `live perf charts` after any finished game or old-game review (omitted in High scores and trials; [Live perf charts](during-game.md)).
+   - `Game data` (`game summary perf` and `board traits`) after wins and in High scores ([Game data](game-data.md)). After a loss, the dock holds `live perf charts` alone.
+3. **After-game report (`#result-analysis`, when enabled via `reportScope`):** full-width collapsible section (`after-game report`), capping individual verdict cards at a readable `680 px` measure under plain bold category titles ([Game-end evaluation](game-end-evaluation.md)).
+4. **Overview row & `rankings` group (full width below top stage/report):**
+   - Full-width wrapping overview row holding `session` ([Session summary](rankings.md#session-summary-and-results-partition)), `ranks won in session`, and (after a loss) `this game` stats side by side in DOM order (stacking cleanly on narrow screens; wide session table scrolls internally rather than widening the page).
+   - Full-width `rankings` collapsible group directly below, wrapping time-window, day-category, and all streak tables (`streak`, `near-streak`, `near-near-streak`) together without a separate Streaks section heading.
+   - No-mark wins filter all tables and charts to no-mark games of the same key (`top <board> no-mark times`); losses preserve existing win rankings without highlighting the loss as a ranked win.
+5. **`This board`:** exact-benchmark and board-shape time tables for the reference board (empty sections omitted).
+6. **`Your perf`:** left-side measurement property charts with their shared `average / distribution / winrate` control.
+7. **`Board traits`:** right-side measurement property charts with their own `average / distribution / winrate` control.
+8. **`Relationships`:** raw-win scatterplots.
+9. **`Motion stats` (page foot):** collapsible mouse-dynamics section after all result sections, closed by default ([Motion stats](motion-stats.md)).
 
-Every result section below the top stage spans 100% of the page width
-(standardized 2026-11-19). The after-game report bounds individual verdict
-cards to a readable measure (up to 680 px) under plain bold category titles
-without repeating the opener's underline. In the upper table collection,
-the overview band places the session summary, ranks won in session, and
-(after a loss) "this game" side by side across the full width, stacking
-cleanly on narrow screens (`<= 720px`) with the wide session table
-scrolling inside its own box rather than widening the page; the full-width
-"rankings" group follows directly below it, wrapping its time, category,
-and streak tables across the full page width. This board, your perf, board
-traits, and relationships follow at full width (with left-aligned CSS grids
-of 270 px chart cards whose plot boxes align across each row even when a
-title wraps to two lines). DOM order is preserved and table flow cannot
-mix tables with point charts.
+Chart sections (`your perf`, `board traits`, `relationships`) use left-aligned responsive CSS grids (`270 px` cards) whose plot boxes align across each row even when titles wrap.
 
-## Openers (creator request 2026-10-26)
+## Collapsible openers and local configuration
 
-The creator, of the details column's titles that open and close with an
-arrow: "just like the my perf & related 2 are open/closeable with the
-little arrow, the other items like the session info and the grouped top x
-times parts, also the "this baord" and the your perf sections too should
-all adopt that same type of closer/openers."
+- **Uniform openers:** every dock panel and lower result table/section (`after-game report`, `session`, `ranks won in session`, `this game`, `rankings`, `This board`, `your perf`, `board traits`, `relationships`, `motion stats`) toggles via an arrow before a bold title (right when closed, down when open) with a black rule underneath; state persists across reloads (all start open except `motion stats`).
+- **Stationary layout on toggle:** closing an overview table locks its open width (`min-width: min(100%, openWidth)`) so siblings and titles never jump; closing any section shifts only content below it. Chart mode pickers sit beside `your perf` and `board traits` titles and hide when collapsed.
+- **Title hover help:** `session` and `ranks won in session` carry dotted-underline hover/focus explanations on their titles that dismiss on click and open beside their anchor when neither below nor above fits.
+- **Local view configuration:** right-clicking individual tables, charts, section heads, Game Data rows, live perf legend entries, or score-list headers offers `hide`/`remove` in place (Shift+right-click opens the browser menu). `configure` buttons beside `rankings` and `This board`, plus `configure results` in `#settings-row` at the page foot, open `<dialog id="results-config">` to toggle lower sections/tables/charts live.
 
-Built the same day: every table and section of the result under the board
-opens and closes by its title, the details column's opener (live perf
-charts, game summary perf, board traits): an arrow, pointing right when
-closed and down when open, before a bold title, with a black rule under
-the title. Clicking the title opens or closes what it heads. Each one's
-state is remembered across games and reloads, one per title; all start
-open.
+## This game's stats
 
-- The after-game report ("after-game report", added 2026-11-19), the
-  session summary ("session"), ranks won in session, and a loss's or trial
-  game's "this game" each open and close alone.
-- The time, category, and streak tables (lifetime, past week, today, the
-  hour and minute windows, the day categories, streak, near-streak,
-  near-near-streak) open and close together under one title, "rankings",
-  the creator's "grouped top x times parts". It replaced the 2026-09-07
-  rule of no heading over them; each table keeps its own label. One
-  opener per table was the alternative not taken: it would add as many
-  titles as tables to a collection the creator calls one group.
-- This board, your perf, board traits, and relationships each open and
-  close as a whole. The your perf and board traits chart choice (average,
-  distribution, winrate) stays beside the title and shows only while its
-  section is open. These titles are no longer upper case.
-- A closed overview table locks its open width (`min-width: min(100%,
-  openWidth)`) so its title and siblings stay put as it opens and closes.
-  Closing a table or section moves only what comes after it.
-- The session summary's and ranks won's explanations moved to their
-  titles: hovering the title, or focusing it by keyboard, shows the
-  explanation; the dotted underline that marks a help label marks them.
-  The click that opens or closes puts it away. A help tip never covers
-  what it explains (anywhere on the page): where it fits neither below
-  nor above, it opens beside it. Before, a tall tip could cover its own
-  label, which then lost the pointer to it and flickered.
-- Local view configuration (added 2026-11-24, Option S1): individual tables,
-  board-trait charts, section heads, Game Data rows, live perf chart legend
-  entries, and score-list column headers support right-click → `hide` /
-  `remove` in place (Shift+right-click reaches the browser menu). Compact
-  `configure` buttons beside the `rankings` and `This board` titles, plus an
-  always-reachable `configure results` button in `#settings-row` at the page
-  foot, open the local Result sections dialog (`<dialog id="results-config">`)
-  to toggle any section, table, or chart back on live without leaving the
-  game page.
+For losses and trial runs (which have no winning Game Data percentile band), scalar measurements render as the compact `this game` table (one label/value line per measurement, regular-weight label and bold tabular value, sized to its content, gated by `shownThings.gameStats`; [Per-game stats](per-game-stats.md)). On losses it sits in the overview row after `session` and `ranks won in session`; on trial runs it is the sole table under the board.
 
-The score viewer deliberately omits post-game action analysis, during the
-game, and motion diagnostics. Its reference record is explicitly the latest win, named alongside
-the completion date above game data; ordinary ranking rows and plots have no
-"this game" highlight. Ranking-table rolling windows use the time at which
-scores are viewed; game-data comparisons end at that latest win. A post-game
-loss has outcome, facts, enabled action analysis, its own "this game" stats,
-and motion diagnostics, and retains rankings from the latest win if one
-exists.
+## Views: Score viewer vs. Post-game vs. Old game
 
-An old game, opened from a rank table's full list (creator request
-2026-11-07; [Rank tables](rankings.md), "Full lists and old games"), shows
-everything the post-game view of that win shows, with every comparison made
-as of now: rolling windows, day categories, ages, the session, ranks won in
-session, and game data's pools. Its head line is "Old game", the date and
-time it ended, and "back to list".
+- **High scores (`see scores`):** compares against the latest win (header names the win and timestamp; no `"this game"` row/dot highlights), omits after-game report, live perf charts, and motion stats; rolling rank windows evaluate as of now while Game Data pools end at the latest win.
+- **Old game (opened from a full score list):** renders the complete post-game view (finished board, replay, report, live perf charts, Game Data, rankings, charts, motion stats) evaluated **as of now** against current history/session, headed by `"Old game"`, timestamp, and `"back to list"` ([Rank tables](rankings.md#full-score-lists-and-old-game-review)).
 
-## This game's stats (creator request 2026-10-26)
+## Progressive delivery
 
-The creator's review of the label/value panel (Time, 3BV, ZiNi, Max number,
-Zeros, Islands, Clicks, Flags placed, ...) that a loss showed at the bottom
-of the details column: "i think it's too wide. can it be made into just
-another infopanel similar to the lifetime, this month, or session blocks,
-and also flowing up as possible?" It spanned the whole column, labels at its
-left edge and values at its right.
+Play and game-end responsiveness never wait on analytics:
 
-Built 2026-10-26 (moved into the full-width overview row on 2026-11-19 when
-beside-board snapping was removed): the panel is the "this game" table, one
-of the tables in the upper overview band (item 4), as wide as its rows, one
-line per measurement, labels in regular weight and values in bold tabular
-digits. It follows the session summary and ranks won in DOM order, ahead of
-every rank table, sitting beside them in the overview band (or stacked on
-narrow viewports). Its rows, their names, and the "loss and trial stats"
-display setting that shows it are unchanged
-([Per-game stats](per-game-stats.md)). A trial game's stats are the same
-table, the only one in its result area under the board.
-
-Chart eligibility, table display order, duplicate preference, and summary
-order are separate concepts. Full tables use `displayOrder`; duplicate member
-sets use `dedupePriority`. Summary candidates carry `summaryOrder` as a
-category/value pair. Changing one must not silently change the others.
-
-Property charts are two groups, your perf then board traits, each with its
-own average / distribution / winrate control (creator decision 2026-09-23;
-[Point charts](charts.md)). Calendar, day-category, and streak leaderboards
-stay the time-placement collection above them. This board's exact-value
-tables stay pagetables and still precede both chart groups.
-
-## The first screen carries the result (creator direction 2026-10-07)
-
-What a player sees without scrolling matters almost exclusively, "perhaps,
-80% weight". The creator's description of play: players "play the game for
-a while, win/lose, review the screen they see without scrolling, then go to
-next game. only rarely will they go down!" Result-view decisions are judged
-first by the first screen at the player's real viewport (the creator's PC:
-2560 x 970 browser viewport, wide layout); the scrolled sections serve the
-occasional deeper look.
-
-Built 2026-10-07 from the creator's review of the round-2 mockup ("Please
-go forward with this!"):
-
-- A session summary of games, wins, and win rate per board type, with each
-  type's best session time and its lifetime rank, left of the board; ranks
-  won in session, kept in its table form, right of the board; the board in
-  the middle ([Session summary](rankings.md#session-summary-and-results-partition),
-  [Layout](board-and-layout.md)). On the creator's 2560 x 970 viewport this
-  filled the area that was empty beside a Beginner board. Since 2026-10-08
-  the summary also shows the session's mean time, 3BV/s, and IOE per type;
-  that makes it too wide for the room left of a Beginner board at 2560, so
-  it leads the tables under the board there, while ranks won stays right of
-  the board.
-- Rank colors: green good, red bad, the this-game light blue for this
-  game's row (fluorescent green from 2026-10-08 to 2026-10-15), no edge
-  or podium ([Rank highlights](rankings.md#rank-highlights)).
-- Game data: uncolored labels in aligned columns, one row per measurement
-  with session and lifetime percentages, a colored bar, a hover card with
-  the distribution, a distributions mode with lifetime and session sections,
-  and chart chips that link each chart to its row ([Game data](game-data.md)).
-- One name per measurement across tables, game data, charts, and the
-  label/value report ([Rank lists](rankings.md), [Per-game stats](per-game-stats.md)).
-- One session picker, in the settings row at the page foot (in the top bar
-  at the upper right from 2026-10-14, the upper-left one before),
-  regenerates every session surface in place.
-
-Rejected 2026-10-07: the verdict rows of the first review mockup (Result,
-Pace, Board, and Training lines under the board): "not a super fan really."
-
-## Results come in as their data arrives (creator decision 2026-11-03)
-
-The creator, after the game-end judgment moved off the click and the full
-results of a long Expert win took about 210 ms: "for post-win, where we're
-going to be calculating stuff, let's just display things as they come in, so
-nothing blocks other stuff, if possible. taht way during-game play speed is
-totally unimpacted; the display of the result (win/die) is unaffected, and
-AFTER t hat, data comes in. that sounds good. let's think about how to do
-that; as long as the user isn't blocked, budgets can be raised."
-
-Built the same day:
-
-- The win or loss shows at the click: the face, the opened board, and the
-  final time in the details column. Nothing about it waits for analysis.
-- Every result part needs the judgment of the game's decisions, which the
-  reports worker makes after the game
-  ([Game-end evaluation](game-end-evaluation.md)): the game joins the history
-  only once judged. Until then the area under the board says "loading
-  results…".
-- From the judgment on, each part shows as soon as its data is in, without
-  waiting for the rest: under the board the session summary with ranks won,
-  the rankings, This board, your perf, board traits, and relationships, in
-  that order; the details column (live perf charts above game data) on its
-  own, once live perf charts are drawn. The details column keeps the final
-  time until then.
-- Nothing shown moves for what comes later. A part is placed only once it and
-  every part before it in its column are in, so each new part appears after
-  what is already shown. "loading results…" stays after the last part shown
-  until the last part is in.
-- A result shown again (a chart choice, a backfilled board's measurements, a
-  session change) keeps each section on screen until its replacement is
-  whole, then swaps it, so no section blanks or shrinks in between. Changes
-  of the board measurements' status (the saved-board check, backfill
-  progress, a board that cannot be measured) refill only the status box
-  above This board's tables, never the whole result.
-- No step of the result's own work holds the page long: each request to the
-  workers and the session summary are built in their own task, the session
-  results file the board type's earlier games a slice at a time while the
-  reports worker judges the game, and the sections yield between tables and
-  between charts. Play is never blocked; the
-  latency check holds the winning click, and the freeze in the two seconds
-  after it, to tight limits, and only the time to the full results was raised
-  ([Input latency](board-and-layout.md#startup-readiness-and-responsiveness)).
-
-On the latency check's Expert win (Firefox, the PC; the game places one
-flag, so its results rank it among the history's 1,576 Expert wins and draw
-every chart) the judgment arrives 150-160 ms after the winning click. Live
-perf charts and game data show 45-55 ms after it, the session summary and
-ranks won 65-80 ms after it, the rankings and This board 110-150 ms after
-it, and the charts follow until relationships, 235-260 ms after it: the full
-results 390-430 ms after the click. Before, every part waited for the
-slowest and all appeared together: 492-527 ms after the click in four runs
-alternating with the new code, which took 403-439 in those runs. The longest
-freeze after the win is the frame that first draws live perf charts, about
-27 ms, as before; in those runs the check's freeze after the win read 32-41
-ms against 37-61 for the code before, and after a lost game 27-30 against
-34-45.
+1. On the ending click, the board's final state and dove status button paint immediately; outcome/time show one frame later while the area under the board displays `"loading results…"`.
+2. The reports worker judges the finished game first (games join displayed history only once judged).
+3. Each section then renders as soon as its worker data and all preceding sections in its column have arrived — live perf charts + Game Data in the details dock, and `session`/`ranks won` → `rankings` → `This board` → `your perf` → `board traits` → `relationships` below — keeping `"loading results…"` beneath the last placed section until complete.
+4. Re-renders (changing chart mode, session picker, or backfill updates) keep existing sections mounted until replacements are ready, swapping without blanking or shrinking; board-metric backfill updates only its status box above `This board`.
+5. Each worker request, session-results slice, and DOM table/chart render yields between chunks so the main thread stays free of long freezes ([Board and layout](board-and-layout.md#startup-readiness-and-responsiveness)).
