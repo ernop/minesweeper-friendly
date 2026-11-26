@@ -166,7 +166,7 @@ creator:
   player's choice to play without flags. Ranking needs no rule of its own:
   a game dealt without flags places no flags, so its win is a no-mark win
   and ranks among the no-mark games of its board and mode
-  ([No-mark wins](rankings.md#no-mark-wins-decided-2026-10-14)).
+  ([No-mark wins](rankings.md#no-mark-wins)).
 - **Changing the penalty.** One line under the limits table, "when a limit
   is reached", with the current choice and a Change button, through the
   same two confirmations as a limit. Switching to closed at once tightens,

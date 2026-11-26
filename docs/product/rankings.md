@@ -2,666 +2,102 @@
 
 Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation notes: [docs/implementation/rankings.md](../implementation/rankings.md), [docs/implementation/board-metrics.md](../implementation/board-metrics.md).
 
-## Rank lists (time windows and day categories)
+## Rank lists (time windows, day categories, and board families)
 
-- Windows, all in the viewer's local timezone: lifetime; "in <year>"
-  (calendar year); "in the last year" (rolling: starts at the end of the
-  day exactly 365 days ago); "this month" (calendar); "past week" (midnight
-  6 days back); "today" (since last local midnight); past hour / 15 min /
-  5 min / 1 min (rolling).
-- Day categories: "on <weekday>s" (today's weekday), "on weekends" or "on
-  weekdays" (whichever today is), "on holidays" (US federal, only when
-  today is one), and "on the Nth" for the reference day of the month.
-  The latter supports every date 1–31: e.g. "on the 21st" compares wins
-  finished on the 21st of any month, across all years, using local finish
-  dates. It follows the same reference-date, mode/generator, duplicate-
-  collapsing, and time-table display rules as the other day categories.
-  A heading tooltip explains the all-months membership. Both its full table
-  and qualifying ranks-won entry derive from existing timestamps; no saved
-  field or backfill is needed.
-- Progressive disclosure: when several lists would contain the exact same
-  set of scores, only the lowest `dedupePriority` renders (narrow windows,
-  then day categories, then broad windows). Exception
-  (2026-08-22, "past week" added to it later that day): "lifetime" and
-  "past week" always render, and any window holding the exact same
-  scores collapses into one of them — so a player whose whole history
-  fits in one week sees "lifetime" and "past week" rather than a stack
-  of identical month/year charts, and always has the week as a recent
-  reference frame. A brand-new player sees the two pinned charts;
-  broader ones appear as history spreads out. This is the
-  `collapseDuplicateCharts` setting (see [Personal settings](settings.md)), on by
-  default; switched off, every window always renders its own chart.
-- Exact board comparisons: "3BV N", "ZiNi N", "HZiNi N", and "max number N"
-  (the latter three added 2026-09-21) rank solve times among wins matching
-  that one measured value. "max number N" means equality, unlike the
-  "max number ≤ 2/3/4" upper bounds. ZiNi uses the recorded greedy click
-  benchmark; HZiNi uses the opening-first benchmark. Neither is a proven
-  minimum. Missing measurements create no table and do not enter a comparison pool; drill records still
-  omit ZiNi and HZiNi. Each table has an independent display switch, on by default.
-  The 0–1 share and zero-opening coverage tables match values rounded to the
-  nearest whole percentage point; 3BV spread uses the nearest 0.5 cell.
-  All halfway ties round up. A 3BV spread table names its group's range,
-  "3BV spread 3.25–3.75 cells": boards from 3.25 cells up to, not including,
-  3.75 (2026-10-07; the former "3BV spread 3.5 cells" named the rounded group
-  while game data showed the exact 3.4 cells, which read as two values for one
-  fact). All three have default-on
-  independent display switches and omit missing measurements.
-  Like the original same-3BV table, these comparisons retain their
-  names even when their member sets coincide with another table's.
-  All standings remain visible, including median and last place. These
-  are comparisons conditional on one feature, not proof that the boards
-  have equal overall difficulty or that a result is difficulty-adjusted.
-- Board-shape lists (2026-08-21), same row format, over timed wins of
-  this mode whose finished board (after any Guardian Angel redraw) matches this
-  game. Measured at game end and stored: `maxAdjacent`, `hasSeven`,
-  `zeroCount`, `islandCount`, `largestIsland`. Absence on earlier
-  records means not measured; those games stay off these lists.
-  - "has an 8" / "has a 7" — at least one cell with that number.
-  - "max number ≤ 4" / "≤ 3" / "≤ 2" — no number higher than that cap.
-    Nested; a ≤ 2 board also qualifies for ≤ 3 and ≤ 4.
-  - "islands N" — 8-connected mine components (diagonals count, edges
-    empty, no wrap).
-  - "largest island N" — mine count in the largest such component.
-  - "zeros N" — cells whose adjacent-mine count is 0.
-  Progressive disclosure uses the same setting as the window charts:
-  identical member sets keep the most specific list (has an 8, has a 7,
-  max number ≤ 2, then ≤ 3, then ≤ 4, then the grouping lists).
-- One name per measurement (creator direction 2026-10-07: "those are
-  literally the same data, one name one thing"): a board measurement has the
-  same name in its tables, game data rows, chart titles, ranks won, and the
-  after-game report. Tables append the value or the group's range ("max
-  number 4", "zero-opening coverage 82%", "islands 8"). Abbreviations such as
-  MN and ZOC are gone.
-- Heading help (2026-09-26, user direction "write them well without
-  clutter"): every This-board table heading except "has an 8" and "has a 7",
-  whose names state their rule, opens a one-sentence definition of its
-  measurement. The rounded groups add one sentence with this board's exact
-  value and the grouping: the rounding rule for 0–1 share and zero-opening
-  coverage, the range the table holds for 3BV spread. The same definitions
-  label the board-trait items of the game-data chart.
-- Row format: rank, time, relative age. Headings carry only the window
-  name. With a selected result, the footer always names its rank, complete
-  comparison pool, and percentage standing, e.g. "#32 of 1,080 · Top 3%"
-  (2026-09-21). This includes short lists and last place. History views
-  without a selection retain "N total" when rows are cut off below, and
-  a blank line otherwise. Every footer reserves one line so clearing a
-  selection does not resize the chart vertically.
-- Age cells align by unit start (2026-08-30): the count column stays
-  right-aligned and the unit letter column is left-aligned with a fixed
-  2px gap, so "8.1 h" and "6 m" read as two clean columns.
-  Right-aligning the unit had let wide glyphs ("m") hug their count
-  while narrow ones ("h") floated apart.
-- Windowing: always the full 11 rows when the list has them. If your rank
-  is within the top 11, the list anchors at #1 and shows the top 11 with
-  your row in its true place (a #8 placement draws #1-#11, never #3-#13).
-  Otherwise the window centers on you — 5 above, 5 below — sliding upward
-  near the bottom so the budget still fills.
-- Every list always renders its full window at full opacity, wherever the
-  placement falls: a mediocre rank still shows its 5 neighbors either side,
-  because the placement itself is fresh information. (This replaced the
-  earned-detail collapse, which greyed non-top placements to a single row.)
+All lists compare timed wins within the current board size, mine count, play mode, and generator (fastest first, ties ordered by earlier finish).
 
-## Full lists and old games (creator request 2026-11-07)
+- **Time windows (viewer's local timezone):** `lifetime`, `in <year>` (calendar year), `in the last year` (rolling from end of day 365 days ago), `this month` (calendar), `past week` (midnight 6 days back), `today` (since local midnight), and rolling `past hour` / `15 min` / `5 min` / `1 min`.
+- **Day categories:** `on <weekday>s`, `on weekends` or `on weekdays`, `on holidays` (US federal, when today is one), and `on the Nth` (dates `1–31` across all months and years, derived from finish timestamps).
+- **Duplicate collapsing (`collapseDuplicateCharts`, default on):** when multiple time/day lists hold the exact same set of wins, only the lowest `dedupePriority` renders (narrow windows → day categories → broad windows). **Exception:** `lifetime` and `past week` always render and absorb identical sets, so new players always keep both an all-time and a recent frame. Turning `collapseDuplicateCharts` off renders every window independently.
+- **Exact and bucketed board comparisons (`This board`):** independent default-on display switches; never collapsed into other tables even when member sets coincide; missing measurements and Endgame drill ZiNi/HZiNi are omitted:
+  - Exact value: `3BV N`, `ZiNi N`, `HZiNi N`, `max number N` (exact equality, distinct from upper-bound caps).
+  - Rounded groups (halfway ties round up): `0–1 share P%` and `zero-opening coverage P%` (nearest whole percentage point), `3BV spread A–B cells` (half-open 0.5-cell interval, e.g., `3.25–3.75 cells`, so the heading matches exact board values without contradiction).
+  - These are conditional comparisons on one feature, not causal difficulty adjustments.
+- **Board-shape lists:** over wins whose finished board (after any Guardian Angel redraw) carries measured `boardShape`: `has an 8`, `has a 7`, nested caps `max number ≤ 2` / `≤ 3` / `≤ 4`, `islands N` (8-connected mine components, no wrap), `largest island N`, and `zeros N`. Under `collapseDuplicateCharts`, identical member sets keep the most specific list (`has an 8` → `has a 7` → `max number ≤ 2` → `≤ 3` → `≤ 4` → grouping lists).
+- **Consistent names and heading help:** every board measurement uses one canonical name everywhere (`max number`, `zero-opening coverage`, `islands` — never `MN` or `ZOC`). Every `This board` heading (except self-evident `has an 8` / `has a 7`) opens a one-sentence definition matching [Game data](game-data.md); rounded-group tooltips also state this board's exact value and bucket rule.
+- **Row format, footer, and windowing:**
+  - Columns: rank, time, relative age (count right-aligned, unit left-aligned with a `2 px` gap so wide and narrow unit letters align cleanly).
+  - Footer reserves one line so toggling selection never reflows height: `#32 of 1,080 · Top 3%` (or `Only result` / `Middle place` / `Last place`) with a selected win, `N total` when truncated without selection, or blank.
+  - Always renders `11` rows at full opacity when available (no greying or collapsing poor ranks): anchors at `#1–#11` whenever rank `<= 11`, otherwise centers `5` above and `5` below (sliding upward near the bottom to fill all 11 rows).
 
-The creator, of the rank tables: "if I click on any of the ratings boxes
-e.g. beginner, lifetime or intermediate, "on the 7th" then it loads that
-list fully, in a way i can scroll and see all the data in it - the time of
-the win, the diff since i got it (e.g. 3 weeks ago); also with columns for
-properties of the game, same properties as we show after, such as the 3bv
-of the board, 3bv/s achieved (personal stats), and the list of columns is
-fully configurble too, also sortable. and if i click into one, that also
-loads IT. then from taht "review old game" view we can return to the game
-list from that top score list." Asked earlier that day whether old games
-could be opened like a game just ended, the creator wanted their
-comparisons "based on today's data, not badck then, rpobably, as the
-default". Built the same day.
+## Full score lists and old-game review
 
-- Which tables open: every rank table whose rows are games and that holds
-  a win, in every view that shows it (after a game, an old game, High
-  scores, after a loss): the time windows, the day categories, and the
-  This board tables. The whole table is the button: it wears the bordered
-  button look, darker under the pointer, and its title wears the focus ring
-  while it has keyboard focus; a click anywhere on it, or Enter on its
-  title, opens its full list. The streak tables do not open: their rows are runs of wins, not
-  games ([BACKLOG](../../BACKLOG.md)). Nothing opens in the trials, whose
-  boards belong to their trial, or in Board lab, whose boards are built:
-  old games open only where a result is a game's own.
-- The full list is a window over the page that closes with Esc or its
-  close button, leaving the page as it was. Its title is the table's name
-  and how many wins it holds. It holds the table's wins exactly: the same
-  pool (a no-mark win's no-mark games), board, mode, and generator, and the
-  window or day category as the table drew it, so a "today" list opened
-  before midnight stays that day. The list scrolls inside the window, under
-  a sticky header row; the window itself never scrolls, and its table scroll
-  box reserves scrollbar gutter width so a vertical scrollbar does not force
-  a horizontal one. The window is as wide as its columns and the page allow.
-- Each row is one line: the win's rank in the table (#), its time, then
-  the chosen columns. The game shown on the page wears the this-game light
-  blue, as in the tables, and the list opens scrolled to it with its row
-  focused. A list without it (High scores, which shows no game of its own,
-  and after a loss) marks none and opens at its first row.
-- Numeric alignment and units (updated 2026-11-24 after creator audit of
-  variable decimal precision and misaligned bold rows): every numeric column
-  writes its unit once in the header in parentheses (`time (s)`,
-  `misclick rate (/min)`, `efficiency (%)`, `3BV spread (cells)`, etc.,
-  derived from the column's catalog formatter) and leaves its cells as bare
-  numbers in monospace so bold rows stay flush with regular rows. Any
-  numeric column with mixed decimal lengths reserves the widest decimal
-  width in every cell so ones digits and decimal points share one vertical
-  line (`4.68`, `2`, `0`), while all-integer columns add no trailing blank
-  space. Sort arrows sit on the left side of each header so every column
-  header stays flush with the right edge of its numbers without shifting
-  when sorted.
-- Columns: "date", the local date and time the win ended (2026-10-07
-  14:22); "age", how long ago that was, written and colored as in the
-  tables; every performance measurement but time, which is always shown,
-  under its one name and format
-  ([Measurement catalog](measurement-catalog.md)); and every board trait,
-  under its one name and format. Shown by default: date, age, 3BV, 3BV/s,
-  and efficiency. The "columns" button in the window's head opens the
-  choices beside the list in a compact multi-column layout ("when" and
-  "board traits" stacked beside a two-column "performance measurements"
-  list, collapsing to one column on narrow viewports so every choice fits
-  without scrolling on desktop): one box per column, with definitions on
-  hover where present and clickable labels for plain column names.
-  Right-clicking any optional column header offers `hide <column>` in place
-  (keeping `columns` synced if open, and resetting sort to time if the
-  sorted column is hidden). The list
-  changes with each box, and the choice is remembered for every list.
-- Sorting: a column's header sorts by it. The first click puts the best
-  first: the fastest time, the newest date, the youngest age, and for a
-  measurement or board trait the value game data counts better; the next
-  click reverses the order, and the header's arrow shows it. Equal values
-  keep rank order.
-  A win without the value (not measured) shows an empty cell and sorts last
-  either way. The sort is remembered for every list; hiding the sorted
-  column sorts by time again.
-- A click on a row, or Enter or Space on it (the arrow keys move between
-  rows), opens that game as an old game and closes the window. A game
-  saved without its final board, or without its replay, cannot be opened:
-  the window stays and its status line says so
-  ([BACKLOG](../../BACKLOG.md), "Path replay follow-ons").
-- The old game view is the page as it was right after that game: its
-  finished board, face, timer, and mine counter; the replay transport at
-  the finished board, where Play replays the game from its start; the
-  after-game report; live perf charts; game data; the tables and charts
-  under the board; and motion stats. Every comparison is made as of now,
-  not as of the game's end: the windows and day categories are today's,
-  ages count from now, every pool holds every game to now, the session is
-  the current one, and ranks won in session are the current session's. The
-  old game is "this" in every pool it is in, and game data ranks it within
-  the current session's games as one of them. The streak tables mark no
-  streak: the current streak is not the old game's. The relationship
-  charts tag its dot with its rank today only when it is from today.
-  Opening an old game scrolls the page to its top, where its board and the
-  details column's head line are.
-- The details column's head line names the view: "Old game", the date and
-  time the game ended, and a "back to list" button, which reopens the list
-  the game came from in its sort, scrolled to that game's row with the row
-  focused. Esc there returns to the old game.
-- A new game (the face, the space bar, a board choice) leaves the old game
-  as it leaves any finished one, and see scores opens High scores. Opening
-  an old game while a board is in play leaves that board as starting a new
-  game does. In modes that deal opened boards (3BV countdown, endgame drill)
-  opening an old game deals none; the next new game deals the next board.
-- A reload brings back the old game at its replay position, with the same
-  way back to its list.
+- **Opening full lists:** every game-row rank table holding at least one win (time windows, day categories, `This board` tables — across post-game, old-game, High scores, and post-loss views) acts as a clickable and keyboard-accessible button opening its full scrollable list modal (`Esc` or close button returns unchanged). Streak tables (runs of wins), trials, and Board lab do not open full lists.
+- **Exact table snapshot:** the modal title gives the table's name and win count and freezes the exact pool, window/day boundary, and no-mark scope drawn by the table. Scrolls inside the modal under a sticky header, reserving scrollbar gutter width so vertical scrolling never triggers horizontal overflow. Current game highlights in `--this-game` light blue and opens scrolled and focused; High scores and post-loss views open at row 1 with no highlight.
+- **Numeric alignment and units:** every numeric column prints its unit once in the header in parentheses (`time (s)`, `efficiency (%)`, `3BV spread (cells)`) and renders bare monospace numbers so bold rows stay flush with regular rows. Mixed-decimal columns pad decimal width uniformly so decimal points and ones digits align vertically; integer-only columns add no trailing space. Sort arrows sit on the left side of headers so right-aligned headers never shift when sorted.
+- **Configurable columns and sorting:**
+  - Columns include `date` (local `YYYY-MM-DD HH:MM`), `age`, every catalog performance metric (except `time`, always shown), and every board trait ([Measurement catalog](measurement-catalog.md)). Defaults: `date`, `age`, `3BV`, `3BV/s`, `efficiency`.
+  - `columns` toggles a compact multi-column picker beside the list (`when` + `board traits` beside two-column `performance measurements`, collapsing to one column on narrow screens). Right-clicking any optional header offers `hide <column>`.
+  - Clicking a header sorts best-first (fastest time, newest date, youngest age, preferred catalog direction); a second click reverses. Ties keep rank order; unmeasured values sort last. Column choices and sort persist across lists (hiding the sorted column resets to `time`).
+- **Old-game review:** clicking a row (or `Enter`/`Space`; arrow keys move rows) opens that win as a full post-game view (finished board, replay transport, after-game report, live perf charts, Game Data, rank tables, charts, motion stats) and scrolls to the top. Games saved without a final board or replay stay in the list with a status message explaining why they cannot open.
+  - **Evaluated as of now:** all windows, day categories, ages, comparison pools, session stats, and ranks won compute against today's current history and current session (never frozen at historical finish time). Streak tables mark no streak; scatter charts tag a today-rank only if the game finished today.
+  - Details column header shows `"Old game"`, finish timestamp, and `"back to list"` (reopening the list in its preserved sort with the row focused; `Esc` returns to the old game). Reloading restores the old game at its replay position with `"back to list"` intact. Starting a new game leaves old-game review normally.
 
-## No-mark wins (decided 2026-10-14)
+## No-mark wins
 
-No-mark is not a play mode and not its own history key. It is a way of
-solving the board you are already playing: a win with no flags placed
-(`flagsPlaced === 0`, the "(m)" mark). The other modes menu does not offer it.
-The game stays on that board, mode, and generator — Expert Standard, for
-example, stays Expert Standard.
+No-mark (`flagsPlaced === 0`, marked `(m)`) is a solving style on the current board, not a separate play mode or history key.
 
-When the result on screen is a no-mark win, the post-game records are only
-the no-mark games of that same history key. That covers the time lists,
-day categories, This-board tables, streaks, ranks won, property charts,
-relationship charts, and game data. The stats say "0 - markless". The
-lifetime time list is named for the board: "top expert no-mark times"
-(beginner and intermediate the same way; a custom board is "top custom
-WxH-M no-mark times"). Every other list of that view keeps its own name
-and adds "· no-mark". Streaks read "no-mark streak", "no-mark near-streak",
-and "no-mark near-near-streak". Game data pools read "no-mark" and
-"no-mark session".
+- **Filtered post-game records:** when the shown result is a no-mark win (including High scores when the latest win is no-mark), all time lists, day categories, `This board` tables, streaks, ranks won, charts, and Game Data filter strictly to no-mark games of that same key.
+- **Naming:** lifetime list reads `top <board> no-mark times`; other lists append `· no-mark`; streaks read `no-mark streak` / `no-mark near-streak` / `no-mark near-near-streak` (flagged games neither enter nor break no-mark streaks); Game Data pools read `no-mark` and `no-mark session`.
+- **Session summary:** keeps all other board types played in the session, narrows only the no-mark win's own type to finished no-mark games (variant `"no-mark"`), and omits abandoned counts for that type because abandoned boards do not record flag usage.
+- **Flagged wins and losses:** stay on the shared lists (where no-mark wins still display `(m)`). Pre-`2026-08-19` games never count as no-mark.
 
-A no-mark streak is consecutive no-mark wins, broken by a no-mark loss.
-A game played with flags is outside this comparison, so it does not appear
-and does not break the streak.
+## Rank highlights
 
-The session summary still lists every other board type played in the
-session. The no-mark win's own type counts only its no-mark games, and
-that row's variant says "no-mark". Its best time's lifetime rank is among
-that type's no-mark wins.
+- **This-game marker (`--this-game`, `#87cefa`):** bold black text on light blue across rank, time, and age (`"this"`). This is the row's sole marker — no left border stripe, podium color, or standing tint.
+- **Green-neutral-red standing scale:** shared across session-summary rank chips, Game Data band/strips, and chart chips. Upper bands at `1%`, `2%`, `5%`, `10%`, `25%` run from strong green (`#1e9e4f`) to pale green; upper-half remainder, exact middle, and only result are neutral gray (`#e6e6e6`); lower half is pale red, bottom `10%` stronger red, last place strongest red (`#df6a6a`), rendered at 85% strength on white with bold black readable text at every standing.
+- **Standing labels:**
+  - `Only result` when `N === 1`; `Last place` when `rank === N` (`N > 1`); `Middle place` (neutral gray) when `2 × rank === N + 1` on odd `N > 1`.
+  - Otherwise upper tail `Top X%` (`rank / N <= 0.5`) or inclusive lower tail `Bottom X%` (`(N − rank + 1) / N`), rounded outward to the next whole percent (or next tenth below `1%`). Pool size always stays visible.
+- **`ranks won in session` styling:** rows are uncolored plain bold black text (every reported rank is already top-tenth, so green chips would repeat the standing column). Only the current game's rank wears a `--this-game` light-blue chip labeled `"this"`; consecutive non-current ranks compress across band boundaries.
 
-A win that used flags, and every loss, keeps the shared lists. No-mark
-times inside those lists still show "(m)". Games recorded before flags
-were counted never count as no-mark. High scores follow the latest win, so
-a no-mark latest win opens these no-mark lists.
+## Session summary and results partition
 
-## Rank highlights (built 2026-09-21, recolored 2026-10-07)
+Heading `"session"` (collapsible opener, gated by `shownThings.sessionSummary`), driven by the single page-wide `sessionDefinition` picker at the page foot ([One session definition](game-data.md#one-session-definition)) with no local picker. Sits left of the board in wide layout (`ranks won in session` on the right), otherwise leads the tables under the board.
 
-Creator direction 2026-10-07: "rather than gold, silver, bronze, let's just
-do 'green good red bad'" (chosen over "green good, faded green bad"); "light
-blue = the one we just did so you can always see 'this' just-completed run";
-"don't double-indicate (by leading the this row with a vbar of dark blue and
-then ALSO coloring it and also saying THIS). keep color+this only"; then "no
-need to color the today number red. just making everything light blue for
-'this' is fine". The relative-age colors stay ("the age colorations to me
-seem fine"). Creator direction 2026-10-08: "for charts, keep the green. and
-let's backport the green to replace blue as the 'this' pointer color": every
-light blue this-game mark became the charts' this-game dot color, the
-fluorescent seconds green (#39ff14). Creator direction 2026-10-15: "lets
-globally switch 'this' color to light blue, not light green now.": every
-this-game mark became light blue (#87cefa), the scatter charts' this-game
-dot included; the age palette keeps its seconds green
-([UI doctrine](ui-doctrine.md)).
+### Session summary table
 
-- The selected result's row is the this-game light blue (`--this-game`, #87cefa) across
-  its rank, time, and age cells, in bold black; right after the game its age
-  reads "this" (a 0-second age). That is its only mark: no left edge, no podium color,
-  no standing tint on the row. The footer states its standing ("#18 of 124
-  · Top 15%"). A single-result list says "Only result".
-- Standing tones, green good and red bad, color the best-time ranks in the
-  session summary (until 2026-10-14 also the ranks in ranks won; see below).
-  Bands at 1%, 2%, 5%, 10%, and 25% run from strong green (#1e9e4f) to pale
-  green; the rest of the upper half, the exact middle, and an only result
-  are light gray (#e6e6e6); the lower half is pale red, the bottom 10%
-  stronger red, and last place the strongest red (#df6a6a). Each chip shows
-  its tone at 85% strength on white.
-  Text remains black, bold, and fully readable at all standings; poor
-  results are never hidden or faded to illegibility.
-- The same green, neutral, red scale colors the game-data bar, its
-  histograms, and the chart chips ([UI doctrine](ui-doctrine.md)), so one
-  standing reads one way on the whole result screen.
-- In an odd-sized pool with more than one result, the exact middle rank
-  (`2 * rank = N + 1`) says **Middle place**, neutral gray. It has equally
-  many results ahead and behind: #2 of 3, #3 of 5, #51 of 101. Including
-  the middle result in the lower tail formerly produced labels such as
-  "Bottom 67%"; the explicit middle label replaces those labels without
-  changing rank.
-- Percentage text names the upper tail when rank/list size is at most
-  one half, otherwise the inclusive lower tail: (N - rank + 1)/N, apart from
-  the exact middle and only/last-result labels above. Round
-  outward to the next whole percent, or next tenth of a percent below 1%.
-  Examples: #1 of 91 is Top 2%; #32 of 1,080 is Top 3%; #155 of 287 is
-  Bottom 47%. Last place says "Last place". The numeric pool size always
-  remains visible, including small pools.
-- Shared by time, exact-3BV, shape, streak, and trial ranking tables.
-  A ranked position is required: the Pregen batch progress table lists
-  deal order and keeps its existing plain blue current-row marker.
-- In ranks won, rows carry no tint, and the ranks are plain bold black text
-  with no standing color (creator 2026-10-14: "these are not 'this' right?
-  so why green? i think this 'ranks won this session' one might be fine
-  using just the normal viz rules"). Every rank it reports is in its list's
-  top tenth, so the tones were all green: they repeated the standing column
-  and looked like the this-game mark, then green. Only the current game's
-  rank is a chip, the this-game light blue, and says "this". Consecutive ranks compress
-  into one run whatever their bands; the current game's ordinal stays
-  separate. The last cell gives the percentage or percentage range of all
-  ranks reported in the row. This also applies in score/history views.
-  Lifetime's near-miss placement keeps its explanatory tooltip. From
-  2026-09-21 until this change each rank was a chip in its standing tone,
-  runs split at band boundaries, and a last-place chip had a double
-  underline.
-- This changes presentation only. Ranking order, source-window selection,
-  top-tenth eligibility, and duplicate collapsing are unchanged.
+- One row per board type (history key) played in the session, ordered by standard difficulty then other boards; adds an `all` totals row when more than one type was played (empty session prints `"no games in session"`).
+- Variant column (non-default play mode and/or generator) appears only when at least one row uses a non-default variant; `abandoned` column appears only when at least one row has abandoned boards.
+- Columns: board type, `started` (finished + abandoned when play spans record endings; `"games"` otherwise), `wins`, optional `abandoned`, `win rate` (`wins / started`, matching the breakdown denominator), `best` time + standing-toned lifetime rank chip (`--this-game` when this win), `mean time`, `mean 3BV/s`, and `mean IOE` (averaged over measured wins of that type using catalog definitions). Types with only abandoned games still appear (`0` wins, `0%`).
 
-## Session summary (requested and built 2026-10-07)
+### Session results partition (`shownThings.sessionEndings`)
 
-The creator, reviewing the first mockup: "the fact that we have a session
-summary here. That should include game counts by type, wincount and winrate
-by type, and that should basically also include the info from 'ranks won in
-session'. I really like the table version of 'ranks won in session' so you'd
-better keep that". Placement, from the round-2 review: "perhaps the session
-sum could be to the left of the board, ranks won to the right, board in
-middle? that's okay."
+Scoped strictly to the shown game's board type (same size, mines, mode, and generator; after a loss or in High scores, follows the board's latest win, or the loss itself if the board has no win).
 
-- One table, heading "session". Its help names the current window and the
-  picker; like every other session surface it has no picker or window name
-  of its own ([One session definition](game-data.md#one-session-definition)).
-  Changing the one picker regenerates it in place. Since 2026-10-26 the
-  heading is the title that opens and closes the table, and its help shows
-  on hovering or keyboard-focusing that title
-  ([Openers](results.md#openers-creator-request-2026-10-26)).
-- One row per board type played in the session window. A board type is one
-  history key: board size and mines, play mode, and generator with its
-  parameters. Its name is the board ("Beginner", "Custom 20x20-60"), then,
-  in its own column so variants line up, the play mode unless it is the
-  default Standard and the generator unless it is the default
-  ("Angelic", "Pink noise (spectral exponent 1, …)"). The variant column
-  appears only when some row has one (creator 2026-10-08: "we must must
-  valign the 'Standard' aspect. actually, do we even need that? it's
-  default, how about just not having that?"). Columns: board type, started
-  (all games started, finished plus abandoned, when play spans record endings;
-  headed "games" when abandoned tracking is absent, and matching the breakdown
-  denominator below since 2026-11-25), wins, abandoned (appears only when some
-  row has at least one abandoned board, matching the "defaults show nothing
-  extra" rule), win rate (wins divided by started, so it matches the breakdown's
-  won share), best (the session's fastest win of that type), that time's
-  lifetime rank among the type's wins so far ("2nd of 57", a standing-toned
-  chip; the this-game light blue with "this" when the best is the game just finished),
-  mean time, mean 3BV/s, and mean IOE. A board type narrowed to no-mark games
-  keeps finished no-mark games alone (since whether an abandoned board had a
-  flag is not recorded) and leaves the abandoned cell blank if shown. Types
-  with only abandoned boards in the session still appear with 0 wins, 0% win
-  rate, and empty best/rank/means. Types without a session win leave
-  best, rank, and the means empty. Rows follow difficulty order, then other
-  boards; an "all" row totals started (or games), wins, optional abandoned,
-  and win rate when more than one type was played.
-- The means (creator 2026-10-08: "in this session info section, I think we
-  shall show the averages and/or other numerical values which are
-  referenced on the right side, my perf for this board") average the
-  session's wins of that type, each over the wins that measured it, with
-  game data's definitions and formats, so the row of the board just played
-  is the session baseline for game data's time, 3BV/s, and IOE. These three
-  were chosen of the nineteen performance measurements because they fit
-  beside the other columns and together describe a session's play: time is
-  what the best column ranks, 3BV/s is speed with the board's work factored
-  out, and IOE is the click economy that, with seconds per input, makes up
-  3BV/s (the training plan's stage 1 and stage 3 measures). With them the
-  table is about 505 px wide for one type, more than the 433 px beside a
-  Beginner board at 2560 px, so there it leads the tables under the board.
-- Ranks won in session stays its own table beside it; the summary does not
-  repeat its rows.
-- Every row is one line. Numbers are bold, right-aligned tabular digits; the
-  type name is regular weight.
-- Wide layout: left of the board when it fits, ranks won right of the board
-  ([Layout](board-and-layout.md)). Otherwise both lead the table collection
-  under the board, summary first.
-- Gated by shownThings.sessionSummary (on by default). An empty window says
-  "no games in session".
-- **Session results** (creator requests 2026-10-11: "we should also offer
-  an expanded win/loss view to the session summary, further breaking down
-  the TYPE of losses"; 2026-10-14: "right now if you haven't lost on a level
-  in a session, it just says 'no losses yet' and that doesn't make sense. it
-  should really be shown as a breakdown of the results! so like, losses and
-  type, and wins (and type::: yes, there are types of wins, since sometimes
-  you'll WIN by accident! or even though you made horrible guesses and even
-  unnece" — the message was cut off there; later the same day, of the flat
-  list that request produced: "this display should be changed. 1. the
-  division should be multilevel. 1st split: wins/losses. 2. then within each
-  cat, break them down by the variety and type of worst offenses against
-  perfect play."). Under the main grid, a second grid shows the session's
-  games of one board type (next item) as one tree, each game in exactly one
-  leaf
-  ([Game-end evaluation](game-end-evaluation.md), "Session result kinds"):
-  - **Level 1:** won, then lost under a rule, in bold. Both always show,
-    even at 0, since the split itself is the first reading. Abandoned
-    (2026-10-20, next item) closes the tree under another rule.
-  - **Level 2, the worst offense against perfect play,** least to worst,
-    then the measurement gaps. Won: no avoidable risk; riskier guess than
-    necessary; guessed while a safe move was available; guesses not
-    measured. Lost: no avoidable risk; riskier guess than necessary;
-    guessed while a safe move was available; wrong flag made a mine look
-    safe; opened a proven mine; Proof-or-die rule death with no proven-safe
-    move available (saved games of that mode, removed 2026-10-21); risk not
-    measured; judged before loss types (the legacy
-    verdicts); not judged.
-  - **Level 3, the type:** under won, without guessing, or guessing only at
-    the lowest risk with each guess the best one-move choice, not each, or
-    one-move choices not measured (games saved before 2026-11-02, when exact
-    one-move lives began; added 2026-11-03 on the creator's request that the
-    tree carry "made optimal 1-step guess"); a riskier guess in the opening
-    or after it. Under lost, a lowest-risk forced guess in the opening, or
-    after it split the same three ways; a riskier
-    guess in the opening, or after it with a lowest-risk square within 2
-    squares or every one 3 or more away; the proof that showed a safe
-    square or the mine (counting single numbers, comparing overlapping
-    numbers, only whole-board reasoning; for a safe entry also Guardian
-    Angel's guarantee, and Proof-or-die's rule death); and "survived it,
-    died later" under a guess family when an earlier survived guess was
-    worse than the fatal click. A family that has only one type (the wrong
-    flag; a win's guess past a safe square) is itself the leaf.
-  Depth shows as indentation. Until 2026-10-20 each leaf led with the
-  swatch of the session endings chart line its games were on; the swatches
-  went with that chart ([Session stats](session-stats.md)). Below level 1
-  only rows with a game show. The flat list it replaced (built earlier on
-  2026-10-14) had win types, then loss types exactly as the endings chart
-  filed them.
-- **Session results: Option A spanning partition grid + 3-band strip** (redesigned
-  2026-11-25 after creator review of the indented staircase table: "a sequence
-  of ever-finer sub-divisions of the overall entire session (all games started)
-  and within each section like (wins/loss/abandoned) further subdivide it by
-  types so all is visually clear"; creator approved Option A and all
-  recommendations, replacing the 2026-10-15 indented three-share-column grid).
-  The breakdown counts only the session's games of the shown game's board type:
-  one size and mine count, play mode, and generator, the same type as a
-  summary row and a history key (creator 2026-10-20). Modes stay apart because
-  their rules change what a guess can do (in Angelic a guess cannot kill), and
-  a generator changes the boards. The shown game is the one the summary is built
-  for: the win just finished, or after a loss and in the scores view the latest
-  win of the board being played (the loss itself when that board has no win), so
-  it is always that board's type.
-  - **Root line and 3-band 100% proportional strip:** An explicit root line
-    names the scope and denominator ("Expert — 20 games started", or "games"
-    when abandoned boards are not counted). Directly beneath it sits a 3-band
-    100% stacked strip aligned across all three levels: Band 1 splits won
-    (muted green), lost (muted red), and abandoned (neutral gray), printing a
-    label only where the segment fits cleanly; Band 2 splits each outcome into
-    its worst-offense or abandonment-reason families, shaded by severity; Band 3
-    splits each family into its specific leaves, marking only this game's leaf
-    in the this-game light blue (`--this-game`). Hovering a strip segment or
-    table row cross-highlights the matching rows/segment in neutral gray and a
-    crisp black inner border with zero reflow.
-  - **Left-to-right spanning partition table:** Columns are `how it ended`,
-    `offense / reason`, `type`, `games`, `session`, and `lifetime`. Every row
-    is one leaf, so the `games` and `session` columns always sum strictly to
-    the session total and `100%` (confirmed by a compact `total` footer row;
-    the `lifetime` footer stays blank because zero-session rows are omitted).
-    - Column 1 (`how it ended`) carries a colored left accent edge (muted
-      green, muted red, neutral gray) and spans vertically across all leaf rows
-      of `won`, `lost`, and `abandoned` with its subtotal (`count · %` and
-      `(life %)`). Outcomes with 0 session games still appear, spanning
-      columns 1–3 with `0`, `0%`, and their lifetime reference marker.
-    - Column 2 (`offense / reason`) spans vertically across its Level-3 leaves
-      with its subtotal (`count · %` and `(life %)`). A Level-2 leaf with no
-      Level-3 children (`wrong flag made a mine look safe`, `won → guessed
-      past a safe square`, `page closed in play`, `cut off by trial end`, `not
-      judged`) spans columns 2–3 cleanly with no staircase gaps.
-    - Column 3 (`type`) holds concise, non-repetitive full-word leaf labels
-      (omitting phrases already stated by the parent level: e.g., `counting
-      single numbers` and `comparing overlapping numbers` under both `guessed
-      past a safe square` and `opened a proven mine`).
-    - Column 5 (`session`) shows a horizontal 0–100% share gauge (colored for
-      its outcome, with a vertical black marker at the leaf's lifetime share on
-      the same 0–100% axis) beside the rounded percentage (`<1%` for a nonzero
-      share that rounds to 0%).
-  - **Abandoned** (added 2026-10-20; subdivided 2026-11-25): boards of the type
-    that went into play and never finished, subdivided into `restarted` (further
-    split by opening progress when `safeRevealed` was recorded: `in the opening`
-    for under a tenth of safe squares open, `after the opening` for a tenth or
-    more, or `stage not recorded` for pre-2026-11-25 restarts), `page closed in
-    play`, and `cut off by trial end`. A board still in play in any tab is not
-    counted. Boards record how they left play from 2026-10-20 and opening
-    progress from 2026-11-25 ([Daily play limits](play-limits.md)). A summary
-    narrowed to no-mark games has no abandoned row, since whether an abandoned
-    board had a flag is not recorded. Abandoned boards are counted in the top
-    summary rows as well since 2026-11-25 (`started` and `win rate` match the
-    breakdown).
-  - **Lifetime** (2026-10-20), the last column: the same row's share of
-    every game of that type played up to the shown game, abandoned boards
-    included as in the session columns, also marked on each leaf's share gauge.
-    Rows stay those with a session game.
-  - **Detached likely-misclick block** (moved out of the partition 2026-11-25):
-    non-additive subsets of losses sit in their own dashed-border block below
-    the partition table, headed `likely misclicks (subset of the N losses,
-    already counted above)`, with concise reason text (`adjacent wrong flag
-    placed under 1s before`, `left-clicked proven mine under 1s after a
-    short-of-flags chord beside it`) and counts shown with `% of losses`, `% of
-    started`, and `lifetime %`. They never enter the partition's columns or
-    totals.
-  - A type with no session games, finished or abandoned, which the scores
-    view can show when the board's latest win predates the session, reads
-    "no Expert games in session" in place of the breakdown.
-  - **This game** (creator 2026-10-15; refined 2026-11-25): the game the result
-    describes is marked where the breakdown files it — its leaf cells (never
-    its spanned parent cells, which already sit directly to its left), its
-    Band 3 segment in the proportional strip, and any likely-misclick row that
-    recounts it. Marked leaf cells wear the this-game light blue (`--this-game`),
-    bold black text, and right-aligned `this` inside the leaf label cell
-    (avoiding prose collision like "in the opening this"). That game is the one
-    just finished, win or loss (after a loss the rest of the summary follows
-    the board's latest win, but the breakdown marks the loss), or in the scores
-    view the latest win. A game outside the session window marks nothing.
-  - Earlier layouts: 2026-10-15 to 2026-11-25 used an indented tree with three
-    staggered share columns (`how it ended`, `worst offense`, `type`), which
-    broke additivity on uneven depths and mixed the misclick overlay into the
-    `worst offense` column. Until 2026-10-15 every size played had a count and
-    share column pair.
-  - Gated by shownThings.sessionEndings ("session results by type", on by
-    default; "session loss types" until 2026-10-14), listed under Tables
-    right after the summary's own switch.
-- **Requested next (creator, 2026-10-14; Option A layout and abandoned split
-  built 2026-11-25):** remaining proposed taxonomy refinements (splitting
-  `wrong flag` into contradicted vs. guessed flags, proof tiers for survived
-  `won` guesses past a safe square, rushed-click overlay, and judgment-problem
-  calibration) stay in [BACKLOG](../../BACKLOG.md), "Game results as one tree
-  per board type".
+- **Root line and 3-band proportional strip:** names the scope and denominator (`Expert — 20 games started`), directly above a 3-band 100% stacked bar aligned across all three taxonomy levels:
+  - Band 1: `won` (muted green), `lost` (muted red), `abandoned` (neutral gray), printing labels only where space fits.
+  - Band 2: worst-offense / abandonment-reason families, shaded by severity.
+  - Band 3: specific leaves, highlighting only this game's leaf in `--this-game` light blue.
+  - Hovering any strip segment or table row cross-highlights matching rows/segments in neutral gray with a crisp black inner border and zero reflow.
+- **Spanning partition table:** columns `how it ended`, `offense / reason`, `type`, `games`, `session` (0–100% colored share gauge with black vertical marker at the leaf's lifetime share + rounded `%`, or `<1%` for nonzero values rounding to 0), and `lifetime` (share across all games of that type up to the shown game, abandoned included).
+  - Every row is one leaf so `games` and `session` sum strictly to total and `100%` (confirmed by a `total` footer; `lifetime` footer stays blank because zero-session leaves are omitted).
+  - Column 1 (`won`, `lost`, `abandoned`) spans vertically across its leaves with subtotal `count · %` and `(life %)`; `won` and `lost` always appear even at `0` (spanning columns 1–3).
+  - Column 2 spans its Level-3 leaves with subtotal; Level-2 leaves with no children (`wrong flag made a mine look safe`, `won → guessed past a safe square`, `page closed in play`, `cut off by trial end`, `not judged`) span columns 2–3 cleanly with no staircase gaps.
+  - Column 3 uses concise non-repetitive leaf labels omitting wording already stated by parent levels.
+- **Outcome taxonomy:** follows [Game-end evaluation](game-end-evaluation.md#win-types-and-session-result-kinds) (least-to-worst offense ladder, then measurement gaps).
+- **Abandoned boards** (tracked since `2026-10-20`; restart opening progress `safeRevealed` since `2026-11-25`): boards that entered play and never finished, subdivided into `restarted` (`in the opening` `< 10%` safe open, `after the opening` `>= 10%`, or `stage not recorded` pre-`2026-11-25`), `page closed in play`, and `cut off by trial end`. Active in-progress tabs are excluded; no-mark views omit abandoned rows.
+- **Detached likely-misclick block:** non-additive loss subsets sit below the partition inside a dashed border (`likely misclicks (subset of the N losses, already counted above)`) listing `adjacent wrong flag placed under 1s before` and `left-clicked proven mine under 1s after a short-of-flags chord beside it` with `% of losses`, `% of started`, and `lifetime %`. Never enters partition totals.
+- **This-game mark:** marks only this game's leaf cells (never spanned parent cells), Band 3 segment, and any matching likely-misclick row in `--this-game` light blue, bold black text, and right-aligned `this` inside the leaf label cell. After a loss, marks the loss even while the rest of the summary follows the board's latest win.
 
-## Recent placements (requested and decided 2026-08-23; charts and the lifetime near-miss rule extended later the same day)
+## Ranks won in session
 
-- One summary block, "ranks won in session": for the session it reports,
-  per longer chart, which of that chart's top ranks were earned within the
-  session — e.g. "this month: 1st, 3rd, 8–12th / lifetime: 7th, 14th". In
-  the wide layout it sits right of the board when it fits (2026-10-07);
-  otherwise it follows the session summary at the head of the table
-  collection.
-- Source window: the shared page-wide `sessionDefinition`, default today
-  (since local midnight). The heading reads "ranks won in session" and has no
-  selector of its own (user decision 2026-09-23: it "should merely say
-  'session'"); the one picker is in the settings row at the page foot
-  ([One session definition](game-data.md#one-session-definition)).
-  The heading tooltip names the current window. The heading opens and
-  closes the block, its tooltip showing on hover or keyboard focus
-  (2026-10-26, [Openers](results.md#openers-creator-request-2026-10-26)).
-  Bounds come from the same
-  `SessionScope` model; there is no independent recent-placements preference.
-  Changing the session rebuilds only scope-dependent content in place.
-- Only charts strictly longer than the source window report — a chart no
-  longer than the source could only echo itself. For time windows,
-  strictly longer means the window starts strictly earlier: with the
-  source at the past hour, "today", "past week", "this month" and up
-  qualify while "past hour" and shorter never do, and "today" as source
-  (the default) excludes the "today" chart itself.
-- Category scope: retain the current board size/mine
-  count, play mode, and generator with its parameters. Retain the reference
-  date's day categories (this weekday, weekend/weekday, holidays when today
-  is one, and the day of the month).
-- Board categories (creator decision 2026-10-14, reverting the 2026-09-21
-  default: "when THIS win's 3BV was 40 but in the session we ALSO have
-  gotten e.g. 1st place in '3BV 30' ... change the default back to NOT
-  showing this"): by default only the shown win's own exact 3BV, ZiNi,
-  HZiNi, maximum clue, 0–1 share, zero-opening coverage, 3BV-spread band,
-  and measured board-shape categories compete (has an 8 / has a 7 /
-  max number ≤ 2, 3, 4 / islands N / largest island N / zeros N), the same
-  categories as the This board tablecharts. After a 3BV-40 win, an earlier
-  session win's 1st place in 3BV 30 is not listed; session wins on the same
-  3BV-40 board still report there. In a history view (scores, or after a
-  loss) the shown win is the latest win, as for the upper tables.
-- The switch shownThings.recentPlacementsOtherBoards ("ranks on other
-  session boards", off by default, listed under Tables right after
-  "ranks won in session") restores the 2026-09-21 rule: every board
-  category represented by a win in the session competes, so an earlier
-  3BV-41 placement stays listed after a 3BV-40 win. The latest win then
-  controls only its highlight, not the board-category selection, and a
-  later unrelated board never erases earlier ranks.
-- Either way, each category compares against all its saved member wins,
-  including those before the source period; the source selects which wins'
-  placements are reported. Lifetime membership charts qualify as longer.
-  The summary ignores individual tablechart display switches, and shares
-  its category definitions with the tablecharts
-  (`boardMetricCandidates`, `boardShapeCandidates`, `rankColumns`).
-  Unmeasured fields remain excluded. Exact-value and 3BV-spread comparisons
-  remain independent of duplicate collapsing in the other families.
-- The same `collapseDuplicateCharts` rule applies before the summary is
-  computed: time/day charts use the pinned-lifetime-and-week progressive
-  disclosure, and board-shape charts keep their most specific distinct
-  member sets. Switching the setting off restores every candidate here
-  just as it does in the full tablecharts.
-- Only ranks within the top tenth of a list are reported (rank r
-  qualifies when r × 10 ≤ list length): a 9-win list reports nothing, a
-  200-win list reports ranks up to 20. Ranking order is the tablechart
-  order — fastest first, ties by earlier finish.
-- Lifetime always answers (added later on 2026-08-23): when the source
-  window has wins but none reached lifetime's top tenth, the single best
-  (closest) recent lifetime rank reports anyway, with an explanatory
-  tooltip — how close the window came stays visible. Because
-  of this rule, the block's one-line empty state means exactly "no wins
-  in session" and says so.
-- Streak lists (added 2026-10-10, after the creator asked why new streak
-  and near-streak records did not show up here): the streak, near-streak,
-  and near-near-streak lists report like the other charts, with their
-  tables' ranks (longer first; an equal streak after the earlier one). A
-  streak is earned at its last win. It reports when that win is in the
-  session, at its full length
-  including wins from before the session began, because that is the streak
-  its table lists. A streak whose last win came before the session does not
-  report, even when a session loss ended it. The lists span the mode's whole
-  history, so they count as longer than any session. The top-tenth rule
-  applies; the lifetime near-miss rule does not. They report whether or not
-  their tables are shown. The streak ending in this win is the "this" chip.
-- Row format: chart name, the earned ranks with consecutive runs
-  compressed ("8–12th", the ordinal suffix closing each run), "of N"
-  naming the list length, and the reported ranks' percentage standing.
-  N has its own right-aligned column in tabular digits, so "of" stays in
-  line and the sizes' digits line up ("of   54" above "of 1383"; creator
-  2026-10-14). A range names the side and the percent sign once:
-  "Top 4 – 10%", not "Top 4% – Top 10%" (creator 2026-10-14).
-  Rows use a stable category order (revised 2026-09-21 for long sessions):
-  time windows in full-table order starting with lifetime, then day categories,
-  streak, near-streak, near-near-streak,
-  3BV, ZiNi, HZiNi, 3BV spread, exact maximum number, has-number, maximum-clue
-  caps, mine-island count, largest island, zeros, 0–1 share, and zero-opening
-  coverage. Board values within each family ascend numerically, including
-  fractional spread groups. Comparison-pool sizes and earned ranks never
-  reorder the categories. Duplicate collapsing and top-tenth eligibility
-  still determine which rows exist. Rows remain contiguous across families,
-  without white gaps or extra heading rows. Full-table order stays unchanged.
-  Reported ranks are plain text; only the current game's rank is a chip,
-  the this-game light blue, and says "this" (see Rank highlights).
-- Gated by shownThings.recentPlacements (on by default).
+Heading `"ranks won in session"` (collapsible opener, gated by `shownThings.recentPlacements`), driven by the page-wide `sessionDefinition`.
+
+- **Qualifying charts:** every list strictly longer than the session window (time windows starting strictly earlier, reference-date day categories, lifetime streaks, and board categories), keeping the current board size, mines, mode, and generator, honoring `collapseDuplicateCharts`, and ignoring individual table display switches.
+- **Board category scope:** by default only the shown win's own exact/bucketed/shape board categories compete. Enabling `shownThings.recentPlacementsOtherBoards` (`ranks on other session boards`, off by default) includes every board category represented by any win in the session so later unrelated boards do not hide earlier ranks.
+- **Top-tenth threshold and lifetime near-miss:** reports ranks where `rank × 10 <= N`. Exception: if the session has wins but none reached lifetime's top tenth, lifetime still reports the single best recent rank with an explanatory tooltip, so the empty state `"no wins in session"` holds literally.
+- **Streaks:** `streak`, `near-streak`, and `near-near-streak` report when the streak's *last win* fell inside the session, at its full length including pre-session wins (top-tenth rule applies; near-miss rule does not).
+- **Row format and stable order:** chart name, compressed runs (`8–12th`, current game's rank separated as `--this-game` chip), right-aligned tabular `of N`, and percentage range stating prefix and `%` once (`Top 4 – 10%`). Rows render contiguously in fixed family order: time windows from `lifetime`, day categories, streaks, `3BV`, `ZiNi`, `HZiNi`, `3BV spread`, exact max number, has-number, max-clue caps, islands, largest island, zeros, `0–1 share`, and `zero-opening coverage`, ascending numerically within each family regardless of pool size or rank.
 
 ## Relative age display
 
-- Largest sensible unit, abbreviated, no "ago": s, m, h, d, w, mo, y.
-  h, d, w, and y show one decimal place, including trailing .0 (1.0h,
-  2.3d, 2.0w). s, m, and mo stay whole. Tenths-rounding that would
-  display as the next unit's threshold promotes instead (23.95h → 1.0d).
-- A 0-second age renders as "this" (the game that just finished), spanning
-  the age columns, right-aligned so its right edge is flush with the other
-  rows' age labels (2026-08-20; replaced the left-aligned "just now").
-- The age (count + unit) is color-coded by unit. On a rank list, a record
-  from the last minute that is not this game uses the same green as
-  minutes (#008000), with no chip (creator 2026-10-14: those rows do not
-  need the seconds treatment). Longer units follow the board-number
-  palette: m = green, h = blue (the "1" blue), d = red (the game red),
-  w = navy, mo = maroon, y = teal.
-- Scatter dots keep seconds as hyper-fluorescent green (#39ff14). The
-  scatter legend's seconds swatch is that green, bold on a small black
-  chip, because the green is illegible on white (creator 2026-09-23).
-  This game's own dot is the black-ringed this-game light blue instead
-  (since 2026-10-15), so seconds green marks only other games under a
-  minute old.
-- Your own row is bold black on the this-game light blue (see Rank
-  highlights). That row says "this" and carries no seconds chip.
+- Largest sensible unit without `"ago"`: `s`, `m`, `mo` stay whole; `h`, `d`, `w`, `y` show one decimal including `.0` (`1.0h`, `2.3d`). Rounding that reaches the next unit's threshold promotes (`23.95h → 1.0d`).
+- `0 s` renders right-aligned as `"this"` on the `--this-game` row.
+- Unit color coding: rank-list records under 1 minute (other than this game) and `m` = green (`#008000`), `h` = blue, `d` = red, `w` = navy, `mo` = maroon, `y` = teal. Scatter plots keep hyper-fluorescent green (`#39ff14`, black chip in legend) for other `< 1 min` games while this game's dot is black-ringed `--this-game` light blue.
 
 ## Streak lists
 
-- Three lists: "streak" (0 losses), "near-streak" (1 loss ok),
-  "near-near-streak" (2 losses ok) — headings carry just these names, no
-  parenthetical (2026-08-20). A k-loss streak is k+1 adjacent win-runs
-  joined.
-- No double counting: candidate windows are trimmed to their non-empty
-  core; identical cores dedupe; a core strictly inside a wider core is
-  dropped (consecutive losses otherwise re-list sub-streaks). Two streaks
-  that merely overlap across different losses are both real and both stay.
-- Ranked by length. An equal streak ranks after the earlier one: the first
-  to reach a length holds its rank, as with tied times (creator decision
-  2026-10-10: "first to get N wins in a row is better than 2nd"; before it
-  the newer ranked first, so tying a common length outranked every earlier
-  streak of that length). Row: rank, "N wins", relative age of the
-  streak's last win. The streak ending in this win is your row.
-- Ranks won in session reports each list's top-tenth streaks whose last win
-  is in the session (2026-10-10; see Recent placements above).
+- Three lists with bare headings: `streak` (0 losses), `near-streak` (1 loss), `near-near-streak` (2 losses). A `k`-loss streak joins `k + 1` adjacent win runs.
+- Candidate windows trim to their non-empty core, deduplicate identical cores, and drop any core strictly contained inside a wider core; streaks merely overlapping across distinct losses both stay.
+- Ranked by length descending; ties rank **earlier finish first** (the first run to reach length `N` holds its rank). Row format: rank, `N wins`, relative age of the streak's last win.

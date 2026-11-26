@@ -117,7 +117,7 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   avoids “Bottom 67%” for #2 of 3. These highlight rules do not change
   ranking or summary qualification.
 - Session summary (2026-10-07; Option A partition redesign 2026-11-25;
-  [spec](../product/rankings.md#session-summary-requested-and-built-2026-10-07)):
+  [spec](../product/rankings.md#session-summary-and-results-partition)):
   `sessionSummaryRows(historyByKey, from, to, difficultyKeys, abandonedSummary)`
   (the pure span "SESSION SUMMARY: COMPUTATION") returns one row per history
   key with finished or abandoned games in the window: `{key, records, latest,
@@ -176,7 +176,7 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   abandoned classification, and summary rules; `node tests/analysis-worker-test.js`
   runs the worker task with losses; `node tests/result-presentation-test.js`
   freezes the cross-context section order.
-- No-mark wins (2026-10-14; [spec](../product/rankings.md#no-mark-wins-decided-2026-10-14)):
+- No-mark wins (2026-10-14; [spec](../product/rankings.md#no-mark-wins)):
   `noMarkComparison(record, records)` keeps every record unless the result
   is a markless win, in which case it keeps `isMarkless` records of that
   same history key. `renderResultAsync` passes that list into `renderRanks`
@@ -224,7 +224,7 @@ Spec: [docs/product/rankings.md](../product/rankings.md). Index: [AGENTS.md](../
   highlighting, labels, and section order stay in the renderer. Recent
   placements expose a pending status while their rows are calculated.
 - Full lists and old games (2026-11-07;
-  [spec](../product/rankings.md#full-lists-and-old-games-creator-request-2026-11-07)),
+  [spec](../product/rankings.md#full-score-lists-and-old-game-review)),
   `game/score-list.js`, loaded after `game/result-ranks.js`. A rank table's
   identity is its `id`: `rankColumns`' column ids for the time windows and
   day categories, and for the board families the candidate ids

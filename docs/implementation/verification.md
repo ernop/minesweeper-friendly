@@ -245,7 +245,7 @@ it never opens player storage. Timing observations are not pass thresholds.
 
 Latency check (2026-09-26, creator request, cut to basics the same day: "keep
 just basic timing stuff please so we notice if we megaslowdown again"; spec:
-[Input latency](../product/board-and-layout.md#input-latency-user-report-2026-09-26)):
+[Input latency](../product/board-and-layout.md#startup-readiness-and-responsiveness)):
 `node tests/latency-browser-check.js PLAYWRIGHT_CORE_DIR firefox|chromium EXECUTABLE [--record]`
 takes about 15 seconds on the PC. In a fresh profile on 8099 with a synthetic
 6,500-game history, on a fixed board, it times page load, new game, the first

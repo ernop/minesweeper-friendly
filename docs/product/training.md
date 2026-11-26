@@ -1,559 +1,104 @@
-# Training toward an Expert win under 60 seconds (requested 2026-09-26)
+# Training toward an Expert win under 60 seconds
 
 Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation notes: [docs/implementation/training.md](../implementation/training.md).
-Evidence and the measured diagnosis: [reference/expert-speed-training-2026-09-26.md](../../reference/expert-speed-training-2026-09-26.md).
-Long-term sub-60 iteration program (2026-11-25): [reference/sub60-iteration-program-2026-11-25.md](../../reference/sub60-iteration-program-2026-11-25.md).
+Supporting empirical studies: [reference/expert-speed-training-2026-09-26.md](../../reference/expert-speed-training-2026-09-26.md), [reference/skill-comparison-2026-09-26.md](../../reference/skill-comparison-2026-09-26.md), [reference/sub60-iteration-program-2026-11-25.md](../../reference/sub60-iteration-program-2026-11-25.md).
 
-User request (2026-09-26): "I want to get my minesweeper skill way up, til I
-can break sub 60s for expert. Can you please make a plan and training system
-for this after careful research and thought?"
+## Goal and principles
 
-Built the same day: the plan below and a read-only training page that
-measures the player against it. The plan's rules and targets are decisions
-made from the player's saved games and the cited sources; they are not
-measurements and can be revised.
+Turn recorded gameplay traces into a scientific, self-updating training system for breaking 60 seconds on Standard Expert (and progressing beyond): measure exact subskills against stronger players, surface the highest-cost bottlenecks automatically, drill targeted weaknesses with coaching modes and problems, and verify whether practice transfers into real Standard play through controlled experiments.
 
-## Redo requested: measure against real players first (2026-09-26, afternoon)
+- **Core speed identity:** `time = inputs × seconds per input`, so `3BV/s = IOE / seconds per input`. Breaking 60 s requires both cutting removable inputs (clicks per 3BV) and shortening per-input thinking, cursor travel, and pauses.
+- **Decisions vs measurements:** stage rules and numeric targets below are working decisions grounded in trace studies; they can be revised as measurements evolve.
 
-The user asked to redo the plan as a teaching, learning, and skill-breakdown
-evaluation done "like a true scientist":
+## The training plan and stage targets
 
-- **Exact comparison.** Use the full movement and timing history of the
-  player's games and the thousands of expert games published online to find
-  exactly how the player compares with strong players, including players who
-  already hold the target time.
-- **Subskills.** Break the game into subskills and practice specific pattern
-  skills and error types intensely, not only endgames. Reason about it as
-  guiding a robot hand like the player's (its misclick rate, its speed): how
-  to guide it, and how to find out its properties.
-- **Minesweeper problems.** Problems taken from real games of high-level
-  players, each beginning just as a square opens, with a set starting mouse
-  position. Identify each pattern or logic situation, look at how players of
-  all levels handle it, find commonalities among high-level players, place the
-  player's level per situation, and show how to move up.
-- **Collaboration.** Getting the needed test data is to be worked out with the
-  user, and the user will take the tests and evaluations as they are created.
-- **Chord binding.** Left-click chording in this clone was an arbitrary choice;
-  the user is not attached to it.
+Rules from earlier stages stay active as you advance. A stage completes when every measure meets its target (the active stage is the first incomplete one); reaching the sub-60 goal does not wait for earlier stages.
 
-Decisions (this change): the morning's stage plan below stays on the training
-page as a provisional economy dashboard; its stages are not final until the
-comparison study ranks the subskills. The study design, data sources, and pilot
-results are in
-[reference/skill-comparison-2026-09-26.md](../../reference/skill-comparison-2026-09-26.md).
-Chord binding (revised the same afternoon): the user pointed out that
-both-button chording and the 1.5 click are part of the official game and were
-left out by oversight, so both are now standard behavior beside left-click
-chording ([board rules](board-and-layout.md)); keyboard keys as buttons remains
-only a possible experiment.
+### Every session routine
 
-### Plan v2 (requested; not built unless marked)
+- `45–60 min` on most days (split longer volume across spaced sessions hours apart).
+- `5 min` Intermediate warm-up under current stage rules, then `~10 min` Expert blocks with one focus rule per block.
+- Open in a corner; if it shows a number, restart with `Space` instead of guessing.
+- Keep mouse, sensitivity, and zoom fixed; tag any intentional change with a player state.
+- Stop when a block is clearly worse than the session's best block, or after two avoidable deaths in a row past `20 s` (performance degrades before fatigue is felt).
+- Review `training.html` at the end of each session.
 
-1. **Measure the player's hand and eyes.** From existing traces (built as the
-   offline pilot, `analysis/skill-comparison/`): per input, the reaction before
-   the cursor moves, travel, hover on the target, distance, and action kind;
-   economy per 3BV; pauses. Then a pointing test on the real board grid
-   (targets at set distances and directions) for the hand's travel-time law,
-   endpoint accuracy, and misclick rate.
-2. **Measure strong players the same way.** A cross-level corpus of published
-   expert replays, converted to the same per-input format (pilot built).
-3. **Rank the gaps.** Replace one component at a time in the player's own
-   games with a faster level's values for the same situations, and rank
-   subskills by seconds saved.
-4. **Situation classes.** Annotate every input with the logic it needed (from
-   the solver) and a local pattern signature, then compare latency and choices
-   per class across levels and place the player in each class. Built as an
-   offline analysis; see the next section.
-5. **Minesweeper problems.** Positions from real games, starting as the
-   original player's square opens with the cursor on it; the task is what the
-   new number proves. Scored against the original player and the corpus
-   levels in the same class. Built as version 1:
-   [problems.md](problems.md). The start changed from a click on a start dot
-   to a timed one-second view (reason in that spec).
-6. **Train and test transfer.** Train the top-ranked subskills with adaptive
-   problems and drills; check each against real Expert games; repeat every test
-   to establish its reliability before using it to judge training.
+### Cumulative stages
 
-## Situations, memorization, and problems (requested 2026-09-26, evening)
+1. **Stop wasting inputs:** click a number only when all its mines are flagged and covered neighbors remain (never test-chord). Flag and chord only when the chord opens more squares than flags needed (`1` flag → `>= 2` cells, `2` → `>= 3`; flag on ties), else click safe squares directly; never place unused flags; prefer the highest-yield chord. Judge early sessions by `IOE`, `no-op rate`, and `unused flag share`.
+2. **Finish started runs:** chord only over proven flags; scan the whole board before guessing; take truly forced guesses immediately; remove any noticed wrong flag before chording near it; drill `5 min/day` of Endgame drill.
+3. **Read and move faster:** read ahead with the eyes rather than the cursor; move only toward already-solved cells while reading the next area; clear in consistent sweeps; replay the slowest win with the click-speed path view to identify long-pause patterns; use Intermediate blocks for volume.
+4. **Win under 60 seconds:** keep all rules active and keep converting runs (a first sub-60 typically happens on `<= 150` 3BV once median wins near `70 s`, becoming routine at the Stage 3 target).
 
-User requests, same day:
+### Stage targets
 
-- Support the 1.5 click; its absence was an oversight (built:
-  [board rules](board-and-layout.md)).
-- Use normal terms, or define a term where it is first used; fix defects found
-  in a comparison instead of listing them.
-- Board luck is already quantified by the project; do not present it as new.
-- Build the situation classes and the problems, and the problems website.
-- Identify all common logic output sequences (a corner, a straight side reading
-  1-2-2-1, and the like) in any rotation, transform, or inversion; measure them
-  by level, from the best players to far below the user; quantify how much of
-  each level's play is memorized (executed very fast) versus worked out as it
-  goes; and say whether the user memorizes more, the same, or less than the
-  average player at the same speed. The user expects pros to have a larger
-  memorized scope, that memorized patterns are faster, and that they allow
-  skipping flags.
-- Do this for several traits: the trait least developed relative to the
-  user's level is presumably the easiest to advance to that level's standard.
-
-Built (offline analysis `analysis/skill-comparison/situations.js`, method in
-[reference/skill-comparison-2026-09-26.md](../../reference/skill-comparison-2026-09-26.md)):
-
-- Every reveal and flag in the corpus and in the user's games is classed by the
-  logic it needed (the game's proof engine at one-number, two-number, and full
-  strength) and, for two-number moves, by pattern: the exact local
-  configuration, the straight-edge run (a 1-2-2-1 along a flat side reads
-  "1uuu 2uuu 2uuu 1uuu"), and the family (the two numbers' remaining mine
-  counts, what the rule proves, and whether the edge is involved).
-- **Inversion** is read as mirror images: patterns match under all 8
-  rotations and reflections. Mine-for-safe complements stay separate classes,
-  because they show different numbers.
-- **Memorized** is measured, not assumed: a fresh two-number move (made right
-  after the move that revealed its information) is *fluent* when its thinking
-  time, meaning the reaction before the cursor moves plus the hover before the
-  click, is within 60 ms of the same player's median fresh one-number reveal.
-- **Level comparison:** the corpus is stratified into seven 3BV/s levels from
-  1.0 to above 3.5 (about 50 games each, at most 3 per player). The user is
-  compared with the average game at the user's speed, interpolated between the
-  two levels around it, with 95% bootstrap intervals over games. Efficiency
-  uses effective clicks only, because replay parsers count the right half of a
-  both-button chord as a click that changed nothing.
-
-Results (3,498 corpus games, 500 per level, refreshed 2026-09-27, and the
-user's 80 traced wins at median 1.77 3BV/s; the earlier runs on 357 and 1,057
-games gave the same conclusions):
-
-| Trait | You | Average game at your speed | Gap worth |
+| Stage | Measure | Target | Rationale |
 | --- | --- | --- | --- |
-| Effective clicks per 3BV | 1.39 | 1.26 | 10 s per game (8 to 11) |
-| Flags that open at most one square through their chords, per 3BV | 0.18 | 0.10 | about 14 clicks per game |
-| Extra thinking on fresh two-number patterns | +34 ms | -10 ms | 0.2 s per game |
-| Fresh two-number moves at single-number speed (fluent) | 64% | 77% (74 to 80) | |
-| Fresh pattern moves made without flagging first | 72% | 82% | |
-| Pausing (time past 1 s in a gap), per game | 5.2 s | 4.0 s | 1.1 s per game (0.1 to 2.2) |
-| Reading one number (thinking time) | 196 ms | 272 ms | you are faster |
-| Cursor travel, 2-6 square moves | 172 ms | 202 ms | you are faster |
+| 1 | `IOE` (`3BV / inputs`, median of latest 20 wins) | `>= 0.91` | removing avoidable inputs reaches `~0.92` (`1.09` inputs/3BV) |
+| 1 | `no-op clicks / win` (median of latest 20 wins) | `<= 5` | eliminates test-chord and finished-number clicks |
+| 2 | `20 s+` runs won (latest 60 runs) | `>= 45%` | runs past the opening convert above the `~41%` start-of-game solver ceiling |
+| 2 | avoidable losses after `20 s` (share of classified losses) | `<= 35%` | shifts late deaths from misreads to forced guesses |
+| 2 | wrong flags / win (mean of latest replayed wins) | `<= 0.5` | reduces chord-death exposure |
+| 3 | pauses `> 1 s` / win (median of latest replayed wins) | `<= 4` | cuts reading stalls |
+| 3 | median `3BV/s` (latest 20 wins) | `>= 2.8` | `~62 s` median on an average `173`-3BV Expert board |
+| 4 | wins under `60 s` | `>= 1` | primary milestone |
 
-The pausing gap was not measurable on 1,057 games (its interval spanned zero);
-on 3,498 it is, and small.
+## Training page (`training.html`)
 
-- Memorization answer: **less** than the average player at the user's speed.
-  The expectation that the best players memorize more is not supported in this
-  measure: every level from 1.4 3BV/s up makes fresh two-number moves at its
-  own single-number speed (fluent share 74% to 80% with no steady trend; extra
-  thinking about 0 ms or below); only the slowest level (1.0-1.4) is lower, at
-  63%. What rises with level is reading speed as a whole, patterns included
-  (single-number thinking 330 ms at the slowest level, 160 ms at the fastest).
-  The user's games show a separate pattern cost (+34 ms) that no level from
-  1.4 up shows. Its direct time cost is small because fresh pattern moves are
-  rare (about 5 per game).
-- Least developed trait relative to level: **click efficiency**, driven by
-  flags that do not pay for themselves (a flag plus a chord that opens one
-  square is two clicks where one direct click does) and chords that open one
-  square (0.34 per 3BV against 0.16). This matches the user's expectation that
-  memorized patterns let a player skip flags: the user flags fresh patterns
-  first more often than the level average.
-- Consequence for the plan: stage 1 (inputs) stays first; the problems page trains the two-number families where the
-  user's fluency trails (the 1-1 rules carry most fresh pattern moves).
+- **Access & behavior:** opens from `training` in the game footer; top/bottom return links and `Escape` return to the game. Strictly read-only (never writes storage or settings). Computes fresh off-thread on every load across three parallel workers (`training-worker.js`, `mind-map-worker.js`, `switch-cost-worker.js`) and reports game count, load time, and any errors visibly.
+- **Scope:** Standard Expert with default generator (`30x16/99@standard`) for the main dashboard; cross-size sections explicitly label their pools. Sections with no eligible data stay hidden cleanly.
 
-## Plan v2 in progress (requested 2026-09-26, night)
+### Sections in page order
 
-User requests: do plan v2; think about experiments to run; push on the training
-ideas in the backlog after looking at the player's rendered stats at every
-level; keep collecting many more replays and store them logically forever; and
-on the problems page, box the area of interest (built: [problems.md](problems.md)).
+1. **Now:** summary cards for best Expert win (with 3BV and date), median win, median `3BV/s`, `IOE`, `seconds per input`, wins `< 60 s`, and current stage, each stating its sample.
+2. **What stands out & ranked performance traits (`#training-traits`):**
+   - Surfaces up to `6` threshold-triggered highlight cards only when noteworthy signals fire (pointless endgame flagging, slow solvable shapes tackled while counting moves waited elsewhere, skipped ready `4/5/6/7`s, slow known patterns like straight-edge `1-2-1` or interior `1-2`, upper-tail `2.0+ 3BV/s` breakout, post-no-op rhythm slowdown).
+   - Ranks all measured Expert traits by estimated seconds per win left on the table (`IOE`, habit vs physical no-ops, abandoned frontier hovers, left-vs-right hover dwell, slow solvable shapes past easy moves, post-no-op slowdown, pointless flags in the final 5 safe squares, ready `4/5/6/7` skips, no-flag counting hesitation), with vertically aligned digits/units and explicit counts.
+3. **Stages:** each target's current value, threshold, met status, and sample; active stage outlined.
+4. **Technique & thinking mind-map (`#training-mind-map`):**
+   - Pools up to `100` Beginner, `100` Intermediate, and `80` Expert traced Standard wins via exact `GuardianAngel.proveLevels` proof tiers and layout-mapped pointer samples.
+   - One-step size filter (`All sizes | Expert | Intermediate | Beginner`) — never triple-slash cells.
+   - **Technique speed catalog:** inline classic Minesweeper visual mini-board for every technique (with `yours` / `shape` toggle showing captured `5×5` positions from the player's own wins when available), `count`, integer `median (ms)`, integer `90th (ms)`, whole-percent `slow (%)` (`>= 600 ms`), whole-percent `easy elsewhere (%)` (`>= 2` counting moves `>= 3` squares away), and `action` pill tagging slow solvable shapes (`>= 450 ms` with `>= 50%` easy moves elsewhere) as **`bail first`** (`low n` under 5 samples).
+   - **Endgame pointless flagging:** separate Expert, Intermediate, and Beginner rows showing `%` of wins with unused or 1-square-only flags in the final 5 safe squares, flags/win, `s/win`, and `%` flagging when only `1` safe square remained.
+   - **Single-game thinking trace:** selector over the latest `12` replayed Expert wins showing chronological decision episodes (fast local streaks, slow shapes tackled past easy moves, abandoned frontier hovers, pointless endgame flags, unproven guesses) with exact `5×5` local board snapshots.
+5. **Coaching drills & transfer to Standard (`#training-coach`):**
+   - *Recommended next drill:* derived live from latest Standard Expert stats (`Coach: No-waste` if no-ops `> 10` or `IOE < 0.78`; `Coach: Scan shield` if avoidable late losses `> 50%`; `Coach: Early bail` otherwise).
+   - *Practice drills played:* per Coach mode ([Play modes](play-modes.md)), games, wins, active minutes, and earlier-half vs latest-half trends (no-ops, 1-cell flags, 1.5-click share, fast-bail share, lookahead share, blind spots, shield saves, wrong-flag warnings).
+   - *Slow overlap patterns (`>= 450 ms`):* aggregated across Coach games by pattern family (`1-2 interior`, `1-2 on wall`, `1-1 interior`, `1-1 on wall`, `overlap chain`).
+   - *Transfer to Standard Expert:* anchored at first Coach game; compares up to `50` pre-coach Standard Expert wins (and runs from that start) against all post-coach games, plus coach-days vs non-coach-days over the recent window across `3BV/s`, win time, `IOE`, no-ops/win, flags/3BV, `flag→chord gap`, move gap, left hard work/win, `>= 20 s` conversion, and avoidable late loss share (explicitly requiring `>= 10` post-coach wins before judging transfer).
+   - *Sampled state vs Standard Expert:* splits `stateSample` games by focus (`1/5`–`5/5`) and pace (`calm`, `flowing`, `rushed`, `tilted`).
+6. **Where the time goes in your latest wins:** replays the latest `20` wins' traces to attribute mean time per input kind (`>= 2`-cell chord flags, 1-cell chord flags, unused flags, removed flags, wrong flags, no-ops) and reports the arithmetic win time without removable inputs' gaps (explicitly labeled arithmetic, not a prediction).
+7. **Button switch cost:** pooled short-range switch-cost regression across flagged Standard games (details below).
+8. **Openings:** tracks the corner-start rule over default-generator Expert games carrying `firstRevealIndex` (from `2026-09-27`): corner first-click share, corner-zero opening share, and win rates after openings vs un-restarted numbered starts. Other generators are named and excluded.
+9. **The plan:** stage rules above with the active stage outlined (readable even with zero saved games).
+10. **Week by week:** Monday-based local calendar weeks, newest first: games, wins, best, median win, median `3BV/s`, `top-3 3BV/s`, `IOE`, `seconds per input`, `20 s+ runs`, and `20 s+ won`.
+11. **Experiments: player states compared:** evaluates alternating same-day blocks (`A B A B ...`, ~20 Expert games/block, condition `B` tagged with a player state) for every state tag used on Expert games:
+    - Pairs consecutive same-day blocks in order (`1st` vs `2nd`, `3rd` vs `4th`) across days where the state was used.
+    - Reports per-condition games, wins, median win time, `3BV/s`, `IOE`, `seconds per input`, flags/win, chords one flag short/game (excluding pre-`2026-09-26` combined no-op records), and `>= 20 s` win rate.
+    - Reports mean paired difference in median win time (`with − without`) with 95% Student `t` interval (from `>= 3` pairs with wins on both sides).
+    - **Fixed-size pre-registered decision rule:** decided once on the first `4` block pairs with wins on both sides — `B` wins if its median win time is lower in `>= 3` of `4` pairs AND `>= 20 s` conversion is at least as high across all `8` blocks. Later pairs update the descriptive interval without overturning the fixed-size decision.
 
-### Gap ranking (built: `analysis/skill-comparison/gaps.js`)
+### Button switch cost
 
-Each of the player's 80 traced wins is rebuilt with one skill at a time set to
-a faster level's mean for the same situation (thinking time by kind of move,
-logic, and freshness; travel by distance; long pauses per 3BV; effective clicks
-per 3BV). Means, not medians, because the player's own totals include their
-slow moves. Seconds saved per game (3,498-game corpus, 2026-09-27; the 357-
-and 1,057-game runs gave the same ranking):
+Pooled regression quantifying the hand-switching penalty between flagging and chording at short distances ([reference/mode-switch-2026-09-28.md](../../reference/mode-switch-2026-09-28.md)):
 
-| Skill set to | next level (1.99 3BV/s) | 2.80 3BV/s | 3.26 3BV/s |
-| --- | --- | --- | --- |
-| Clicks per 3BV | 9.8 | 13.7 | 16.6 |
-| Thinking | -0.5 | 11.0 | 13.8 |
-| Travel | 0.5 | 10.5 | 13.5 |
-| Long pauses | 1.6 | 2.0 | 2.0 |
-| All together (median game, from 101.3 s) | 89.6 s | 67.3 s | 60.2 s |
+- **Scope:** judged Standard games on Beginner, Intermediate, and Expert with `flagsPlaced > 0 && !flagsBlocked` (excluding no-mark and flag-blocked games).
+- **Transitions:** consecutive moves that are both `flag` or `chord` within Chebyshev distance `<= 2`, timed press-to-press between `40 ms` and `5 s` (reveals and long jumps excluded).
+- **Pools:** latest `500` and earlier `500` qualifying flagged Standard games with saved traces and `>= 1` short-range pair (minimum `30` games to fit a pool).
+- **Display:** leads with **extra time per switch (ms)** and its 95% CI, followed by `%` change (+ 95% CI), median switched gap, switch share, mean short-range switch time per Beginner/Intermediate/Expert flagged game, game/pair counts, and a plain-English two-sample 95% CI verdict comparing latest `500` vs earlier `500`.
 
-Clicks come first; thinking and travel then matter equally for sub-60.
+### Core definitions
 
-### Openings (built 2026-09-27)
-
-The session rule "open in a corner; if the corner shows a number, restart with
-Space" rests on the dated measurement (96% corner first clicks; wins after an
-opening 14.1% against 2.5% after a numbered start). The training page's
-Openings section tracks it live over the games whose record names the first
-click (`firstRevealIndex`, recorded from 2026-09-27): the share of first
-clicks in a corner, the share of corner clicks that opened a zero (about half
-by chance), and the win rate after an opening and after a numbered start, each
-with its number of games. A restarted game is not recorded, so recorded
-numbered starts count the times the restart rule was not used. Games on boards
-from other generators are named and left out, since their layout cannot be
-rebuilt from the seed with the uniform placement.
-
-### Last-flag drill (built)
-
-Ten real positions per drill where a number is one flag short, answered by
-flagging its mine and chording in one motion (the 1.5 click), timed and
-click-counted against the original player
-([problems.md](problems.md#last-flag-drill-last-flag-v1-built-2026-09-26-night)).
-It trains the habit behind about 26 wasted clicks per Expert win; experiment 1
-below measures whether the habit moves into real games.
-
-### Pointing test (built)
-
-The hand alone, on the board grid: 24 squares on a fixed route, reaction,
-travel, hover, misses, and a Fitts's-law line, with travel placed among the
-skill levels' in-game travel for the same move lengths
-([problems.md](problems.md#pointing-test-pointing-v1-plan-v2-built-2026-09-26-night)).
-It separates motor speed from decision time: in-game travel slower than
-pointing-test travel at the same length is hesitation, not the hand.
-
-### What the player's saved games show (2026-09-26)
-
-From the rendered High scores views and the records behind them (6,679 games):
-Beginner best 2.82 s (1,251 wins); Intermediate best 20.76 s (1,072 wins);
-Expert best 71.03 s, with 50 wins in the last 509 Expert games. Expert times
-have been flat since late August. In the latest 80 traced Expert wins:
-
-- **Clicks that change nothing: about 41 per game.** 26 are clicks on a number
-  exactly one flag short (a chord attempted before its last flag), 3.7 on
-  numbers two or more flags short, 8 on finished numbers with nothing left to
-  open, 2 on flags.
-- **Late losses:** of games that reach 20 s, 27% are won. The fatal click's
-  recorded mistakes are mostly flag-related: chording over a wrong flag (40 of
-  138 late deaths in 14 days), a chord contradicting the visible numbers (37),
-  a likely misclick after a wrong flag (34), and opening a proven mine (36).
-
-The heavy flag-and-chord style (100 flags and 112 chords per win) therefore
-costs both clicks and wins. The 1.5 click, now supported, removes the most
-common waste directly: the last flag and the chord become one motion.
-
-### Experiments (designs; the player runs them, the analysis reads them)
-
-Each runs in alternating blocks (A B A B ...) of about 20 Expert games on the
-same days: B games carry a player state naming the condition, A games do not,
-so time-of-day and day-to-day form spread over both conditions. The decision
-rule is fixed in advance and decided once, on the first four block pairs in
-which both blocks have a win: B is better when its median win time is lower in
-at least three of the four and its games reaching 20 s are won at least as
-often across those eight blocks. Later pairs never change the result: deciding
-at a set size keeps a lucky streak from ending the experiment early.
-
-The training page's section "Experiments: player states compared" (built
-2026-09-26) reads every state on the Expert records this way. Scope: the local
-days the state was used. Blocks: runs of consecutive games on one day with the
-same condition; each day's blocks pair in order, first with second, third with
-fourth. Per condition it shows games, wins, median win time, 3BV/s, IOE,
-seconds per input, flags per win, chords one flag short per game (records
-carrying the old combined no-op reason are left out of that row), and the
-share of games reaching 20 s that are won; then, over every block pair with a
-win on both sides, the mean difference in median win time (with minus without)
-with its 95% interval (Student t over the pair differences, shown from 3
-pairs; built 2026-09-27); then the rule's progress or result. The interval
-describes all the evidence so far; the rule is the decision fixed in advance.
-
-1. **The 1.5 click for the last flag.** A: as usual. B: whenever a number is
-   one flag short, flag the mine with the right button, keep holding, and chord
-   with the left. Measures: chords one flag short per game (expected near 0),
-   IOE, time, late win rate. The last-flag drill on the problems page trains it.
-2. **Flag only when a chord pays.** B: flag a mine only when the chord it
-   enables opens two or more squares; otherwise click the safe squares
-   directly. Measures: flags per win, wrong flags, flag-related late deaths,
-   IOE, time.
-3. **Square size.** 16 px against the player's usual size. Measures: travel per
-   distance, misclicks, time. The pointing test's card on the problems page
-   compares its runs by square size, the quick first look before game blocks.
-4. **Problems transfer.** Train two rule families daily on the problems page
-   for two weeks and leave one untrained; compare in-game fluency (fresh
-   two-number moves at single-number speed) on trained and untrained families
-   before and after, from the traces.
-5. **Focus box.** Problem thinking times with the box (`problems-v2`) against
-   the 45 attempts made without it (`problems-v1`), on the same rules.
-6. **Warm-up and alertness (observational).** Time and win rate by position
-   in the session, and by the self-check taken before the session.
-
-## Diagnosis the plan is built on (measured 2026-09-26)
-
-From 1,692 Expert games through 2026-09-26 (details and method in the
-reference): best 71.031 s; median win about 98 s at 1.78 3BV/s. Time is
-inputs × seconds per input, about 276 × 0.347 s, so 3BV/s is IOE (3BV per
-input, no-ops included: 0.63) divided by seconds per input. Replayed wins spend about 36%
-of their time placing flags, 19% on chords that open one cell, and 12% on
-clicks that change nothing. Deleting the removable inputs' time from the same
-wins gives a median of about 68 s. Only a quarter of games that reach 20 s are
-won, and most of the rest are lost with a proven-safe move available.
-Correction (same afternoon): this section first said the hand was already fast
-enough. The replay comparison contradicts it: sub-60 players also spend about
-40% less time per input (213 vs 358 ms), from travel, hover, reaction, and pauses
-(reference/skill-comparison-2026-09-26.md).
-
-## The plan
-
-Principle shown on the page: time is inputs × seconds per input; players who
-break 60 s need about a fifth fewer inputs per board and spend about 40% less
-time per input; the stages start with inputs (no new speed needed), then stop
-losing started runs, then read and move faster, until the comparison study
-ranks the speed components. Rules from earlier stages stay on.
-
-**Every session**
-
-- 45–60 minutes on most days; split more practice into two sessions hours
-  apart (daily dose and spacing evidence).
-- 5 minutes of Intermediate warm-up with the current stage's rules, then
-  Expert blocks of about 10 minutes, one rule in focus per block.
-- Open in a corner. If the corner shows a number, restart with Space instead
-  of guessing.
-- Keep mouse, sensitivity, and zoom fixed; tag any change with a state.
-- Stop when a block is clearly worse than the session's best block, or after
-  two avoidable deaths in a row in games past 20 s; do not wait to feel tired
-  (performance falls across consecutive games before fatigue is noticed).
-- Check the training page at the end of each session.
-
-**1. Stop wasting inputs.** Click a number only when all of its mines are
-flagged and it still has covered neighbors; never click to test a chord.
-Flag and chord only when the chord opens more cells than the flags it needs
-(one flag for two or more cells, two for three or more), otherwise click the
-safe cells; when equal, flag. Never flag a mine no chord will use. When
-several numbers could open the same cells, chord the one that opens the most.
-Expect a few slower sessions; judge them by IOE. The game data column's IOE, no-op
-rate, and unused flag share give per-game feedback.
-
-**2. Finish the runs you start.** Chord only over proven flags. Before any
-guess, scan the whole board for a safe move; take a truly forced guess at
-once. Remove a noticed wrong flag before chording near it. Drill 5 minutes of
-Endgame drill a day. Until 2026-10-21 the stage also said "if conversion
-stalls, 10 Intermediate Proof-or-die games"; that mode was removed with the
-other no-guess modes ([Play modes](play-modes.md)).
-
-**3. Read and move faster.** Read with the eyes, not the cursor: move only
-toward an already-solved cell and solve the next area while clicking the
-current one; clear in one sweep direction; after each session replay the
-slowest win with the click-speed path view and name the pattern behind each
-long pause; learn those patterns from the minesweeper.online pattern catalog;
-use Intermediate blocks for volume.
-
-**4. Win under 60 seconds.** The first sub-60 usually comes on a board of
-about 150 3BV or less (about one Expert board in nine) once the median win is
-near 70 s; at the stage 3 target it becomes routine. Keep all rules on and
-keep finishing games.
-
-## Stage targets (decisions)
-
-| Stage | Measure | Target | Why this value |
-| --- | --- | --- | --- |
-| 1 | IOE (3BV per input, no-ops included), median of the latest 20 wins | at least 0.91 | the removable-input arithmetic on this player's own wins gives 0.92 (1.09 inputs per 3BV) |
-| 1 | no-op clicks per win, median of the latest 20 wins | at most 5 | test-chord and finished-number clicks should vanish |
-| 2 | games reaching 20 s that are won, latest 60 such games | at least 45% | the 41% solver ceiling is from the first click; runs past the opening convert higher |
-| 2 | losses after 20 s with a safe move available (share of classified losses) | at most 35% | most losses should be forced guesses, not misreads |
-| 2 | wrong flags per win, mean of replayed latest wins | at most 0.5 | each wrong flag risks a chord death |
-| 3 | pauses over 1 s per win, median of replayed latest wins | at most 4 | halves the current reading stops |
-| 3 | median 3BV/s of the latest 20 wins | at least 2.8 | about a 62 s median on a 173-3BV board |
-| 4 | wins under 60 s | at least 1 | the goal |
-
-A stage is complete when every measure meets its target; the current stage is
-the first incomplete one. Achieving the goal does not wait for earlier stages.
-
-## Training page
-
-- Opens from "training" in the game page's footer (2026-10-20; the "other
-  pages ▾" menu in the top bar from 2026-10-14; a bordered button beside
-  settings before);
-  `training.html`. Return-to-game
-  links at the top and bottom; Esc also returns.
-- Read-only: it never writes storage or settings. Every load computes the
-  summary afresh off the page thread from the saved history and traces; a
-  status line names the game count and time and says to reload after playing.
-- Scope: Standard Expert with the default generator (`30x16/99@standard`)
-  only. Other keys never mix in.
-- Sections in order: **Now** (cards listed below), **What stands out & ranked
-  performance traits** (automatic notable highlights + all measured Expert
-  traits ordered by time cost, built 2026-11-25), **Stages** (each measure's
-  current value, target, met, and the sample it was measured over; the current
-  stage outlined), **Technique & thinking mind-map** (pooled cross-size
-  technique speed catalog with inline visual mini-boards, endgame pointless
-  flagging, and single-game thinking trace, built 2026-11-25), **Coaching
-  drills & transfer to Standard**, **Where the time goes in your latest wins**,
-  **Button switch cost** (pooled short-range flag/chord switch cost across
-  flagged standard games, moved here from game data on 2026-11-24),
-  **Openings**, **The plan** (the text above; the current stage's block
-  outlined; readable even with no games), **Week by week** (including weekly
-  `top-3 3BV/s` and aligned `20 s+ runs` / `20 s+ won` columns since
-  2026-11-25), and **Experiments: player states compared**. The Now cards
-  are best Expert win (with its 3BV and date), median win, median 3BV/s, IOE,
-  seconds per input, wins under 60 s, and current stage, each with the sample
-  it describes.
-- Empty state: with no saved Expert games the Expert measured sections stay hidden
-  and the status says so; **Button switch cost** stays hidden when there are
-  no flagged standard games. Failures show in their section or the status line
-  with their message.
-
-### Button switch cost (moved from game data 2026-11-24)
-
-Creator review on 2026-11-24 (Option W1) moved the pooled 500-game switch-cost
-regression off the game page to `training.html` alongside the other multi-game
-training diagnostics and narrowed it to what the original study
-([reference/mode-switch-2026-09-28.md](../../reference/mode-switch-2026-09-28.md))
-found actually carries a button-switch effect:
-
-- **Scope:** judged Standard games on Beginner, Intermediate, and Expert that
-  placed at least one flag (`flagsPlaced > 0 && !flagsBlocked`; no-mark and
-  flag-blocked games are excluded).
-- **Transitions:** consecutive moves that are both `flag` or `chord` and at
-  most 2 squares apart (Chebyshev distance `<= 2`), timed press to press
-  between 40 ms and 5 s. Reveals and long cross-board jumps are excluded.
-- **Pools:** latest 500 and earlier 500 flagged standard games that have a
-  saved trace and at least one qualifying short-range pair (minimum 30 games
-  to fit a pool).
-- **Display:** leads with **extra time per switch** in milliseconds and its
-  95% interval, followed by the relative `%` change and 95% interval, median
-  switched gap, share of short-range pairs that switch, mean short-range
-  switch time per Beginner/Intermediate/Expert flagged game, measured game and
-  pair counts, and a plain-English two-sample 95% interval verdict comparing
-  latest 500 against earlier 500.
-
-### Definitions
-
-- **Inputs:** board-changing clicks plus no-op clicks
-  (`boardChangingClicks + noOpClicks`, named `clicks` and `wastedClicks`
-  until 2026-10-27). **3BV/s** and **IOE** (3BV / inputs) are game data's
-  measurements, read from its catalog since 2026-10-27 rather than computed
-  here ([Measurement catalog](measurement-catalog.md)), so
-  3BV/s = IOE / seconds per input. Records from before no-op clicks were
-  measured are left out of input medians.
+- **Inputs:** `boardChangingClicks + noOpClicks`. `3BV/s` and `IOE` (`3BV / inputs`) read directly from `GameData.metrics` ([Measurement catalog](measurement-catalog.md)). Records pre-dating `noOpClicks` (`2026-08-19`) are excluded from input medians.
 - **Seconds per input:** win time divided by inputs.
-- **Run:** a game that lasted at least 20 s (past the opening). Conversion is
-  wins among the latest 60 runs.
-- **Avoidable loss:** fatal status `mine-safe` or `guess-safe` from the game's
-  own classifier (a proven-safe move existed). Legacy and unclassified losses
-  are excluded from the share's denominator and the sample size says so.
-- **Time budget:** the latest 20 wins' traces are replayed with the game's click
-  rules. Each input gets the gap since the previous input; the game-starting
-  reveal and anything before it are untimed. Rows are the input kinds; values
-  are means per win so the parts add up to the total.
-- **Flag classes:** used by a chord that opened two or more cells; used only by
-  chords that opened one cell; never used; removed again; on a safe cell.
-- **Removable inputs:** every no-op click, every flag removed again together
-  with its removal, every flag no chord used, and every flag used only by
-  one-cell chords.
-- **The same wins without those inputs' time:** each win's time minus the
-  gaps before its removable inputs, labeled as arithmetic on the recorded
-  games, not a prediction.
-- **Pauses:** gaps over 1 s before an input.
-- **Wrong flags:** flag placements on cells that are safe in the replayed
-  layout (post-game truth, never shown during play).
-- **Coverage:** a win without a saved trace, without a rebuildable board, or
-  whose replay diverged (a Guardian Angel redraw on a board rebuilt from its seed)
-  is counted and named, never estimated.
-- **Weeks:** Monday-based local calendar weeks, newest first: games, wins,
-  best, median win, median 3BV/s, IOE, seconds per input, and runs won.
+- **Run:** a game lasting `>= 20 s`. Conversion is wins among the latest `60` runs.
+- **Avoidable loss:** fatal status `mine-safe` or `guess-safe` (legacy and unclassified losses excluded from denominator, sample size disclosed).
+- **Removable inputs:** every no-op click, every removed flag + its removal, every unused flag, and every flag used only by 1-cell chords.
+- **Pauses:** gaps `> 1 s` before an input.
+- **Wrong flags:** flags on safe cells in the replayed layout (post-game truth, never shown during play).
+- **Coverage:** wins lacking a trace, rebuildable board, or consistent replay (e.g., Guardian Angel redraw on a seed-rebuilt board) are counted and named, never estimated.
 
-### Coaching drills, mind model, and transfer to Standard (built 2026-11-25)
+## Companion drills and planned extensions
 
-Creator direction (2026-11-25): manage the coaching practice loop empirically
-so the player can see whether doing the coaching modgames actually transfers
-into Standard play, while modeling recurring hesitation patterns and sampling
-player state.
-
-- **Section `#training-coach`** sits under Stages and shows:
-  1. **Recommended next drill:** derived live from the latest Standard Expert
-     metrics (`Coach: No-waste` when no-ops > 10 or IOE < 0.78;
-     `Coach: Scan shield` when avoidable late losses > 50%; `Coach: Early bail`
-     otherwise).
-  2. **Practice drills played:** per Coach mode, games, wins, active minutes,
-     and earlier-half vs latest-half in-drill trend (no-ops, 1-cell flags,
-     1.5-click share, fast-bail share, lookahead share, blind spots, shield
-     saves, wrong-flag warnings).
-  3. **Slow overlap patterns (`>= 450 ms`):** aggregated across Coach games by
-     pattern family (`1-2 interior`, `1-2 on wall`, `1-1 interior`,
-     `1-1 on wall`, `overlap chain`).
-  4. **Transfer to Standard Expert:** anchored at the timestamp of the first
-     Coach game, compares up to 50 pre-coach Standard Expert wins (and runs
-     from that start) against all post-coach Standard Expert games, plus a
-     coach-days vs non-coach-days split over the recent window, across 3BV/s,
-     win time, IOE, no-ops/win, flags/3BV, flag→chord gap, move gap, left hard
-     work/win, late conversion (`>= 20 s`), and avoidable late loss share.
-     States clearly that at least 10 post-coach Standard Expert wins are needed
-     before judging transfer.
-  5. **Sampled state vs Standard Expert:** splits Standard Expert games carrying
-     a `stateSample` by sampled focus (`1/5`–`5/5`) and pace (`calm`,
-     `flowing`, `rushed`, `tilted`).
-
-### Cross-size trace mind-map, visual technique catalog, and ranked traits (built 2026-11-25)
-
-Creator direction (2026-11-25): rank and order all performance traits cleanly
-as a standard part of the site, surface genuinely notable findings
-automatically, show classic visual board examples (including complex
-multi-clue shapes such as a `1-3-1` inner corner) with counts and clean
-vertically aligned numbers, check pointless flagging at the end of wins,
-reconstruct how each game was solved in order, and identify slow solvable
-shapes where moving elsewhere first saves time.
-
-- **What stands out & ranked performance traits (`#training-traits`):**
-  - Surfaces up to 6 high-signal highlight cards only when clear thresholds
-    trigger (pointless endgame flagging, slow solvable shapes tackled while
-    counting moves waited elsewhere, skipped ready `4/5/6/7`s, slow "known"
-    patterns like straight-edge `1-2-1` or interior `1-2`, upper-tail
-    `2.0+ 3BV/s` breakout, post-no-op rhythm slowdown).
-  - Ranks all measured Expert traits by estimated seconds per win left on the
-    table (click efficiency IOE, habit vs physical no-op clicks, abandoned
-    frontier hovers, left-click vs right-click hover dwell, slow solvable
-    shapes tackled past easy moves, post-no-op slowdown, pointless flags in the
-    final 5 safe squares, ready `4/5/6/7` skips, no-flag counting hesitation),
-    using right-aligned digits with aligned unit columns and explicit counts.
-- **Technique & thinking mind-map (`#training-mind-map`):**
-  - Pools up to `100` Beginner, `100` Intermediate, and `80` Expert traced
-    Standard wins off the main thread (`mind-map-worker.js`) using exact
-    `GuardianAngel.proveLevels` proof tiers and layout-mapped pointer samples.
-  - One-step size filter (`All sizes | Expert | Intermediate | Beginner`) —
-    no triple-slash cells.
-  - Inline classic Minesweeper visual mini-board for every technique (with a
-    `yours` / `shape` toggle to inspect a real 5x5 captured position from the
-    player's own games when available), plus `count`, integer `median (ms)`,
-    integer `90th (ms)`, whole-percent `slow (%)` (`>= 600 ms`), whole-percent
-    `easy elsewhere (%)` (`>= 2` counting moves `>= 3` squares away), and an
-    `action` pill tagging slow solvable shapes (`>= 450 ms` with `>= 50%` easy
-    moves elsewhere) as **`bail first`** (`low n` under 5 samples).
-  - **Endgame pointless flagging table:** separate rows for Expert,
-    Intermediate, and Beginner reporting `%` of wins with unused or
-    1-square-only flags in the final 5 safe squares, flags/win, time (`s/win`),
-    and `%` of wins that placed a flag when only 1 safe square remained.
-  - **Single-game thinking trace:** dropdown over the latest 12 replayed Expert
-    wins showing chronological decision episodes (fast local streaks, slow
-    shapes tackled while easy moves waited elsewhere, abandoned frontier
-    hovers, pointless endgame flags, unproven guesses) with exact 5x5 local
-    board snapshots.
-
-### Remaining planned training architecture (creator direction 2026-11-25; not yet built)
-
-Following the initial day of Coach-mode testing and empirical trace audit
-([reference/mind-map-and-coach-eval-2026-11-25.md](../../reference/mind-map-and-coach-eval-2026-11-25.md)),
-the next unbuilt training steps tracked in [BACKLOG.md](../../BACKLOG.md) are:
-
-1. **Deeper shape discovery & decision-order refinement:** expand the
-   single-game thinking trace over time to automatically mine recurring
-   multi-clue shapes beyond the initial 24-technique catalog and refine
-   explanations of why areas were visited in a given order.
-2. **Concentrated sub-board focused pattern practice + transfer test:** drill a
-   specific rare or weak pattern/variant intensely on many very small boards
-   (e.g. `100` mini-boards with rotations, reflections, partial flags, and
-   realistic border clutter, sequenced by response time and accuracy via
-   Perceptual Learning Module / ARTS principles) until automatic, then play
-   `100` full Intermediate games and compare speed on *that exact pattern*
-   before versus after to verify whether concentrated practice transfers into
-   real play.
-3. **Controlled No-Mark sharpening experiment:** test the creator's observation
-   that `15–20 min` of Intermediate/Expert no-mark play when playing fast-but-
-   sloppy sharpens subsequent flagged Expert play (historically `N = 2` long
-   Int/Exp blocks, both positive on `2026-10-11` and `2026-10-14`), using
-   alternating tagged blocks evaluated by `training.html`'s paired-block rule
-   (or `Coach: No-waste` with `Flag cap = 0`).
-
-## Not built
-
-Follow-ons are in [BACKLOG.md](../../BACKLOG.md) under "Training toward
-Expert sub-60".
+- **Timed drills:** [Minesweeper problems](problems.md) provides real-game pattern problems (`problems.html`), the 10-position **Last-flag drill** (1.5-click practice), and the 24-square **Pointing test** (separating pure hand travel from decision hesitation).
+- **Planned unbuilt training work:** tracked in [BACKLOG.md](../../BACKLOG.md#training-coaching-and-mind-map) (automatic multi-clue shape mining and decision-order refinement, concentrated sub-board pattern drills with Intermediate transfer testing, and a controlled No-Mark sharpening block experiment).

@@ -9,7 +9,7 @@ the board size, and shows only for a mode chosen from the other modes menu
 that places mines with a generator (creator request 2026-10-20: "when
 needed, generator shall show up next to the dropdown for mode; ofc, modes
 such as the three default (beginner, intermediate, expert) have no need to
-see this"; [Game setup](board-and-layout.md#game-setup-top-bar-settings-row-and-footer)).
+see this"; [Game setup](board-and-layout.md#navigation-and-progressive-disclosure)).
 It is absent, never silently ignored, in the modes that place their own
 boards: the trials, which deal fixed identities.
 Beginner, Intermediate, and Expert always use the default generator; the

@@ -1,334 +1,132 @@
-# UI doctrine (directives collected 2026-08-23)
+# UI doctrine
 
-Product spec section; index: [PRODUCT.md](../../PRODUCT.md).
+Product spec section; index: [PRODUCT.md](../../PRODUCT.md). App-wide UI
+principles and invariants. Read before building or reshaping any surface.
 
-Player directives given across the settings redesigns, promoted here
-because they apply app-wide, not just where each was first stated.
+## Simplicity and visual restraint
 
-- Simplicity first: prefer the simplest surface that does the job. When
-  explanatory or demonstration machinery accretes around a surface,
-  strip it rather than polish it — the settings demo world (a pretend
-  mid-game that reacted to every switch) was built and removed the same
-  day on this rule.
-- One look per kind of thing (creator direction 2026-10-14, of the then top
-  bar and the details column: "the tags/playstate (music on/off, mouse,
-  computer, mental and physical state) shall not visually be identical to
-  BUTTONS. it's a totally diff datatype after all. 2. why so many similar
-  diffs everywhere? let's make it simpler."). On the game page every action
-  or opener wears one bordered button look and every choice one select look;
-  a fact (today's use against the daily limits, the pixel ratio) is plain
-  text with no border, fill, pointer, or hover. A tag the player has put on
-  a game (a player state, and the measured music state beside them) is a
-  fully rounded sand pill with no pointer or hover (creator 2026-10-20:
-  "they're not buttons, they're tags ... show they're more like props than
-  UI interactive elements"; [Player states](player-states.md)). A fact is
-  never a button's label: the button says
-  what it does and the value sits beside it. A fact the player can change is
-  changed in the one panel its button opens. Found that day: nine CSS rules
-  had each copied the button look with small differences (three border
-  colors, two fills, five paddings), and the Zoom select had none, so it
-  showed the browser's default. Surfaces with deliberate sizes of their own
-  (the position editor's Reset and Done, the other pages' return links)
-  override only what differs. The backup row under the board (export
-  history, export traces, import history, data format, the save-to-file
-  links, and the import panel's apply and open file) wore dotted underlined
-  link text until 2026-10-20, when the creator approved converting it ("yes
-  standardize"); its two panel openers hold the pressed look while their
-  panel is open. Game data's joined pool switch still has its own rule
-  ([BACKLOG.md](../../BACKLOG.md)). The live perf charts' legend entries
-  are their rows' switches as well as their key (creator 2026-10-21: a
-  click shows or hides the row; [During the game](during-game.md)): they
-  keep the legend's look (swatch or mark, name, value, no border) and the
-  pointer their spotlight already had, and a hidden row's name is struck
-  through. A title that opens and closes the block under it is one look
-  and one control everywhere: an arrow before a bold title, pointing right
-  when closed and down when open, the state remembered across games and
-  reloads. It heads live perf charts, game data's two sides, motion stats,
-  and since 2026-10-26 every table and section of the result under the
-  board ([Openers](results.md#openers-creator-request-2026-10-26)); a
-  section's or table's title has a black rule under it.
-- Prefer regular-weight chart names, labels, and values. Use position,
-  spacing, and restrained color to establish hierarchy instead of relying
-  on bolding.
-- One standing scale, one this-game color (creator direction 2026-10-07:
-  "green good red bad"; 2026-10-08: "for charts, keep the green. and let's
-  backport the green to replace blue as the 'this' pointer color";
-  2026-10-15: "lets globally switch 'this' color to light blue, not light
-  green now."). Standing
-  within a pool runs muted green (better) through a neutral light gray or
-  white middle to red (worse) everywhere: rank chips, the game-data bar and
-  histograms, and chart chips. A display whose every value has one standing
-  carries no standing color: ranks won in session reports only top-tenth
-  ranks, so there its ranks are plain text (creator 2026-10-14: "these are
-  not 'this' right? so why green?";
-  [Rank highlights](rankings.md#rank-highlights-built-2026-09-21-recolored-2026-10-07)).
-  This game is light blue (`--this-game`, #87cefa), and nothing else uses
-  it: its table rows and "this" chips (bold black on it, about 12:1), its
-  bar or dot and the pin over it on game data's strips, the ring around a
-  chart linked to a hovered game-data row, its black-ringed dot on the
-  scatter charts, and your mark on the problems page. As a mark, line, or
-  ring on white it has black edges, as the chart dot has its black ring,
-  because the light blue alone is about 1.7:1 on white. A hovered game-data
-  row no longer takes it (creator 2026-10-20: "entirely remove the
-  blue-background when mousing over effect"). It is deeper than the app's pale
-  blues, the pressed toggle fill (#dcecf5) and the session day fill
-  (#d3e7f5), so a this-game row does not read as a pressed control. History:
-  a paler light blue (#cfe5fa) marked this game from 2026-10-07, the charts'
-  fluorescent seconds green (#39ff14) from 2026-10-08, and this light blue
-  from 2026-10-15. The age-unit palette is a separate code and stays as it
-  is: its seconds green still colors other games under a minute old on the
-  scatter charts and the legend's seconds swatch; this game's dot is light
-  blue whatever its age.
-- Contrast, hierarchy, and width (user rules, recorded 2026-09-23): neutral
-  text is pure black on light backgrounds and pure white on dark ones. No
-  gray labels, gray placeholders, or opacity-dimmed text; secondary hierarchy
-  comes from size, weight, spacing, and placement. Headings are larger
-  and/or heavier than the text beneath them. Data values (numbers, times,
-  dates, status) are the most legible element in their region. Primary
-  containers use fluid widths, not fixed pixel caps that leave empty
-  margins.
-- Page-wide standardization sweep (creator-approved "all", 2026-09-23):
-  every neutral text color on both pages is `#000`, including SVG chart
-  ticks, axis labels, outlier notes, and sparkline labels. Semantic hues
-  remain: links, error reds, verdict and report-category colors, the
-  cell-number palette, and the age-unit palette. A gray series keeps its
-  gray line or marker but draws its text in black (`textColor`: the
-  measurement-notes rate labels and the unjudged-ending tooltip). Series
-  focus fades other series' lines, dots, and leaders, never their value
-  labels. Primary containers lost their pixel caps. The action report
-  spans the board column and lays out each category's blocks in
-  auto-fit columns of at least 400px, in reading order. Section titles
-  span their sections. Data-format blocks grow to fill their row. Trial
-  rankings and trial identity cards are uncapped. Headings now outrank
-  their body text: rank-table labels are 14px over 12px rows,
-  measurement-system heads such as "session" are 15px over 14px chart
-  titles, and settings group headings are 15px over 14px setting names.
-  Controls, tooltips, and popovers keep their own size limits.
-- No copies of a visible fact (creator 2026-10-20, of game data's board
-  name heads: "there is already a visible-on-the screen indicator that we
-  are in intermediate mode. it's the fact that Intermediate is already
-  highlighted on top of the whole entire screen! in general, let's avoid
-  copying data from a canonical, visible location, to some other smaller
-  lcoation for "convenience"."). A fact shown in its canonical place (the
-  highlighted preset link for the board, the mode pickers for the mode)
-  is not repeated in a smaller place elsewhere on the page. Different
-  facts may share a word, and a chart may name a measurement it plots;
-  what is banned is a second, smaller copy of the same fact for
-  convenience.
-- Optional instructions and explanatory text must meet both conditions:
-  they add useful information, and they stay hidden until requested through
-  a subtle help affordance, such as a (?) hover tooltip or a control's
-  tooltip. Do not add persistent instructional captions. Omit redundant or
-  obvious guidance entirely; keep useful help brief and factual. This does
-  not hide essential control labels, semantic legends, or error messages.
-- Stat explanations (user direction 2026-09-26: "write them well without
-  clutter"): every displayed stat has one, opened from its name or a (?).
-  Write one or two plain sentences: what the number is (left out where the
-  name and unit already say it; "No fluff in mouseovers" below), then only the
-  defining detail or a caveat that prevents a likely misreading. Do not
-  repeat the label or value, restate what the chart or section heading
-  already says, or include formulas the reader does not need. Rules shared
-  by many items (a ranking formula, tie rules, a comparison pool, a unit)
-  are stated once, in the chart's or section's own help. Use the player's
-  words (click, flag, chord, zero region), not internal names. Each
-  measurement has one definition, reused wherever it appears. The details
-  column's three section titles (live perf charts, game summary perf, board
-  traits) carry no (?) since 2026-10-20 (creator: "remove all three (?)
-  buttosn and mouseovers entirely, not replacing orputting the removed text
-  anywhere; it merely wil lbe gone."); their rows keep their definitions.
-- Player words only: everything a player can read (labels, hints, tooltips,
-  reports, legends, help pages, the README) uses words a player already knows
-  (square, click, chord, flag, number, mine, guess, 50/50) or a name explicitly
-  approved for players. Terms coined while building ("pocket", "sealed",
-  "certified", "bare click", "sea remnant") stay in code and implementation
-  notes; a new coined term reaches players only with approval. Text that
-  explains a rule says what happens to the player, in their words, not how
-  the code decides it. `tests/player-words-test.js` searches every shipped
-  file's prose for the removed terms.
-- Hover must not inject, swap, or reflow page content. Supplementary help
-  may appear as an overlay tooltip on hover or keyboard focus without
-  changing the layout; no action control may be reachable only by hovering.
-  A tooltip never covers the thing it explains (2026-10-26): where it fits
-  neither below nor above it, it opens beside it. A covered label or title
-  loses the pointer to its own tooltip, so its click misses and the tooltip
-  closes and opens again.
-  Two exceptions, the creator's, both on the live perf charts. Hovering them
-  (2026-10-21) shows the hovered moment on the board itself, through the
-  replay's own frame, in place of a second board beside the charts ("that
-  way we don't duplicate teh baord"). Only the board's squares and
-  overlays, the transport's slider and status, and the replay legend at the
-  column's foot change; nothing moves, and leaving the charts restores them.
-  And a line in focus on the chart against the whole game (2026-10-26)
-  relabels that chart's y ticks in the line's values, in place: the plots'
-  left edge already has room for every such label, so nothing moves
-  ([During the game](during-game.md)).
-- No help affordance changes the pointer to the question-mark help cursor
-  (creator 2026-10-08, of the game data rows: "the mouse shall not change to
-  the '?' mark, cause I don't like that"). Requested for game data; applied
-  to every help label, (?) button, and the problems page's help, since the
-  reason given is the cursor itself. The pointer stays the default arrow.
-- No fluff in mouseovers (creator 2026-10-08, of the game data cards: "the
-  first 4 lines are useless since they just state what the user already
-  knows/has on screen. also remove stuff like 'with these boards settings'
-  which are obvious. dont include that pointless actual division equation
-  please ... please just cut all the fluff here for all mouseovers"). A
-  tooltip or card never restates the name, value, percentage, or anything
-  else already on screen; never describes a pool or setting that is
-  obvious from context; never shows arithmetic the reader does not need;
-  and gives a definition only where the name and unit leave the thing
-  open, after the data. It replaced the same day's "measurement
-  explanations" rule (plain lead sentence, worked calculation, percentage
-  arithmetic, example boards) ([Game data](game-data.md), hover card).
-  Example boards came back on 2026-10-20 at the creator's request, as this
-  game's own board in the player's board style showing what the
-  measurement counts, with a key of counts ([Game data](game-data.md),
-  "Strips and example boards"): a picture of the measured thing, not text
-  the screen already shows.
-- No narrated marks (creator 2026-10-08: "'Green line: this game. Ticks
-  under a lifetime or board strip: this session's games.' and similar
-  rather pointless text shall not appear in this project, please"). No
-  caption, key line, or tooltip says what a chart's marks are: which line,
-  dot, tick, bar, ring, or strip stands for what ("Green line: this game.",
-  "Ticks: this session's wins."), how much one dot or bar holds ("One dot
-  per win.", "Each bar spans 0.834s."), or what the axes are ("across is
-  the game's 3BV, up is its solve time"). This game's color is one
-  page-wide convention (above) and needs no key; titles and axis labels
-  name what is plotted. A legend for an arbitrary code still says what each
-  color or style means (the age palette, the trend lines' teal and blue,
-  the game-endings lines, the replay's buttons), and definitions and
-  caveats stay ("Semantic labels are never shortened", below).
-  `tests/chart-captions-test.js` searches every shipped file for the
-  narrating form.
-- A data panel whose content can outgrow its box shrinks to fit rather than
-  growing a scroll bar when the creator asks for no scrolling there (game
-  data, 2026-10-08: "careful not to allow this part of the UI to gain any
-  kind of vscroll bar or hscroll bar").
-- Semantic labels are never shortened: when legend, key, series, color,
-  region, or section text is the unique explanation of what a visual
-  encoding means, render the complete wording. Never truncate it,
-  ellipsize it, replace it with an abbreviation, or require hover to
-  recover it. Wrap the label, expand/reflow the key, use direct labels,
-  or replace the chart legend with a full-text table; available width is
-  a layout resource, not a reason to remove meaning. The former exception
-  for MN and ZOC on game data ended 2026-10-07: game data now says "max
-  number" and "zero-opening coverage", one name per measurement.
-- Layout stability: content appearing or disappearing must not shift
-  unrelated content. "The board never moves" (previous section) is the
-  oldest case of this rule; it holds on every page.
-- Errors are shown (creator 2026-10-21, on learning that a failed odds or
-  proof calculation was caught, noted in the backup status line, and play
-  went on: "why would odds.js ever give errors? or other internal systems?
-  let's investigate and surface those and resolve them."). An internal error
-  is a bug to fix, never a mode to keep playing in. Every page that runs game
-  code shows any error no code handled (a thrown exception, a rejected
-  promise, a script or stylesheet that failed to load) in the error bar: a red
-  bar fixed to the foot of the window, so it covers the page and never moves
-  it, one line per distinct error naming the file and line it came from (an
-  analysis worker's own line for a worker's error; an error the browser
-  raises itself, such as a ResizeObserver loop, has no file and shows its
-  message alone) and how many times it happened, with a dismiss button; the
-  next error shows the bar again. Game
-  code never catches an internal error to carry on: the proof and odds
-  calculations behind a click raise theirs, so that click does nothing and
-  the bar says why. "Not measured" is kept for an outside source that does
-  not answer (the music state while the base system is down). A
-  calculation's work budget is not a designed limit (next rule). Since
-  2026-11-03 the odds count every layout exactly and the proof has no visit
-  limit; the one search with a work limit left is a guess's chance of
-  winning with perfect play, which past it is not computed, never estimated,
-  and whose limit rests on measured timings ([BACKLOG](../../BACKLOG.md),
-  "Deeper than one-move perfect play"). One exception
-  stays, the creator's (2026-10-11): play statistics log a failure to the
-  console and never interrupt play
-  ([Play statistics](hosting.md#play-statistics)).
-- Exact values only (creator 2026-10-22, on the guess ledger: "we definitely
-  shouldn't use such incorrect 'estimates' especially in UIs which present
-  data as true! Note: do NOT ever 'just add a note saying approximately'").
-  A value shown as a fact is computed exactly by its definition. A caption
-  or note ("approximately", "estimated") never stands in for computing it,
-  and "too large to measure" calls for a method that scales
-  ([AGENTS.md](../../AGENTS.md), design requirement 8).
-- No distracting transient duplicates: a live-changing value appears only
-  where it is essential, in one canonical place. Summary tables, rankings,
-  and comparison surfaces show stable completed facts; they do not echo the
-  game timer or add other ticking/readjusting values.
-- Options are never more than one step deep (creator direction 2026-09-26,
-  on the after-game display panel whose lower half was a collapsed
-  "Analysis & chart display" section: "that is TOO DEEP of menus. move this
-  and all such things higher up in the hierarchy, we shouldn't have such
-  deep option config menus and to the extent possible this all shall be
-  centralized and combined logically"). Every option is on the page itself
-  or in the one panel a single bordered button opens. A panel shows all of
-  its options at once: never behind a collapsed section, a "more" toggle,
-  or a second panel. Related options live together in one place, under
-  headings named for what they control, in the order those things appear
-  on   the page. (Until 2026-11-19 a narrow window folded the side column into a
-  Game details popover; since then the details dock flows full-width below
-  the board instead of hiding behind a popover.)
-- Each option in one place (creator 2026-10-21: "rectify the duplication
-  and problematic "double settings location" issue where some settinsg are
-  within "settings" while others are in "overlays & display""; refined
-  2026-11-24 under Option S1 into a clean global vs. local split). Global
-  play, board look, after-game report level (`reportScope`), daily limits,
-  preferences backup, and archive live only on the settings page (`settings.html`);
-  no other surface carries a copy. Every surface's local view composition
-  lives directly on the game page and is not repeated on `settings.html`:
-  the replay's board overlays and mouse path under its transport, each
-  chart's averaging/scale/configure/pool controls on the chart, full
-  score-list columns in the list window, lower result sections/tables/charts
-  in the game page's local `configure results` dialog, and explicit
-  right-click → `hide`/`remove` menus on rows, columns, tables, charts, and
-  section heads (never hover-injected chrome). `tests/settings-one-place-test.js`
-  enforces both directions: game-page code never changes a setting shown on
-  `settings.html`, and `settings.html` never renders the game page's local
-  result-section switches.
-- Defaults show nothing extra (creator 2026-10-20: "beg, int, exp are
-  "all-in-one settings choosers". when a user choose a mode besides those
-  from the dropdown they shoudl only then be presetned with the variant and
-  other options. that way, simple or new users who only want to play the
-  standard modes don't need to be confronted with any other ui elemtns").
-  A choice that is complete in itself, such as a preset board, brings no
-  further controls with it. A choice's own options appear only once that
-  choice is made, beside it, and leave when it is left. One choice is
-  never split over two pickers that must be set together: the play mode
-  and its variants are entries of one menu, not a mode menu plus a
-  variant menu ("simlify the mode pickers. i don't like the current
-  layers wqhich are duplicative and needlessly complex";
-  [Game setup](board-and-layout.md#game-setup-top-bar-settings-row-and-footer)).
-- Global configuration in one place (creator 2026-10-20: "all usre-specific
-  global configuration should be in the same place"). The choices the
-  player sets on the game page for every game (the session window, the
-  board display) sit in one row, at the game page's foot; links to the
-  other pages sit in the footer below it. The two buttons that open the
-  settings page, daily limits and settings, sit together at the upper right
-  instead, by the creator's later requests (2026-10-21: "move "settings" to
-  upper right."; 2026-10-22: "move "daily limits" control button back up to
-  UR"). Live status (today's use against the limits) and per-game context
-  (the player states) are not configuration and stay where play needs them.
-- Clear ways in and out: a surface opens from an obvious bordered button
-  and closes just as obviously — for a page, a visible way back at both
-  the top and the bottom of the body (not tucked at a far edge), plus
-  Esc. Modals and separate pages are allowed; the old "in-page only,
-  never a modal" lock was lifted 2026-08-23.
-- Compact, vertically aligned numbers and visual pattern examples (creator
-  direction 2026-11-25: "I find beg/int/exp triple number displays especially
-  with SO many sigdigs to be overwhelmingly incomprehensible. they are i think
-  salvageable if we: brutally limit sigdigs. include viz examples. make sure
-  digits valign (*i.e. 12.8 above 7%, the 7 and the 1 may not be valigned; the
-  1 must be LEFTERN to the 7 on its own line; because 12 is bigger than 7 (2
-  dig not 1 dig)) ... for the counts of the techniques like 'Wall 1-1 reveal'
-  we also do need counts here please"):
+- **Simplicity first:** prefer the simplest surface that does the job. Strip
+  unnecessary demo or explanatory machinery instead of polishing it.
+- **Defaults show nothing extra:** complete preset choices (Beginner,
+  Intermediate, Expert) show no extra setup controls. Mode-specific options
+  appear only when a non-preset mode is active, in one flat level (never split
+  across redundant mode + variant menus).
+- **No copies of a visible fact:** never repeat a fact already visible in its
+  canonical location (such as the active board preset or mode) in a smaller
+  secondary place for convenience.
+- **No distracting transient duplicates:** live-changing values appear only in
+  one canonical place. Summary tables, rankings, and comparison surfaces show
+  stable completed facts — never echoing live timers or ticking numbers.
+
+## Visual grammar, color, and contrast
+
+- **One look per kind of thing:**
+  - Actions and panel openers share one bordered button style.
+  - Choices share one select/control style.
+  - Live facts (today's limit usage, pixel ratio) are plain text with no
+    border, fill, pointer, or hover effect; a fact is never used as a button's
+    label.
+  - Player state tags and music tags are fully rounded sand pills with no
+    pointer or hover effect (props, not buttons).
+  - Collapsible section/table openers share one control everywhere: an arrow
+    before a bold title (right when closed, down when open), state remembered
+    across games and reloads, with a black rule under section/table titles.
+  - Live perf chart legend entries act as row visibility switches while keeping
+    their clean legend look (swatch, name, value, pointer; struck-through name
+    when hidden).
+- **Regular weight first:** prefer regular-weight chart names, labels, and
+  values; build hierarchy through position, spacing, and restrained color
+  rather than heavy bolding.
+- **Pure black neutral text and fluid width:** neutral text is `#000` on light
+  backgrounds and `#fff` on dark ones (including SVG ticks, axis labels, and
+  notes). No gray labels, gray placeholders, or opacity-dimmed text. Headings
+  outrank body text, data values are the most legible element in their region,
+  and primary containers use fluid widths without artificial pixel caps.
+- **One standing scale, one this-game color:**
+  - Standing within a pool runs muted green (better) through light gray/white
+    to red (worse) everywhere. Omit standing tint when every value shares one
+    standing (for example, top-tenth session highlights stay plain text).
+  - Light blue (`--this-game`, `#87cefa`) marks **this game** exclusively
+    (table rows, chips, chart strips/dots, hover-linked rings, problem marks).
+    Give it a black border on white backgrounds for contrast; never apply it as
+    a hover fill.
+  - Semantic palettes (cell numbers, age-unit colors, verdicts, errors) remain
+    distinct from the standing scale.
+
+## Numbers, labels, and visual clarity
+
+- **Compact, vertically aligned numbers:**
   - Brutally limit significant digits: integers for milliseconds and whole
     percentages, at most one decimal for seconds/rates where useful, and at
     most two decimals for ratios (`3BV/s`, `IOE`), uniform down every column.
   - Never pack triple slash-separated numbers across levels (`Beg / Int / Exp`)
-    into one cramped cell; split them into separate clean rows or a one-step
-    level switcher.
-  - Vertically align digits in every numeric column using `tabular-nums` and
-    right-aligned place values (tens over tens, ones over ones, decimals over
-    decimals — e.g. `12.8%` over ` 7.0%`, never left-aligned `1` over `7`). When
-    units vary within one column, align digits right and units left in a fixed
-    two-column pair.
+    into one cramped cell; split them into separate rows or a one-step level
+    switcher.
+  - Right-align every numeric column with `tabular-nums` so place values stack
+    vertically (tens over tens, ones over ones, decimals over decimals — e.g.
+    `12.8%` over ` 7.0%`, never left-aligned `1` over `7`). When units vary
+    within one column, align digits right and units left in a fixed pair.
   - Show sample counts (`n`) beside every technique/pattern timing or rate, and
-    render a classic Minesweeper visual mini-board beside every technique or
-    pattern name.
+    render classic Minesweeper visual mini-boards beside pattern/technique names.
+- **Semantic labels are never shortened:** never truncate, ellipsize,
+  abbreviate, or hide behind hover any label that uniquely explains a visual
+  encoding or measurement. Wrap, reflow, or widen instead.
+- **Player words only:** everything a player reads uses ordinary Minesweeper
+  terms (`square`, `click`, `chord`, `flag`, `number`, `mine`, `guess`,
+  `50/50`) or explicitly approved names — never internal solver terms
+  (`pocket`, `sealed`, `certified`, `bare click`, `sea remnant`). Explain rules
+  in terms of what happens to the player, not how code computes it. Enforced by
+  `tests/player-words-test.js`.
+- **No narrated marks:** never add captions or tooltips explaining what chart
+  marks are (`"Green line: this game."`, `"One dot per win."`, `"across is..."`).
+  Legends decoding arbitrary color/style codes (age palette, trend lines,
+  replay buttons) and metric definitions stay. Enforced by
+  `tests/chart-captions-test.js`.
+- **Exact values only:** compute every reported fact exactly by definition.
+  Never approximate or add `"approximately"` disclaimers in place of scaling
+  the algorithm.
+
+## Help, hover, and layout stability
+
+- **Useful, hidden optional help:** omit persistent instructional captions and
+  obvious guidance. Keep concise, factual stat explanations (1–2 sentences
+  stating defining details or caveats) behind hover/focus tooltips on names or
+  subtle `(?)` controls. Every measurement reuses its single canonical
+  definition.
+- **No fluff in mouseovers:** hover cards never restate names, values, or
+  obvious context already on screen, and never print unnecessary arithmetic
+  formulas. Visual example boards showing what a metric counts on this game are
+  encouraged.
+- **Default cursor on help:** never change the pointer to the `?` help cursor.
+- **Hover never reflows or covers its target:** never inject, swap, or shift
+  page content on hover, and never hide action controls behind hover. Tooltips
+  open beside their anchor when neither below nor above fits so they never
+  block pointer events. Two narrow exceptions exist on live perf charts:
+  hovering previews that moment in-place on the board's replay frame, and
+  focusing a line relabels y-ticks inside already-reserved margin space.
+- **Layout stability & shrink-to-fit:** appearing or disappearing content never
+  shifts unrelated elements; the board never moves. Panels configured for no
+  scrolling (such as game data) shrink to fit rather than growing scrollbars.
+
+## Options, navigation, and errors
+
+- **Options at most one step deep:** every option lives directly on the page or
+  inside one flat panel opened by a single bordered button (never behind
+  collapsed sub-sections, "more" toggles, or nested panels). Group related
+  options together in page order.
+- **Each option in one place (global vs. local split):**
+  - Global play rules, board look, after-game report level (`reportScope`),
+    daily limits, preferences backup, and archive live only on `settings.html`.
+  - Local view composition (replay overlays/path, per-chart switches, full
+    score-list columns, `configure results` dialog, and explicit right-click
+    `hide`/`remove` menus with Shift+right-click passthrough) lives only on the
+    game page.
+  - Enforced both ways by `tests/settings-one-place-test.js`.
+- **Clear ways in and out:** open surfaces from clear bordered buttons; every
+  subpage provides visible return links at both top and bottom plus `Esc`.
+- **Errors are shown visibly:** unhandled exceptions, rejected promises, failed
+  asset loads, and worker errors surface in the fixed bottom red error bar
+  (file, line, count, dismiss) without shifting layout. Internal calculation
+  failures raise loudly rather than degrading silently (sole exception:
+  `fuseki-stats.js` logs failures to console so statistics never interrupt
+  play).

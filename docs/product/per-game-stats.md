@@ -2,702 +2,101 @@
 
 Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation notes: [docs/implementation/per-game-stats.md](../implementation/per-game-stats.md), [docs/implementation/board-metrics.md](../implementation/board-metrics.md).
 
-Recorded per finished game, win or loss, primary measurements only: end
-date, outcome, time (ms precision, shown as seconds to 3 decimals), 3BV,
-board-changing clicks (`boardChangingClicks`), no-op clicks (`noOpClicks`),
-misclicks, flags placed, flags removed, mouse path (`mousePathPx`, the px of
-cursor travel while the game clock ran), and
-the versioned action-evaluation ledger (`actionEvaluations`), plus
-the finished-board shape facts (max number, whether a 7 is present,
-zero count, island count, largest island). The stored click count includes only
-clicks that changed the board (reveals, flags, chords). Everything else is
-derived at display time: 3BV/s (wins only), clicks over 3BV (clicks minus
-3BV; wins only — a lost board was never finished, so the subtraction means
-nothing), efficiency (3BV / effective clicks, as a percent; wins only, the
-same unfinished-board honesty; the clone name "throughput" is the same
-quantity and no longer has a row of its own), board-changing click share
-(effective / (effective + wasted); omitted when wasted clicks were never
-measured; named "correctness" until 2026-10-15, when the creator chose the
-new name: wrong flags and fatal reveals change the board and count, so the
-community's "correctness" claimed more than it measures, and "click
-efficiency" would read as one of the 3BV-per-click efficiencies), IOS (log(3BV) / log(time in seconds); wins
-only; blank when time is 1s or less, matching minesweeper.online), mouse
-speed (px/s), path / click, path / 3BV (wins only), and (2026-08-22, the per-game
-forms of the session series) click rate (effective clicks per second),
-no-op rate (no-op clicks per second — per minute until 2026-08-23,
-when it followed the session chart's unit move; the rate is derived
-from the stored count, so old and new records alike show the new unit
-with no migration), misclick rate (visible-board
-contradictions per minute), and flag rate (flags placed per second) —
-all derived from the stored counts and time, so they
-appear on historical games too.
+## Goal and display principles
 
-One name, one format (creator direction 2026-10-07, "one name one thing"):
-every row of the label/value table that shows a game data measurement uses
-that measurement's game data name and format, and, like game data, shows a
-completion-dependent measurement only on wins. 3BV/s therefore shows three
-decimals as in game data (formerly four), ZiNi and HZiNi efficiency show as
-percentages, the throughput row (a duplicate of efficiency) is gone, and a
-loss no longer shows 3BV/s, efficiency, or path / 3BV computed from the
-whole board's 3BV. "Mouse path", "Path per click", "Path per 3BV", "Mark
-rate", and "Unused mine marks" became "Path", "Path / click", "Path / 3BV",
-"Flag rate", and "Unused flags". Since 2026-10-26 the rule covers every
-surface: each measurement's name, definition, format, and formula come from
-one catalog ([Measurement catalog](measurement-catalog.md)), and the table's
-flag rate and flag-removal rate, formerly computed by the table itself,
-read it too.
-Regular wins show these measurements through the game-data chart and its
-configuration; the complete replacement inventory is in
-[the game-data design](game-data.md). Losses and trial results retain the
-label/value table: since 2026-10-26 it is the "this game" table among the
-tables under the board, as wide as its rows, rather than a panel spanning the
-details column ([This game's stats](results.md#this-games-stats-creator-request-2026-10-26)).
-Losses are never ranked as completed solves; their measured
-action statistics can join a performance comparison, and prior win rankings
-remain visible below the loss.
+- **Store primary facts once; derive everything else at read time.** Ratios, rates, and shares compute from stored primary counts and timing so unit updates and catalog refinements apply retroactively across old and new records without migrations.
+- **One catalog everywhere:** every measurement's name, definition, format, and formula live once in `GameData.metrics` ([Measurement catalog](measurement-catalog.md)). Regular wins display performance in [Game data](game-data.md); losses and trials display the `this game` label/value table under the board ([Results](results.md)). Completion-dependent metrics (`3BV/s`, `efficiency`, `IOE`, `path / 3BV`, etc.) never compute on unfinished losses.
+- **Absence means `"not measured"`:** fields added on later dates are omitted on earlier records, valid on import, excluded from averages and comparison pools, and never coerced to `0`.
 
-Flagger metrics (added 2026-08-30). Each new record stores the board's
-greedy ZiNi (`zini`, the reference greedy flags-and-chords algorithm's
-click count — the flaggers' counterpart to 3BV, never above it), human
-ZiNi (`hzini`, the same greedy algorithm restricted to already-open cells
-after opening every opening first; ported from the community Rust
-reference in `zini.js` with known-answer tests), and `chordClicks`
-(accepted chords among the board-changing clicks). Both ZiNi fields are
-board facts, so they are stored rather than derived; they are omitted on
-Endgame drill games, where a full-board measure misdescribes the partial
-solve. Derived at display time: IOE (3BV / total board-changing clicks,
-wins only), chord share (accepted chords / board-changing clicks, any
-outcome — how much of the play is chord-driven), ZiNi efficiency
-(zini / clicks, the flagger analog of efficiency, wins only), and STNB
-(difficulty-normalized speed: constant / (time^1.7 / 3BV) with the
-community constants 47.299 beginner, 153.73 intermediate, 435.001
-expert; only defined on those exact board shapes, wins only, and never
-on Endgame drill records). Absent fields on old records follow the
-standard not-measured rules.
+## Schema-boundary dates
 
-Board measurements (2026-09-21, revised to completed scalar benchmarks):
-**This board** shows HZiNi, 3BV spread, 0–1 share, and zero-opening coverage.
-HZiNi uses the existing `hzini` primary record field. Optional versioned
-`boardMetrics` stores `workSpread`, `safeCells`, `zeroOpenedZeroOneCells`, and
-`zeroOpenedCells`. Store measured counts once and derive fractions at display time. No C* proof intervals, RCW simulation,
-hint counts, or simulated guess/mine-hit counts appear in the live results.
-Previously saved research measurements remain in exports without entering
-comparison tables.
+Dates below mark when each stored field joined or changed semantics in saved history:
 
-**Game data** replaces the winning-game scalar stat block in the sidebar.
-It ranks this game's performance against your lifetime and your session on
-the left ("your perf") and the board's measured trait values, in preferred
-directions, on the right ("board traits"). Its 0–100% band places each item
-at 100 × (rank − 1) ÷ (count − 1): the best in its pool is 0% at the top and
-the worst is 100% (user decision 2026-09-23: "if my number here was highest
-the entire session, the value would be 0%, i.e. I was the best").
-Comparisons with fewer than two eligible measured games are omitted entirely,
-with no one-game section or notice (user request 2026-09-26). Since
-2026-10-07 each measurement is one row with its value and its session and
-lifetime percentages in columns, the bar carries the green-to-red standing
-color, and one checkbox list chooses the measurements for both pools
-(earlier: "(session)" and "(day)" label suffixes, pastel colors, and
-separate checkbox columns). Since 2026-10-08 the chart has no heading, one
-options row under the data, a points switch that picks the pool for both
-sides and for every hover card, cards that hold only what the panel does not
-already show (the pool's rank, its games, and a definition where the name
-leaves the measurement open), and no scroll bars. The page's one session
-picker, in the settings row at the page foot, sets the session for this
-chart, the session summary, and ranks won in session together, defaulting to today (since local midnight); the chart has no picker
-(user decision 2026-09-23). The chart includes paginated historical-window
-summaries from saved primary facts. The separate This win/time caption is
-gone. It lives in its own full-height column beside the board column when
-that fits, and otherwise fills the details column's width and remaining
-height (see [Layout](board-and-layout.md)). Replacing other result surfaces
-with it is planned for later (user decision 2026-09-23); see BACKLOG.md.
+| Date | Field(s) / version | Scope / change |
+| --- | --- | --- |
+| `2026-08-19` | `noOpClicks`, `flagsPlaced` | Added (`noOpClicks` named `wastedClicks` and `boardChangingClicks` named `clicks` until `2026-10-27`). |
+| `2026-08-20` | `flagsRemoved`, `guardianAngel`, `guardianAngelEnabled`, `states` | Added (`guardianAngel*` named `justice*` until `2026-11-23`). |
+| `2026-08-21` | `boardShape`, guess ledger (`oddsVersion`), `givenOpening` | Added; pre-boundary trials were all given an opening. |
+| `2026-08-22` | `musicPlaying` | Added (local canonical origin only). |
+| `2026-08-23` | `misclicks`, `actionEvaluations`, `justiceSaves` | Added (`justiceSaves` written only part of that day; accepted on read, never written or shown). |
+| `2026-08-30` | `zini`, `hzini`, `chordClicks`, `cadenceSpread` | Added (`cadenceSpread` stored unrounded from `2026-10-26`). |
+| `2026-09-21` | `boardMetrics` (`workSpread`, `safeCells`, `zeroOpenedZeroOneCells`, `zeroOpenedCells`) | Added (`zeroOpenedZeroOneCells` excludes covered 1s; older `zeroOneCells` is never mixed in). |
+| `2026-09-27` | `firstRevealIndex`, `timeZone`, `utcOffsetMin` | Added. |
+| `2026-10-14` | `flagsBlocked` | Added (daily-limit no-flags penalty). |
+| `2026-10-20` | `moveHabits` (`movesMovedOn`, `movesLeftHardWork`, `movesLeftEasyWork`, `moveGapMedianMs`, `forkMoves`, `forkMovesToNearestArea`) | Added (`movesMovedOn` named `movesRanOut` until `2026-10-27`; older games backfill on restore). |
+| `2026-10-26` | `fastclickGapMs`, `fastclickGapVersion: "planned-pairs-v1"` | Redefined from `<= 1 s` gaps to planned pairs; unversioned earlier values are deleted on load and ignored. |
+| `2026-10-27` | `mousePathPx` (trace-sourced, unrounded), `givenOpeningBv3` | Unified with live perf charts; older records keep page-counted `mousePathPx`. |
+| `2026-11-02` | `oddsVersion: "guess-ledger-v3"`, unlimited solver | Exact layout counting with no work limit; pre-boundary `v1`/`v2` records keep their versioned values. |
+| `2026-11-24` | `flagChordGapMs` | Added (planned short-range `flag → chord` median ms). |
 
-The complete specification, catalog, formula rules, responsive behavior,
-historical data design, and explicit inventory of old stat-block fields no
-longer displayed are in [Game data and the shared session](game-data.md).
-This is descriptive comparison, not a trait–performance correlation model.
+## Core counters and derived metrics
 
-- **HZiNi (Human ZiNi):** begin with the fixed final board,
-  perfect mine knowledge, and no flags. Reveal each zero component once,
-  including its numbered border. Then repeatedly choose the exposed positive
-  clue maximizing `covered safe neighbors - unflagged mine neighbors - 1`,
-  provided the gain is nonnegative; flag its remaining adjacent mines and
-  chord once. Otherwise reveal the next covered safe cell. Ties and direct
-  reveals scan down each column, columns left to right, matching the existing
-  Human ZiNi implementation. Each reveal, flag placement and chord counts
-  once. Stop when all safe cells are open. The resulting integer is an exact
-  deterministic benchmark count, **not a proved global minimum**. No hint,
-  deduction, or guess count is an input. `HZiNi N` ranks winning times at
-  exactly N; existing historical HZiNi values are immediately eligible.
-- **HZiNi efficiency:** `100 * hzini / clicks`, derived in Game stats on
-  wins with positive board-changing clicks. It can exceed 100% if the
-  player beats the greedy benchmark. It measures performance, not a board
-  characteristic or rank percentile.
-- **3BV spread:** the root-mean-square distance from the mean of the 3BV
-  work points, in cell spacings. Each independent safe cell contributes one
-  point; each zero component contributes its zero-cell centroid with weight
-  one. Store the unrounded value; time comparisons round to the nearest
-  0.5 cell, with exact halfway values upward (`round(2 * value) / 2`). The
-  heading gives the group's range, e.g. `3BV spread 2.25–2.75 cells`
-  (2026-10-07; formerly `3BV spread 2.5 cells`); its mouseover gives the
-  underlying measurement to three decimals, the definition, and the range as
-  "from 2.25 cells up to, not including, 2.75 cells". The zero group is
-  clipped at zero.
-- **0–1 share:** open every zero and nothing else, then count only the
-  revealed zeros and ones, divided by all safe cells on the board. Covered
-  ones and revealed clues of two or more do not count. Shared borders count
-  once. No deductions, flags, chords, or subsequent direct reveals are
-  included. With no zeros the share is 0%; with no mines it is 100%.
-  This share cannot exceed zero-opening coverage.
-- **zero-opening coverage:** the union of every zero flood, including all
-  numbered borders counted once, divided by all safe cells. Stop after
-  flooding, before deductions or chords. No zeros means coverage 0%.
-  Both time tables group by the nearest whole percentage point, halfway
-  upward. Compute `floor((200 * numerator + denominator) / (2 * denominator))`
-  from integer counts to avoid binary-ratio tie errors. The 72% group covers
-  [71.5%, 72.5%); 0% and 100% clip to the valid range. Table headings show
-  the group; their mouseovers retain exact numerator/denominator, a percentage
-  to three decimals, and the definition. Stored counts retain full precision.
-  Missing and unsupported measurements stay excluded. These are board
-  fractions, distinct from rank percentiles. Both full tables and recent
-  achievements use these same rounded groups.
+- **Primary stored counters:** end timestamp, outcome, `timeMs` (displayed in seconds to 3 decimals), `bv3`, `boardChangingClicks` (reveals, flags, accepted chords), `noOpClicks` (unsatisfied/empty/covered chords, left-click on flag, solo right press on revealed cell; a both-button chord counts as one click), `chordClicks`, `flagsPlaced` (removals do not subtract), `flagsRemoved` (stored separately from no-ops because both are board-changing events), `misclicks`, `mousePathPx`, and `actionEvaluations`.
+- **Wins-only derived metrics:**
+  - `3BV/s` = `3BV / time_s` (3 decimals).
+  - `clicks over 3BV` = `boardChangingClicks − 3BV`.
+  - `efficiency` = `100 × 3BV / boardChangingClicks` (replaces duplicate `throughput`).
+  - `IOE` = `3BV / (boardChangingClicks + noOpClicks)`.
+  - `ZiNi efficiency` = `100 × zini / boardChangingClicks`; `HZiNi efficiency` = `100 × hzini / boardChangingClicks` (may exceed `100%` when beating the greedy benchmark).
+  - `IOS` = `log(3BV) / log(time_s)` (blank when `time_s <= 1`, matching minesweeper.online).
+  - `STNB` = `C / (time_s^1.7 / 3BV)` with community constants `47.299` (Beginner), `153.73` (Intermediate), `435.001` (Expert); exact standard shapes only, never Endgame drills.
+  - `unflagged mine share` = `(mines − flagsPlaced + flagsRemoved) / mines` (every standing flag at a win sits on a mine; `100%` on markless wins; unmeasured on losses, Endgame drills, and pre-counter records).
+  - `path / 3BV` = `mousePathPx / 3BV`.
+- **All-outcome derived metrics:**
+  - `board-changing click share` = `boardChangingClicks / (boardChangingClicks + noOpClicks)` (never called `"correctness"` because wrong flags and fatal reveals still change the board).
+  - `chord share` = `chordClicks / boardChangingClicks`.
+  - `click rate` (`/s`), `no-op rate` (`/s`), `misclick rate` (`/min`), `flag rate` (`/s`), `flag-removal rate` (`/min`), `mouse speed` (`px/s`), `path / click`.
+- **Markless status (`(m)`):** when `flagsPlaced === 0`, the stats table reads `"0 - markless"` and individual win times carry an olive `(m)` prefix (average-time dots do not). Pre-counter records never claim markless status. Post-game rankings for a no-mark win filter to no-mark games of the same key ([Rank tables](rankings.md#no-mark-wins)).
+- **Trials with a given opening (`givenOpeningBv3`):** 3BV-based performance metrics subtract `givenOpeningBv3` from board 3BV; board traits keep full board 3BV; `ZiNi` and `HZiNi` efficiency are omitted. Pre-`2026-10-27` trials populate `givenOpeningBv3` from their trace on restore and omit 3BV performance metrics until then.
 
-The [full definitions](../../reference/board-metric-definitions.md#9-fixed-opening-first-benchmark-and-exact-opening-first-minimum)
-specify the fixed HZiNi procedure and distinguish the requested globally
-optimal opening-first quantity C₀*: one reveal per opening plus the globally
-fewest remaining actions. An exact tiny-board reference calculator exists;
-a scalable exact production implementation remains research. HZiNi's fixed
-column-major choice is orientation-dependent; 3BV spread, both fractions, and C₀* are not.
-Measurements describe the final layout in modes that can change mines.
+## Board benchmarks and backfill
 
-Analysis runs in one background worker at a time. Results amend only the captured
-history record, including if the player changes modes or starts another game.
-New games supply their captured final layout; older viewed records use their
-saved final-board trace when available and otherwise say the board is
-unavailable. No historical values are guessed. Endgame drills omit these
-full-board measures. Export/import preserves versioned measurements; future
-versions are retained without interpretation or mixing into current cohorts.
-`Backfill saved wins` fills missing measurements for the current mode from
-saved final-board traces, one board at a time, including records that already
-have HZiNi/spread but lack the fractions. The corrected visible 0–1 count is
-stored separately as `zeroOpenedZeroOneCells`: the earlier `zeroOneCells`
-counted all zeros and ones, including covered ones, and never enters corrected
-0–1 comparisons. Those older records need backfill even when they have all
-earlier measurements. Their unchanged spread and zero-opening coverage remain
-usable. Bulk backfill starts only when the player clicks its button.
-A progress bar and text show checked /
-total, measured, unavailable, failed, and remaining counts. A missing trace
-stays unmeasured; an actual calculation/read failure displays its error.
-`Stop backfill` lets the current board finish. `Resume backfill` processes only
-missing measurements. Each completed record is saved
-separately and immediately joins its comparison tables; no whole-batch completion
-is required. Progress is derived from recorded measurements, not a saved cursor.
-After the creator reported recurring completed backfills (2026-09-23) and
-requested a complete fix, availability is derived from an IndexedDB index of
-saved final boards, matched by mode and cell count. Missing traces, traces without
-final boards, and mismatched layouts never enter the bulk queue or button count.
-The source check runs before offering work on each page load; unavailable boards
-cannot resurrect an exhausted batch. No permanent skip flags are stored: restoring
-a board makes its missing measurements eligible again. The index reads only keys,
-not whole input traces; a trace write adds its board to the mode's catalog in
-memory, or has the catalog read again if it was still being read.
-`Resume backfill` and `Paused` appear only after an explicit Stop in the current
-page. After reload, remaining calculable work uses `Backfill saved wins`, preserving
-completed measurements without claiming the player paused. Actual read/calculation
-failures remain visible and may be attempted again after reload; they are never
-recorded as successful measurements or permanent unavailability.
-The progress panel disappears when no calculation is active and no further
-record can be attempted in that operation, including when the remainder has
-unavailable saved boards. It remains available while paused with work left.
-Actual backfill errors remain visible independently of the progress panel.
-Counts cover supported full-board wins in the current score key. The
-`board backfill progress` display switch controls this panel (saved key
-`boardMetricFacts`). Calculation/unavailable/error status remains visible
-independently; the retired standalone value cards have no display switch.
+All board benchmarks describe the **final mine layout** (after any Guardian Angel redraw) and are omitted on Endgame drills (whose remnant does not represent a full board).
 
-Cadence spread (added 2026-08-30, the chosen per-game cadence-consistency
-measure) is stored as `cadenceSpread` on wins and losses alike: the
-interquartile range of all recorded-input gaps (left downs and right
-flag-action triggers, no-ops included) divided by their median — 0 means
-no spread in the middle half; larger values mean greater relative spread. A robust
-dimensionless dispersion was chosen over a coefficient of variation
-because press-gap distributions are heavy-tailed; the IQR/median form
-ignores outlier pauses instead of being dominated by them. Needs at
-least two measurable gaps. It appears as a stats row, as a
-cadence-spread-versus-date relationship scatter (wins with the field,
-Theil–Sen trend on that subset), in game data, the live perf charts, and
-motion stats, and until 2026-10-20 as a session series. Stored unrounded
-since 2026-10-26 (to 3 decimals before), the value the live perf charts
-show ([Measurement catalog](measurement-catalog.md)). Since 2026-10-27 a
-saved game's cadence spread is measured again from its trace whenever its
-result is restored on the game page, so a restored older game holds the
-one computation; the record is written only when the value changed.
+- **ZiNi / HZiNi:** exact deterministic greedy flag-and-chord click benchmarks (`zini.js`), **not** a proven global minimum ($C_0^*$; see [reference/board-metric-definitions.md](../../reference/board-metric-definitions.md#9-fixed-opening-first-benchmark-and-exact-opening-first-minimum)).
+  - **HZiNi procedure:** starting from known mines and no flags, open every zero component once (including numbered borders), then repeatedly pick the exposed positive clue maximizing `covered safe neighbors − unflagged mine neighbors − 1 >= 0` (column-major top-to-bottom, left-to-right tie break), flag its unflagged mines, and chord once; otherwise directly reveal the next covered safe cell. Every reveal, flag, and chord counts as 1.
+- **3BV spread (`workSpread`):** RMS distance (in cell spacings) of 3BV work points from their centroid (weight 1 per independent safe cell and per zero component's centroid). Stored unrounded; comparison tables bucket to nearest `0.5` cell, halfway upward (`round(2 × v) / 2`), naming the half-open interval (e.g., `2.25–2.75 cells`, clipped at `0`).
+- **0–1 share (`zeroOpenedZeroOneCells / safeCells`):** open every zero and nothing else, then count only revealed `0`s and `1`s divided by all safe cells (excludes covered `1`s and clues `>= 2`; cannot exceed zero-opening coverage; `0%` with no zeros, `100%` with no mines). Earlier `zeroOneCells` (which included covered `1`s) never enters `0–1 share` comparisons.
+- **Zero-opening coverage (`zeroOpenedCells / safeCells`):** union of all zero floods including numbered borders, divided by all safe cells. Both share tables bucket to the nearest whole percentage point via exact integer arithmetic `floor((200 × num + den) / (2 × den))` (halfway upward) to avoid floating-point tie error.
+- **Board shape (`boardShape`):** `maxAdjacent`, `hasSeven`, `zeroCount`, `islandCount` (8-connected mine components, diagonals included, no wrap), and `largestIsland` (mine count in largest component).
+- **Worker backfill (`Backfill saved wins`):** runs manually one board at a time in `board-metrics-worker.js`, amending records in place and saving each immediately. Availability derives from an IndexedDB index of saved final boards matched by mode and cell count (missing traces never enter the queue; no permanent skip flags, so restoring a trace re-enables backfill). `Stop backfill` lets the current board finish; `Resume backfill` appears only after an explicit stop in the same session. Errors stay visible and retryable; the progress panel hides once no attemptable work remains (controlled by `boardMetricFacts`).
 
-Mouse path (2026-10-27, creator approval of the agent's recommendation;
-[Measurement catalog](measurement-catalog.md), "Divergences resolved
-2026-10-27"): the record's `mousePathPx` is the cursor travel in the
-game's input trace while the game clock ran, from its start to its stop or
-the last action, whichever is later, counting every cursor observation,
-including those received at the same instant as the next
-([Storage](storage-and-history.md), "Capture provenance v1"); it is stored
-unrounded. The live perf charts' path and mouse speed rows and motion stats
-add the same travel, so game data's path, path / click, path / 3BV, and
-mouse speed are the live charts' whole-game values. Until 2026-10-27 the
-page counted the path itself from document mouse moves while the game was
-in progress and stored it rounded to the pixel, and the trace dropped the
-travel through observations received at one instant, so the two could
-differ. Records saved before then keep their counted path: their traces
-lack those observations, so the trace's travel would be shorter.
+## Timing, cursor, and movement stats
 
-Trials with a given opening (2026-10-27, creator approval of the agent's
-recommendation): a trial presentation that opened a square before the first
-click ([Play modes](play-modes.md), "Trial") stores `givenOpeningBv3`, the
-3BV that opening solved. Every performance measurement that divides 3BV
-(3BV/s, efficiency, IOE, IOS, STNB, clicks over 3BV, path / 3BV) uses the
-3BV the player solved, the board's 3BV less the given opening's, as the
-live perf charts' 3BV solved does; board traits keep the board's 3BV. ZiNi
-and HZiNi efficiency count the clicks of a solve from an unopened board, so
-a game given an opening has none. A trial game recorded before 2026-10-27
-gets `givenOpeningBv3` from its trace when its result is next restored and
-until then shows none of those measurements. Trial games recorded before
-`givenOpening` was stored (2026-08-21) were all given an opening.
+- **Cadence spread (`cadenceSpread`):** `IQR / median` of all recorded press gaps (left downs and right flag triggers, no-ops included; requires `>= 2` gaps). Robust to outlier pauses; recomputed from trace on result restore when changed.
+- **Mouse path (`mousePathPx`):** unrounded pixel travel from the input trace while the game clock ran (start to stop or last action, whichever is later), counting every cursor observation including co-timestamped events. Matches live perf charts and motion stats identically. Pre-`2026-10-27` records retain their page-counted path because their traces dropped co-timestamped observations.
+- **Fastclick gap (`fastclickGapMs`, `planned-pairs-v1`):** median press-to-press milliseconds of **planned pairs** — two consecutive board-changing clicks that the player could decide together, isolating finger/hand speed from sequential reading. Two clicks qualify when all four rules hold:
+  1. *Proven together:* every square opened or flagged by either click was already proven (safe or mine) before the first click, so click 2 needed no new information from click 1.
+  2. *Touching:* click 2's square (for a chord, its number) is one of click 1's 8 neighbors, keeping travel nearly constant.
+  3. *One motion:* no other press occurred between them (including no-ops), and if click 1 opened squares, no `>= 100 ms` gap occurred without a cursor observation before press 2. Flags reveal nothing, so resting after a flag is allowed (covering the 1.5-click).
+  4. *No flag removals:* neither click removes a flag.
+  - Timed press-to-press (right press for flag, left press for reveal/chord, first button down for two-button chord), with no upper time cap. Absent if the game had no planned pair (never fabricated). Unversioned pre-`2026-10-26` values are ignored by the catalog, purged on load/import, and recomputed from traces when old results are opened.
+- **Flag→chord gap (`flagChordGapMs`):** median press-to-press milliseconds of short-range planned `flag-place → chord` pairs in flagged games (`flagsPlaced > 0 && !flagsBlocked`): a flag followed immediately by a chord within Chebyshev distance `<= 2`, no intervening press, with the flagged mine and all chord-opened squares already proven before the flag. Covers single-click, two-button, and 1.5-click chords.
+- **Move habits (`moveHabits`):** counts how the player transitions between work areas across wins and losses (a *move* is a board-changing click `>= 3` squares from everything the previous board-changing click opened/marked and from proven-safe squares within 2 squares of those; [Live perf charts](during-game.md#events-and-move-characterization)):
+  - `movesMovedOn` (local proven-safe work ran out);
+  - `movesLeftHardWork` (local proven-safe squares remained, none provable by single-number counting);
+  - `movesLeftEasyWork` (at least one local proven-safe square was provable by single-number counting);
+  - `moveGapMedianMs` (median gap before a move; absent if no moves);
+  - `forkMoves` (moves while proven-safe squares existed in `>= 2` separate areas, merging squares `<= 2` apart) and `forkMovesToNearestArea` (forks entering the area holding the nearest proven-safe square).
+  - Each kind is stored separately; games saved before `2026-10-20` (or pre-`2026-11-02` work-limited games) compute them when next restored.
 
-Move habits (added 2026-10-20 at the creator's request: "move habits and
-characterization of moves, when ih ave to move since local direction ends
-OR becomes very slow"). Every game record stores, from its trace, wins and
-losses alike, how the player moved between areas of work. A move is a
-board-changing click 3 or more squares from everything the board-changing
-click before it opened or marked and from the proven-safe squares within 2
-squares of those ([Live perf charts](during-game.md), "Events"):
+## Action accuracy, misclicks, and guess ledger
 
-- `movesMovedOn`: moves after those squares had run out (the local work
-  ended), the live perf charts' "moved on" events; named `movesRanOut`
-  until 2026-10-27.
-- `movesLeftHardWork`: moves while some remained, none of which counting a
-  single number proved (the local work had turned slow).
-- `movesLeftEasyWork`: moves while counting a single number had proved one
-  of them safe.
-- `moveGapMedianMs`: the median time from the click before a move to the
-  move; absent on a game without a move.
-- `forkMoves`: moves made while proven-safe squares lay in 2 or more places
-  (squares at most 2 apart are one place).
-- `forkMovesToNearestArea`: those that went to the place holding the
-  proven-safe square nearest the click before.
+- **Misclicks (`misclicks`):** board-changing actions contradicted by facts provable from the visible board at click time (opening a proven mine, flagging a proven-safe cell, unflagging a proven mine, or chording against a visible contradiction). Operational visible-state count independent of outcome; counted at game end in the reports worker.
+- **Likely physical misclick deaths:** separate post-hoc inference that never replaces the fatal action's technical class or `misclicks` count. Qualifies as `likely-misclick-after-wrong-flag` when a still-standing flag on an actually safe cell was placed strictly `< 1,000 ms` (input-event time to input-event time) before the fatal action and `1` square away (orthogonally or diagonally). A second reason (`wrong-button`) is derived from the saved ledger ([Game-end evaluation](game-end-evaluation.md#loss-types)).
+- **Action evaluations (`actionEvaluations`):** sole canonical store of mistakes and deaths (visible board snapshots omit hidden mines; no-op clicks omit board snapshots). Legacy `stupidDeath`, `deathKind`, `deathRisk`, and `deathBestRisk` are import-only, normalized immediately into legacy-provenance evaluations and deleted; runtime code never reads them.
+- **Guardian Angel (`guardianAngel`, `guardianAngelEnabled`):** counts every qualifying entry guaranteed safe whether or not mines moved (strict player-POV rule: hidden redraw counts like historical `justiceSaves` are never recorded or displayed). Stats row reads `"Guardian Angel interventions"`. `guardianAngelEnabled` freezes the setting at first reveal.
+- **Guess ledger (`guesses`, `guessIdealRisk`, `guessNonideal`, `guessPerfect`, `lifeLost`, `lifeNeedless`, `oddsVersion`):** scores every bare non-first reveal whose remaining-layout mine probability is `> 0` (never chords; never Angelic, where guesses cannot kill). Computed at game end in the reports worker via exact frontier dynamic programming with no work limit (`guess-ledger-v3`), comparing exact layout-count ratios with zero rounding tolerance (verified against brute-force layout enumeration tests):
+  - **Life lost:** sum of raw mine probability `p` across guesses (including guesses protected by Guardian Angel).
+  - **Life needless:** sum of `p(chosen) − p(best)`.
+  - **Ideal-risk:** whether `p(chosen) === p(best)`.
+  - **One-move life (`guessPerfect`):** `(1 − p_die) × (1 − E[min next risk])` weighed by consistent whole-board layouts for each possible revealed number, compared across all covered squares including proven-safe ones (under Guardian Angel, `p_die = 0` for this score while raw `p` stays on `lifeLost`). Pre-`2026-11-02` `v1`/`v2` records keep their versioned values.
+  - A scoring error is a bug: judgment halts, the error bar displays it, and the game stays pending for retry on next load. An olive chip at game end reports each guess's raw `p` and `ideal` / `guardian angel` / needless extra.
 
-The kinds are counted separately rather than one as the total less the
-others, since each is its own judgment. They are measured as each
-game ends; a game saved earlier gets them when its result is next restored
-on the game page. Before 2026-11-02 the prover could stop at a work limit,
-and a game where it stopped at a move stored none of them, since that
-move's kind or fork was unknown; the prover now always finishes, so such a
-game gets them when its result is next restored. Game data ranks three of them ([Game data](game-data.md),
-"Catalog and configuration").
+## Reproducibility and play context
 
-No-op clicks (`noOpClicks`, named `wastedClicks` until 2026-10-27; the
-board-changing count was `clicks` until then) — board clicks that changed nothing (chord attempts on
-unsatisfied or empty numbers or with both buttons over an unopened cell,
-left-clicks on flagged cells, right presses on revealed cells that no left
-press joined into a chord; a both-button chord counts as one click, like a
-left-click chord) — joined the record schema on 2026-08-19 (decided
-2026-08-19: tolerate absence going forward). Games recorded before the
-measurement existed simply lack the field: absence means "not measured"
-and is valid on import (a present value must be a number); displays that
-need the value use only records that carry it. Every game recorded from
-now on has it.
-
-Misclicks — board-changing actions contradicted by facts provable from
-the visible board at click time: opening a proven mine, flagging a proven
-safe cell, removing a flag from a proven mine, or chording while a flagged
-neighbor is proven safe or an opened neighbor is proven mined. This is an
-operational visible-state classification, not a claim about intent or what
-the player consciously knew. It is independent of outcome: a fatal
-misclick also appears in the action-evaluation ledger, while a wrong
-flag can be a nonfatal misclick. Stored as `misclicks` on every new game
-record beginning 2026-08-23; older records omit it as not measured. Since
-2026-11-03 the reports worker counts them at game end from the boards the
-trace saved ([Game-end evaluation](game-end-evaluation.md), "When it is
-judged").
-
-Likely physical misclick deaths are a separate post-hoc inference, introduced
-2026-08-28; they do not change that exact visible-state count or replace the
-fatal action's technical classification. A loss qualifies when a flag still
-standing on an actually safe cell was placed less than 1,000ms before the
-fatal action and is one cell away, orthogonally or diagonally, from the
-fatal reveal or chord center. Exactly 1,000ms does not qualify, and removed,
-correct, or more distant flags do not qualify. The fatal report keeps all
-technical mistake tags and adds the measured flag cell, target cell, and gap
-under `likely-misclick-after-wrong-flag`. This is intentionally labeled
-“likely”: hidden-board truth is used only after the game to distinguish a
-motor-slip pattern from a claim about what the player believed.
-Both times are input-event times since 2026-10-11: the flag's from its own
-evaluation, the fatal action's from the board input that made it. Until
-then the fatal side used the moment its evaluation was built, after the
-click's odds work, which could push a real sub-second slip past the
-1,000 ms limit. A second likely-misclick reason, a left click on a proven
-mine just after a chord beside it lacked flags, is read from the saved
-ledger rather than captured; see [Game-end evaluation](game-end-evaluation.md),
-"Loss types".
-
-Flags placed — how many flags the player set during the game (removing a
-flag doesn't subtract) — joined the schema on
-2026-08-19 under the same absence rules as wasted clicks. A game with
-zero flags placed holds the special status "markless": the stats table's
-"Flags placed" row reads "0 - markless", and wherever an individual game's
-time appears in a table chart (rank-list time cells, the stats table's
-Time row) a small olive-green "(m)" precedes it. Average-time chart dots
-carry no marker, since they aggregate games. Records from before the
-measurement never claim the status, since for them it is unknown.
-A markless win is not a separate mode. It is a way of solving the current
-board, and its post-game records are only the other markless games of that
-same history key ([No-mark wins](rankings.md#no-mark-wins-decided-2026-10-14)).
-
-Flags removed — how many flag states the player turned off — joined the
-schema on 2026-08-20 under the same absence rules. Placement and removal
-both changed the board and count as effective clicks; the placement still
-counts in flags placed. Removal is stored separately from no-op clicks
-because they are different observable events. The record does not say why
-either event occurred: a no-op is not automatically a motor slip, and a
-removed flag does not prove a changed mind.
-
-Unflagged mine share (derived, added 2026-10-10 at the creator's request for
-a perf stat of the "fraction of mines which never needed to be marked"): on a
-win, the board's mines with no flag on them over all its mines, which is the
-mine counter at the win over the mine count. At a win every standing flag sits
-on a mine (a flagged cell cannot be opened), so the share is
-(mines − flagsPlaced + flagsRemoved) ÷ mines, derived at read time and never
-stored; a markless win is 100%. Higher is better. Unmeasured on losses, on
-Endgame drills, and on records without the flag counters. It is a game data
-measurement with a property chart, and the label/value table shows it as
-"Unflagged mine share" ([Game data](game-data.md)).
-
-First reveal (`firstRevealIndex`, added 2026-09-27): the cell of the
-game-starting reveal on an unopened board, as row × width + column. With the
-seed, RNG version, and board version it rebuilds the initial mine layout from
-the record alone; before it, only the trace could. Whether that click opened
-a zero is a pure function of the layout and is computed where it is shown
-(the training page's Openings). Absent on Endgame drill games, whose first
-input meets pre-opened cells, and on games recorded before it existed.
-
-Guardian Angel — how many clicks into a guess that nothing else on the board could
-ever settle were guaranteed safe (see [Guardian Angel](guardian-angel.md));
-the stats table's row reads "Guardian Angel interventions" (updated 2026-11-23;
-"Forced coinflips won" from 2026-10-21, "Justice" before) — joined the schema
-on 2026-08-20 (field `guardianAngel`, named `justice` before 2026-11-23)
-under the same absence rules as wasted clicks. It increments on every
-qualifying entry whether the hidden cell was originally clear or required
-a redraw. Zero is a normal value and is recorded; the stats table always
-shows the row when the field exists. Since 2026-11-03 the count comes from
-the reports worker's judgment at game end
-([Game-end evaluation](game-end-evaluation.md), "When it is judged");
-the click saves the redraw in the trace. `guardianAngelEnabled` (named
-`justiceEnabled` before 2026-11-23) records the setting
-state frozen at the first reveal so the rules of the game remain knowable,
-although rankings deliberately continue mixing both states for now.
-
-Guess ledger — on every bare click into a cell whose remaining-layout
-mine probability is greater than zero (not the first click, never a
-chord). A cell that is safe in every consistent layout is not a guess,
-even if local deduction had not yet marked it; clicking it is not
-wrong and does not print a chip. The remaining consistent layouts
-are counted and the click is scored. Since 2026-11-03 the scoring runs at
-game end in the reports worker, from the board the click saved in the trace,
-never on the click ([Game-end evaluation](game-end-evaluation.md), "When it
-is judged"). Stored per game (joined
-2026-08-21, same absence rules as wasted clicks; before 2026-11-02 omitted
-entirely if any guess in the game exceeded the enumerator budget):
-`guesses`, `guessIdealRisk`, `guessNonideal`, `guessPerfect`, `lifeLost`,
-`lifeNeedless`, `oddsVersion`.
-
-Requirement (creator 2026-10-22; [AGENTS.md](../../AGENTS.md) design
-requirement 8; built 2026-11-02, `guess-ledger-v3`, except the rescoring of
-saved games, [BACKLOG](../../BACKLOG.md)): every ledger
-value is exact for every guess in every position. Each is a ratio of layout
-counts, computed by counting layouts (dynamic programming along the
-frontier, with the number a square would show as one more counted
-quantity), never by listing layouts or trying hypothetical boards, so no
-size limit omits the ledger or substitutes a value. Ideal-risk, perfect,
-and ties compare exact counts, with no rounding tolerance. Saved games are
-rescored from their stored positions; not built: a game saved earlier keeps
-the values its `oddsVersion` names.
-
-- **Life lost** (absolute). Each guess costs its mine probability. A 19%
-  death click spends 0.19 lives in the multiverse whether you lived or
-  died. Guardian Angel may still rearrange a covered guess so you live; the
-  0.19 remains on the ledger (the remaining chance you lived was played
-  out, not erased).
-- **Life needless.** Cost above the safest available cell:
-  p(chosen) − p(best). Clicking the ideal-risk spot costs 0 needless
-  life even if that spot is itself a 19% die. This still punishes
-  semi-deaths — picking a 30% when a 19% existed — without punishing
-  ideal play for the world's residual risk.
-- **Ideal-risk / off.** A guess is ideal-risk when it chose a lowest-p
-  cell, off when it did not.
-- **Perfect.** Lowest raw risk is not the same as best play. A 4% click
-  that tells you almost nothing can lose to a 5% click that splits the
-  remaining layouts and leaves a solved board. The stored objective is
-  one-move life (named one-ply expected remaining life until 2026-11-02),
-  the chance of surviving the click and then the safest next square:
-  (1 − p(die)) × (1 − expected min
-  remaining risk after the number that click would show). The expectation
-  weighs each number by the consistent whole-board layouts that show it.
-  When Guardian Angel would certify the cell, death risk for this score is 0 (you
-  will live) but absolute life-lost still uses the raw p. The best value is
-  the highest over every covered square, proven-safe ones included; a
-  proven-safe square's value is never below any guess's, because the
-  expected lowest risk after a safe click is at most the lowest risk now.
-  Since 2026-11-02 (`guess-ledger-v3`) every value is exact for every
-  guess. Games saved before then (`guess-ledger-v2`) keep values from code
-  that was exact only when every covered neighbor of the clicked square was
-  proven or in its group. It stored 1 as the best value beside a
-  proven-safe square, copied ideal-risk into `guessPerfect` past the
-  enumerator budget, omitted the ledger when even p was past it, and stored
-  no one-move life values when its model did not run (since 2026-10-11;
-  earlier evaluations stored bare survival odds for both, which an older
-  full report shows as "tied").
-  Games saved before 2026-10-22 (`oddsVersion` `guess-ledger-v1`) weighed
-  each layout of the clicked square's group once, including layouts the
-  remaining mine count rules out.
-
-A chip (olive, in the Guardian Angel stack, shown at game end like the rest of
-the stack) prints the raw p and either
-`ideal`, `guardian angel`, or the needless extra; its hover text names the
-reason (a provably safe square was available, or the safest square's
-odds). The ledger exists only where the standard mine gamble is real:
-Standard, 3BV countdown, the Trial modes, and the Endgame drill. Angelic
-records no ledger — an unproven click there cannot kill, so a risk chip
-would be fiction. Neither did Proof-or-die (removed 2026-10-21 with the
-other no-guess modes; [Play modes](play-modes.md)), where an unproven
-click was a deterministic death, not a probability. Absence of the fields
-on those modes means "not measured", the usual rule. Until 2026-11-02 a
-guess whose odds exceeded the calculation's budget omitted that game's
-ledger, with no invented odds; since then no guess exceeds it. A scoring
-error is a bug: the game's judgment stops and the error bar shows it
-([UI doctrine](ui-doctrine.md), "Errors are shown"; the game stays pending
-and the next load judges it again; until 2026-11-03 the click stopped, and
-until 2026-10-21 it was noted in the backup status line and the ledger was
-dropped). The odds engine is held to
-ground truth by a brute-force parity test (every consistent layout
-enumerated on small random boards; probabilities must match exactly).
-
-Action evaluations — `actionEvaluations` joined the schema 2026-08-23
-and is the sole in-memory/store representation for action mistakes and
-deaths. It is an array on every new record: empty when a win had no
-recorded reportable action, otherwise one item for each nonfatal measured action
-plus one item for the fatal action on a loss. Every item carries a schema
-version, action number/time, action/result, any number of independent
-mistake tags, literal measured evidence, and alternative cells. Actions
-where position matters also carry a compact visible-position snapshot
-(one character per square, and alternative cells as one comma-joined
-string, since 2026-10-26: [Storage](storage-and-history.md), "Saved boards
-and square lists"); no-op inputs omit it
-to avoid duplicating the board in history. A snapshot records what was visible, not hidden
-mines the player could not see. See [Game-end evaluation](game-end-evaluation.md) for the full
-taxonomy and report.
-
-Legacy `stupidDeath`, `deathKind`, `deathRisk`, and `deathBestRisk` are
-import-only. Loading or importing immediately converts them to one fatal
-action evaluation, records exactly which old representation supplied it,
-removes all four legacy fields, and persists the normalized history.
-`deathKind` can retain its old five-way chart line as provenance;
-`stupidDeath: true` can retain only “legacy avoidable” because inventing
-the missing modern subtype, risks, alternatives, or board would be false.
-An older win with no action ledger becomes an explicit measurement note
-that action coverage is unavailable, not a falsely mistake-free modern
-game.
-No runtime calculation reads either legacy field.
-
-Justice saves (`justiceSaves`) — a historical field written only during
-part of 2026-08-23, counting which Justice entries involved a redraw. It
-was retired the same day by the player's-point-of-view directive: never
-reveal or refer to an "actual" mine reality behind a forced coinflip —
-a forced flip is a forced flip, neither a life nor a death. The field is
-no longer recorded or shown anywhere; the schema still accepts it so the
-records from that day stay valid.
-
-Fastclick gap — the game's median press-to-press time of its planned
-pairs (since 2026-10-26, the redefinition below): two clicks the player
-could decide together, timed as a measure of finger and hand speed. Two
-board-changing clicks in a row are a planned pair when all of these hold:
-
-1. Proven together: every square the two clicks act on (the square a
-   reveal opens, the squares a chord opens, the square a flag goes on) was
-   proven by the visible board before the first click, safe to open or a
-   mine to flag. The second click then needed nothing the first one showed.
-2. Touching: the second click's square is one of the first's 8 neighbors;
-   a chord's square is its number. The movement then stays nearly the same
-   from pair to pair, so the time reads as click speed rather than travel.
-3. One motion: nothing else was pressed between them, a click that changed
-   nothing included; and when the first click opened squares (a reveal or
-   chord), the cursor did not rest before the second press: no 100 ms
-   without a cursor sample, the trace's definition of the hand at rest. A
-   flag shows nothing new, so after one the hand may hold still on the
-   button, as in the 1.5 click (a flag, then a chord on the number beside
-   it with the right button still held).
-4. Neither is a flag removal, a correction rather than a planned click.
-
-Each pair is timed from the first click's press to the second's: a flag's
-right press, a reveal's or chord's left press, or a two-button chord's
-first button down; the same point for every kind of click, as
-finger-tapping tests time taps. There is no time limit. The live perf
-charts' fastclick line plots each pair's time at its second click; the
-record stores their median, rounded to the millisecond (`fastclickGapMs`),
-with the definition it was measured under (`fastclickGapVersion`,
-`planned-pairs-v1`). Stored rather than derived at read time because it
-needs the trace and the board's proofs, which the scalar record does not
-carry. Win or loss alike.
-Absent when the game had no planned pair — slow, careful play is "not
-measured here", never a made-up number. Before 2026-11-02 the prover
-could stop at a work limit before a pair's first click, leaving one of its
-squares unproven, and the game was then not measured rather than measured
-on the pairs that could be judged. Such a game keeps no value: it carries
-the current definition, and restoring a result measures again only a gap
-of an earlier definition. The prover now always finishes. The stats table
-shows a "Fastclick gap" row when the game has a value.
-
-Flag→chord gap (added 2026-11-24, Option W1) — median press-to-press time of
-short-range planned `flag → chord` pairs in flagged games (`flagsPlaced > 0 &&
-!flagsBlocked`): a `flag-place` followed immediately by a `chord` at Chebyshev
-distance `<= 2` (a chord's square is its number), no other press between them,
-with the flagged mine and every square the chord opens already proven before
-the flag. Works across single-click, two-button, and 1.5-click chords through
-`pairClickOf`. Stored as `flagChordGapMs` (rounded ms; absent when the game had
-no qualifying pair), plotted on the live perf charts' relative chart, ranked in
-Game Data, and shown in the stats table when measured.
-
-Before 2026-10-26 the fastclick gap was the median gap between consecutive
-board-changing actions of at most 1 s with a cursor move within 100 ms
-before the later action, each action timed when it took effect (a flag at
-the right press, a reveal or chord at its release; before 2026-09-26 a flag
-took effect at the browser's context-menu event, which Windows fires at the
-release). It joined the schema on 2026-08-22 alongside the session stats
-(removed 2026-10-20), whose fastclick series used the identical
-qualification; on 2026-10-26 it moved from the page's own clock to the
-game's trace ([Measurement catalog](measurement-catalog.md)), and the same
-day to planned pairs. A value of that definition has no
-`fastclickGapVersion`, and nothing read it: every view and the offline
-history summary read the measurement through the catalog, which reads only
-values of the current definition. Since 2026-10-26, loading the history or
-importing a backup deletes such a value. Of the 8,203 games in the
-creator's 2026-10-11 history export, 5,945 held one. The deletion is
-temporary code, removed in a second step once both active players' browsers
-have run it ([Storage](storage-and-history.md), "Storage", changes to saved
-history). Opening an older game's result measures it from its trace under
-the current definition.
-
-Redefinition (creator 2026-10-26; built the same day, the creator asking
-to "make the cahgne to fastclick gap" before the offline comparison the
-plan proposed, so the plan's open choices keep its proposal: touching
-squares only, and every kind of pair pooled; [BACKLOG.md](../../BACKLOG.md),
-"Fastclick gap: planned pairs"). Creator, verbatim: "finally, let's look at and review teh
-definition of fastclick gap. the arbitrary 1s interval seems  badly chosen.
-the actual point is to detect cases where teh player is atually trying to
-"click twice on two squares,  e.g. while moving" and we want to measure
-finger speed. are we sometimes including mistaken intervals such as wehen i
-click, then think as a result of the outcome of the click, calculate, then
-say after 700ms i click again; this is NOT a "fast click" as intended since
-it's just a necessarily bit of sequential work. this is in contrast to e.g.
-when the corner is:
-
-```
-1 1 unkonwn-A, unkonwn-B
-unknown-C, unknown-D, unknown-E
-```
-
-The player from this can recognize taht Unknown-A and unknown-E are
-immediately clickable to open and will often do that; the time it takes to
-do such "precomputed at teh same time" two nearby clicks with a tiny
-movement between them, can be used as an actual piece of the individual
-game perf and body traits of the user. note this down adn then make a plan
-on how to improve it and think about that pleas."
-
-The measurement's purpose, as stated there: the time two clicks on nearby
-squares take when the player decided both before making the first, as a
-measure of finger and hand speed, both for the game and as a lasting trait
-of the player. In the corner, the first 1 sits in the board's corner, so
-its one mine is C or D; the second 1's one mine is then also C or D, which
-leaves A and E safe, both known before either is clicked, and E is one
-square below A. A gap that holds reading the first click's result and
-working out the second is sequential work, not a fast click. The earlier
-definition counted such gaps: the review found that its 1 s cap and its
-on-the-move test admitted them. Planned pairs leave them out by rule 1,
-however fast: a square only the first click's number proved was not
-proven before it.
-
-Seed — every new board receives a cryptographically generated 128-bit seed.
-`xoshiro128ss-v1` expands it into the one deterministic random stream used
-for initial mine placement and every Guardian Angel redraw. Finished records and
-traces store `seed`, `rngVersion`, `boardVersion`, and `guardianAngelVersion` (named `justiceVersion` before 2026-11-23).
-The seed plus board mode, first click, RNG version, and board version
-reproduces the initial board. Reproducing later redraws also requires
-replaying the stored input trace under the recorded Guardian Angel version,
-because redraws consume the stream only when the player's path triggers
-them. A bare seed without those version names is not claimed to be a
-permanent replay format.
-
-Time zone (2026-09-26, for [lifelong self-measurement](measurement.md#lifelong-self-measurement-creator-direction-2026-09-26)):
-every new record stores `timeZone` (the IANA name the browser reported) and
-`utcOffsetMin` (minutes east of UTC applied at `endedAt`). Local time of day
-then stays correct after travel or a move, even if the tz database later
-changes. Older records lack both fields (not measured). Local-time displays
-still use the viewer's current zone; switching them to the recorded zone is on
-the roadmap.
-
-Board shape — facts of the finished mine layout, joined the schema on
-2026-08-21 under the same absence rules: `maxAdjacent` (highest number
-on the board), `hasSeven`, `zeroCount` (cells with adjacent-mine count
-0), `islandCount` (8-connected mine components, diagonals included,
-edges empty), `largestIsland` (mine count in the largest component).
-The stats table shows max number, zeros, islands, and largest island
-when the fields exist. They feed the board-shape time lists.
-
-Music playing — whether this machine heard audio playing during the game
-— joined the schema on 2026-08-22 (decided 2026-08-22). The page cannot
-observe system audio; the machine's resident base system (ProjectLauncher,
-the localhost dashboard's API) can, via PipeWire: playing means some audio
-output stream is running (speech synthesis excluded) AND the speaker mix
-actually carries signal (~0.5s of the default sink's monitor above
--60 dBFS) — stream state alone lies, since some players hold an open
-"running" stream while feeding silence. It serves a cached boolean at
-localhost/api/is-music-playing, rechecked there at most once a minute. On
-the local player origin the game polls it continuously while the page is
-open (every 15s, plus once the moment a board is dealt); the record stores
-`musicPlaying` = true if any answer arriving while the game ran heard
-audio, false if every one heard silence, and no field at all when the
-endpoint never answered (base system down) — absence means "not
-measured", the usual rule. An answer that is an HTTP error or lacks the
-boolean is a broken endpoint, not silence or "not answering": the music
-state clears and the error bar shows it (2026-10-21,
-[UI doctrine](ui-doctrine.md), "Errors are shown").
-
-Local only (creator, 2026-09-26): music detection was an attempt to see
-whether music distracts the player and lowers the score, and it depends on
-the player's own machine. It runs only on the canonical local origin
-(`http://127.0.0.1:8018`). Every other origin — GitHub Pages, fuseki
-hosting, the test origin — never contacts localhost: no request, no browser
-local-network permission prompt for visitors, no chip, and records carry no
-`musicPlaying` field. Hosted copies' Content-Security-Policy does not allow
-the endpoint.
-Because it is a true state of the world, it is also shown live, first on
-the play context line at the top of the details column
-([Player states](player-states.md)): "music on" while the latest answer is
-"playing", "music off" while it is silence (2026-10-14, when the line
-replaced the chips; before that an olive "music" chip showed only while
-playing, so silence and not measured looked the same). It changes within
-about a minute either way, since the base system rechecks at most once a
-minute (worst case ~75s: poll interval + cache age). An unreachable
-endpoint, or an answer without a true/false value, shows nothing and
-measures nothing: unknown is never displayed or stored as silence. It is
-plain text, a measured fact rather than a button, so it takes no clicks. The stats table shows a "Music"
-row (playing / none) when the field exists. Deliberately a boolean, not
-the stream titles: titles are personal data that would live forever in
-records and exports.
-
-A game a daily limit's no-flags penalty dealt without flags carries
-`flagsBlocked: true`, and its stats table shows a "Flags" row, "blocked by a
-daily limit" (2026-10-14, [the penalty](play-limits.md#the-penalty-no-flags-first-creator-request-2026-10-14)).
-
-States — the player's state tags active at the moment the game finished
-(see [Player states](player-states.md)) — joined the schema on 2026-08-20. Every game
-recorded from now on carries the field (an empty list when nothing was
-active); games from before it existed lack it, same absence rules as
-wasted clicks. The stats table shows a "States" row only when the game
-carries at least one tag.
+- **Reproducibility:** every board receives a cryptographic 128-bit `seed` expanded by `xoshiro128ss-v1` (`rngVersion`, `boardVersion`, `guardianAngelVersion`, and `firstRevealIndex` on non-drill boards). Together with board mode, these reproduce the initial board; reproducing later Guardian Angel redraws also requires replaying the input trace under the recorded `guardianAngelVersion`.
+- **Time zone:** `timeZone` (IANA name) and `utcOffsetMin` at `endedAt` preserve true local time of day across travel and timezone database updates.
+- **Player states (`states`):** list of active tag IDs at finish (empty list when none; stats table shows a `States` row only when non-empty; [Player states](player-states.md)).
+- **Daily-limit flag block (`flagsBlocked`):** set when a daily limit's no-flags penalty deals a flagless board; stats table shows `Flags: blocked by a daily limit` ([Daily play limits](play-limits.md)).
+- **Music playing (`musicPlaying`):** local-only boolean on `http://127.0.0.1:8018` (never contacted on hosted or test origins so visitors never receive local-network permission prompts and CSP forbids it). Polls `localhost/api/is-music-playing` every `15 s` plus on deal (backend checks active non-TTS PipeWire stream with live monitor signal above `-60 dBFS`, cached up to 1 min). Stored as `true` if any poll during play heard audio, `false` if all heard silence, omitted if unreachable; HTTP/malformed answers clear live state and surface in the error bar. Displayed live as plain text (`"music on"` / `"music off"`) on the play context line and in the stats table (`playing` / `none`). Deliberately boolean — never records stream or song titles.

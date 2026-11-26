@@ -171,7 +171,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   provenance v1 below separately records physical right-button transitions,
   event times, and page-state observations. Full source-sample preservation
   and complete-attempt retention remain unbuilt; see the
-  [lifelong self-measurement roadmap](../../BACKLOG.md#lifelong-self-measurement-roadmap-creator-2026-09-26).
+  [lifelong self-measurement roadmap](../../BACKLOG.md#lifelong-self-measurement-and-longitudinal-research).
 - Sample timestamps are strictly increasing, by construction (decided
   2026-08-20): browsers reduce performance.now() precision (Chromium
   quantizes to ~100µs), so two mousemove events can read the same
@@ -285,7 +285,7 @@ traces; it does not change the numerical definitions of existing statistics.
 Still pending: one full Pointer Events acquisition stream with coalesced and
 ordered equal-time samples, every button/cancellation, input-to-action links,
 setup identity, viewport/device context, and partial-attempt checkpointing.
-These remain in the [lifelong self-measurement roadmap](../../BACKLOG.md#lifelong-self-measurement-roadmap-creator-2026-09-26).
+These remain in the [lifelong self-measurement roadmap](../../BACKLOG.md#lifelong-self-measurement-and-longitudinal-research).
 
 ## Play history and backup
 

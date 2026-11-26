@@ -2,1026 +2,125 @@
 
 Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation notes: [docs/implementation/game-data.md](../implementation/game-data.md).
 
-Confirmed and implemented 2026-09-23. This records the user's successive
-requirements and clarifications; it supersedes the earlier compact chart draft.
+## Goal
 
-## Position and presentation
+Show at a glance after a win where every measured aspect of your play ranks against your chosen comparison pool (`game summary perf`, left) and how unusual the board itself was among won boards (`board traits`, right), using one shared scale without scrolling or redundant stat blocks.
 
-For regular wins, game data replaces the scalar statistics grid. Since
-2026-10-17 it lives in the one details column right of the board (creator:
-"make the entire rightside (two columns) into one"; [Layout: the board never
-moves](board-and-layout.md)), below "live perf charts" (titled "during
-this game, second by second" until 2026-10-20; creator 2026-10-15: "so it's
-"during this game second by second", "your perf totals for this game", then
-"board traits""; [During the game](during-game.md)), and takes the column
-height left below the outcome line, the controls, and live perf charts.
-After a loss live perf charts fill the column instead, and the loss's
-statistics are the "this game" table under the board (2026-10-26,
-[This game's stats](results.md#this-games-stats-creator-request-2026-10-26)).
-From 2026-09-23 to
-2026-10-17 game data had its own
-full-height column between the board and a 320px details column (user
-decision 2026-09-23: "a full-height column right next to the board"), which
-  the creator found "too compressed" on a laptop. Since 2026-11-19 the
-  details dock sits in whichever flank of the placed board has more room
-  (left or right when at least 320 px fits), and where neither flank fits,
-  live perf charts and game data flow directly below the board at full
-  page width (side by side at 900 px and wider, stacked below) instead of
-  inside a popover.
-It is not repeated among the lower ranking charts. Losses and trial games
-retain their scalar statistics because an unfinished board has no completed
-solve-time or efficiency rank. High scores uses its latest winning game.
+## Placement and layout
 
-The chart supports only one vertical band: "game summary perf" (titled
-"your perf" until 2026-10-15 and "your performance this game" until
-2026-10-20, creator: "rename the 2nd section to "game summary perf"") on the
-left and "board traits" on the
-right, both read against one percentile bar (creator 2026-10-17, after the
-first one-column build had split them into two stat sections with a band
-each: "its necessary / hoped for that "board traits" and "your perf" share
-the same percentile distribution chart"). Each side's title is the button
-that opens and closes that side, remembered across games and reloads
-(creator 2026-10-17, of the details column's stat sections: "each of those
-shall be toggleable open/closed so that we use space well"). A closed side
-keeps only its title, beside the bar on its own side, and the open side
-keeps the bar and takes the room; with both closed the chart is one line
-holding the two titles. Use Arial typography, white background, and
-ordinary controls. The separate "This win" and time caption is removed;
-solve time is the "time" row.
+- **Where it appears:** on regular wins (and High scores' latest win), Game Data replaces the scalar statistics table and sits in the adaptive details dock beneath [live perf charts](during-game.md) (or flows full-width beside/under live perf charts below the board when neither flank fits; [Board and layout](board-and-layout.md)). Losses and trial runs keep scalar stats in the `this game` table because unfinished boards have no solve-time or efficiency rank.
+- **One shared band:** `game summary perf` on the left and `board traits` on the right read against one shared vertical percentile bar. No top chart heading, no `(? )` buttons, and no repeated board/mode/generator names (the page header and pickers already show them). Solve time is the `time` row.
+- **Collapsible sides:** each side's title toggles that side open or closed (remembered across reloads). A closed side collapses to its title beside the bar while the open side takes the space; with both closed, the chart collapses to a one-line bar holding the two titles.
+- **No scrolling:** neither the band nor distributions view ever gains scrollbars at any viewport size. With both sides open, the band stays side-by-side when it fits and stacks `board traits` under `game summary perf` (each with its own bar on the right) whenever stacking requires less shrinking; text and geometry scale down together to fit.
+- **Compact footer options:** one row beneath the chart holds the `compared with` picker, `distributions`, and `configure`. `show values` and `session history` live inside `configure` to keep narrow docks single-line. `configure` and `session history` provide top/bottom back buttons and close on `Escape`.
 
-Rows and columns (creator review 2026-10-07, revised 2026-10-08; unified to
-one comparison pool 2026-11-23 — creator: "in the 'game summary perf' we
-hsould also have things like this as optoins: rank percentile within this
-boards's 3BV. and others; i.e. the perf numbers, but scoped to the board
-metrics. Also we should ahve like, time this session, week, day, etc not just
-'time ever'" and "hmm i think we should get rid of the lifetime/session
-distinction ACTUALLY. that way we reduce the complexity."):
+## Percentile band, columns, and ranking
 
-- One row per measurement, in aligned columns (revised 2026-11-24 — creator
-  condensed both side `%` columns into a non-linear middle bar, added compact
-  rank order on scoped performance rows, and added won-board rank order on
-  board traits):
-  - **`game summary perf`** (left): name and value (2 columns; heads: the pool
-    name, `"value"`). On a scoped performance row whose base measurement is
-    also shown, the value cell shows its compact competition rank order in that
-    pool (`1st / 29`, ties `2nd / 29 (tie)`, constant `all 29`) instead of
-    repeating the measured value shown on the base row; if the base row is
-    hidden, the scoped row keeps the measured value.
-  - **`board traits`** (right): name, value, and rank (3 columns; heads:
-    `"won boards"` / `"session wins"` / `"<window> · wins"`, `"value"`,
-    `"rank"`). The value cell holds the board's measured trait (`62`) and the
-    rank cell holds its farthest-up competition rank among won boards
-    (`152nd / 412 (tie)`, untied `130th / 854`, constant `all 50` — revised
-    2026-11-25 to remove tie ranges while keeping the midpoint dot on the bar
-    and the full exact tie span on hover, with `(tie)` trailing outward on the
-    far edge away from the bar).
-  - Both side `%` columns are removed from the band view: the non-linear middle
-    bar carries the standing scale and its labels (`1st`, `0.1%`, `1%`, `5%`,
-    `10%`, `25%`, `50%`, `75%`, `90%`, `95%`, `99%`, `99.9%`, `last`), and each
-    row's hover card shows its exact rank and tail-aware percentage. Neither
-    side repeats the board's name (Board name, below). From 2026-10-07 to
-    2026-11-23 the performance side carried two percentage columns ("session"
-    and "lifetime") and dropped the unplotted one when narrow; from 2026-11-23
-    to 2026-11-24 each side carried one percentage column.
-- Labels are black and uncolored. Names, values, ranks, and bar labels are all
-  regular weight; values and ranks are one size larger than names in tabular
-  digits (values right-aligned, board-trait ranks left-aligned so trailing
-  `(tie)` sits on the outer edge), so the measured values and ranks stay the
-  most legible text. Every row is one line.
-- The bar carries the color and standing scale: green (better) through white to
-  red (worse) at each percentile's true standing color, plotted on a symmetric
-  regularized logit scale $\ln((p + 0.1) / (100 - p + 0.1))$ (creator
-  2026-11-24: *"at the top, 0.01% is diff than literally 1st/best ever is dif
-  than 1% so we need more resolution at the end"*; *"note that in this world,
-  NOT every emasurement will have its exact value shown; but we'll be ablet to
-  see which region it's in (very good, bad, etc.)"*). Non-overlapping milestone
-  ticks (`1st`, `0.1%`, `1%`, `5%`, `10%`, `25%`, `50%`, `75%`, `90%`, `95%`,
-  `99%`, `99.9%`, `last`, plus finer tail/middle ticks when zoomed) are printed
-  inside the bar in black. Leaders run from each row directly to its exact
-  point on the bar's edge, where a dot marks it; spare horizontal column width
-  stretches drawn sides' leaders outward from the bar so labels use the full
-  visible width and leader lines stay shallow and traceable, and hovering or
-  focusing a row spotlights its leader and dot while fading the other leaders
-  and dots (never the text labels; revised 2026-11-24).
-- One "compared with" picker (`gameDataPool`, default `all`, labeled "all
-  games") in the options row chooses the pool for both the band and the
-  distributions view, and every hover card. It offers:
-  - **all games** (no-mark wins: "all no-mark games", column/card "no-mark");
-  - **session** (follows the one page-wide session picker at the foot of the
-    page);
-  - **time windows** (sharing the rank tables' exact boundaries): past hour,
-    today (since local midnight), past week (7 calendar days), this month,
-    in `<year>`, last 365 days;
-  - **this board** (games matching one of this board's traits, sharing the
-    This board tables' exact matching buckets): 3BV, ZiNi, max number, HZiNi,
-    3BV spread (0.5-cell band), 0–1 share (rounded whole %), zero-opening
-    coverage (rounded whole %), islands, largest island, and zeros.
-  A measurement without two measured games in the chosen pool is simply
-  omitted (no "Not ranked in this session yet" notice). On the board-traits
-  side, all games and every time window apply as on the performance side;
-  board-match pools don't apply there (ranking 3BV among same-3BV boards is
-  always a tie), so the board-traits side compares against all games whenever
-  a board-match pool is picked.
-- **Scoped performance rows (creator 2026-11-24):** in addition to the
-  "compared with" picker, the player can add any number of extra scoped rows
-  to `game summary perf` (`gameDataScopedRows`, default empty) so multiple
-  scopes plot simultaneously as their own dots on the 0–100% bar alongside
-  the base rows (creator: *"on the left 'game summary perf' in addition to
-  time, we'd have things also like: time/3bv which would should the percentil
-  of games which had this 3bv ... meaning that we are in the top 38% of times
-  of solve boards of 3bv==12, although globally we're in the top 25%. etc.
-  and i'd be able to pick and choose and perhaps add many l;ike also add my
-  time given the zeros count, time given this islands count etc."*).
-  - Each scoped row is named `<measurement> · <pool>` (for example `time ·
-    3BV 12`, `time · zeros 33`, `time · islands 4`, `time · past week`,
-    `click rate · 3BV 12`), shows its compact competition rank order
-    (`1st / 29`, ties `2nd / 29 (tie)`, constant `all 29`) in the value column
-    whenever its base
-    measurement row is also shown (or keeps this game's measured value when the
-    base row is hidden — creator 2026-11-24, Option 1A), plots its own dot on
-    the band, opens a hover card for its own pool (`3BV 12: 35th of 94 wins ·
-    37%` plus its distribution strip), and gets its own strip directly beneath
-    its base measurement in distributions view.
-  - A scoped row whose pool matches the active "compared with" pool while the
-    base measurement is also shown is suppressed rather than plotted twice.
-  - In `configure`, `time in specific pools` offers one-click checkboxes for
-    `time` across all 17 non-all pools (session, the 6 time windows, and the
-    10 board-match traits), and `other scoped measurements` adds or removes
-    any other performance measurement in any of those pools.
-- Names are the standard names (one name per measurement, creator direction
-  2026-10-07): "max number", "zero-opening coverage", "islands", never MN or
-  ZOC.
-- Responsive: both sides share one row around one bar while they fit, then,
-  with both sides open, stack board traits under your perf, each with its own
-  bar and its rows on the bar's left. The band never scrolls: of those
-  layouts it takes the one that needs the least shrinking (side-by-side on a
-  tie) and scales its text and geometry together to fit its box. A title
-  wider than its columns stays centered over them, and the band's width keeps
-  room for it (2026-10-17, when the titles gained their open/close arrows).
+- **Percentile formula:** every item sits at `100 × (rank − 1) / (measured count − 1)` — the share of other measured games that beat this one, so `0%` (best) is at the top and `100%` (worst) is at the bottom.
+  - The current game counts in its pool. Measured ties share mean ordinal ranks, except solve-time ties which retain earlier-finish order. A constant pool has no ordering and sits neutrally at `50%`.
+  - Comparisons require at least two measured games in the pool; otherwise the row is omitted silently (no placeholder notice). Missing values and undefined divisions are excluded, never converted to `0`.
+- **Logit standing bar:** plotted on a symmetric regularized logit scale $\ln((p + 0.1) / (100 - p + 0.1))$ so near-record ranks (`1st`, `0.05%`, `0.1%`, `1%`) stay visually distinct from ordinary top-10% runs. Colored continuously green (better) through white to red (worse) at each percentile's true absolute standing color.
+  - **Autozoom:** pads the visible points' logit range by `5%` (at least `0.35` logit units) and snaps outward to standard milestones (`0, 0.01, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 95, 98, 99, 99.5, 99.8, 99.9, 99.95, 99.99, 100`). Labels (`1st`, `last`, decades, quartiles, finer zoomed ticks) place inside the bar in priority order, skipping collisions. Zooming never shifts absolute standing colors.
+- **Tail-aware percentage formatting:** everywhere a Game Data percentage prints (band hover cards, distributions `%` column, chart chips, accessible labels), `0%` is reserved strictly for 1st (`p === 0`) and `100%` strictly for last (`p === 100`). Values inside `(0, 1)` and `(99, 100)` keep one significant tail digit (`0.4%`, `0.02%`, `99.6%`) so near-record runs never round down to `0%`.
+- **Band columns and typography:** pure black regular-weight Arial on white, one line per row, tabular digits, values and ranks one size larger than names (no side `%` columns in band view; exact ranks and percentages appear on hover):
+  - **`game summary perf` (left):** pool name, `value` (right-aligned). On a scoped performance row whose base measurement is also visible, `value` displays its compact competition rank in that pool (`1st / 29`, `2nd / 29 (tie)`, `all 29`) instead of repeating the measured number; if the base row is hidden, it shows the measured value.
+  - **`board traits` (right):** won-boards pool name, `value` (right-aligned), `rank` (left-aligned farthest-up competition rank among won boards: `130th / 854`, `152nd / 412 (tie)`, `all 50`, keeping `(tie)` on the outer edge away from the bar; the bar dot marks the tie midpoint and hover shows the full tie span).
+- **Leaders and spotlighting:** leaders connect each row to its exact point and dot on the bar (minimizing squared label displacement while exact dots never move), stretching outward across spare width to keep angles shallow. Hovering or focusing a row spotlights its leader and dot while fading other leaders and dots — never fading text labels and never adding a blue hover fill behind rows.
 
-Revision 2026-10-08 (creator, of the band at 2560 px: "top 'game data' -
-remove. options - condense top options and bottom options, out of the way.
-your perf and board traits - center, each above their side of the viz.
-remove 'boards' from right side ... remove the bolding of the numbers - no
-point to it", "we should be careful not to allow this part of the UI to gain
-any kind of vscroll bar or hscroll bar", and "the mouse shall not change to
-the '?' mark"), built the same day:
+## Comparison pools and scoped rows
 
-- No chart heading. The band starts with "game summary perf" and "board
-  traits" (Section titles, below), each centered over its own side's
-  columns. Since 2026-10-17 each title opens and closes its side. A (?)
-  beside each title opened help saying what its side's percentages are
-  (the share of the other games or boards that ranked better, a tie
-  counting as half; for board traits, better meaning each trait's declared
-  preferred end) until 2026-10-20, when the creator removed both, with
-  their text, and the live perf charts' (?): "remove all three (?) buttosn
-  and mouseovers entirely, not replacing orputting the removed text
-  anywhere; it merely wil lbe gone." Until 2026-10-17 the title itself
-  opened the help.
-- Every chart option sits in one compact row under the data (slimmed on
-  2026-11-24, Option L3): the "compared with" picker, "distributions", and
-  "configure". "show values" and "session history" live inside `configure`
-  (removing the duplicate footer button and keeping the footer single-line in
-  narrow docks). Configuration and session history keep a "back to game data"
-  button at their top and bottom.
-- Nothing in the band or the distributions view scrolls, at any panel or
-  window size: both scale to fit (below). Configuration and session history
-  take their natural height. The details column's own scrolling, when its
-  contents need more than the window's height, is unchanged.
-- No help affordance changes the pointer to the question-mark help cursor
-  ([UI doctrine](ui-doctrine.md)).
+- **One `compared with` picker (`gameDataPool`, default `all games`):** drives both views and all hover cards. Every pool filters to the same board size, mine count, play mode, and generator (and only no-mark games on a no-mark win), through this game's finish (or through now in High scores and old-game review):
+  - **all games** (`no-mark` on no-mark wins);
+  - **session** (follows the page-wide session picker at the foot of the page);
+  - **time windows** (matching rank-table boundaries): `past hour`, `today`, `past week`, `this month`, `in <year>`, `last 365 days`;
+  - **this board** (matching This-board table buckets): `3BV`, `ZiNi`, `max number`, `HZiNi`, `3BV spread` (0.5-cell band), `0–1 share` (rounded whole %), `zero-opening coverage` (rounded whole %), `islands`, `largest island`, `zeros`.
+- **Board-traits background:** ranks the board's own trait values among **won boards** in the chosen time window or session, or across **all won boards** whenever `all games` or a board-match pool is selected (ranking a trait inside its own matched bucket would always tie). Raw unrounded trait values rank without bucket rounding.
+- **Scoped performance rows (`gameDataScopedRows`, default empty):** optional extra rows in `game summary perf` named `<measurement> · <pool>` (e.g., `time · 3BV 62`, `time · past week`, `click rate · islands 4`), each plotting its own dot on the band, its own hover card, and its own strip beneath its base measurement in distributions view. A scoped row whose pool matches the active `compared with` pool while its base row is shown is suppressed rather than plotted twice. Configured via `time in specific pools` (all 17 non-all pools) and `other scoped measurements`.
 
-Geometry (layout pass 2026-09-23, after the user found the chart "crushed
-and badly displayed" in a fixed 320px column; heights revised 2026-10-17):
-the chart uses the whole width of the fluid details column
-([Layout: the board never moves](board-and-layout.md)). It fills the height
-left below the controls and live perf charts, so its
-options row stays on screen, keeping at least 240px per open side (480px
-with both); the column scrolls below that. Configuration and session
-history take that height as one view, at least 480px. The bar is 40px wide at full size (it scales with the band; widened from 32px
-on 2026-11-24 to fit tail labels like `0.05%` and `99.95%`); rows are fitted to
-their exact points with minimum squared displacement, and exact percentile
-points never move. Text is pure black on white, including ticks, controls,
-and disabled buttons.
+## Distributions view, strips, and hover cards
 
-Hover card (built 2026-10-07; rebuilt 2026-10-08, then cut back the same
-day). The creator first asked that each card "explain what the
-number/stat/perf item is and really show how it is calculated exactly",
-then that it follow the points switch ("in session mode, the bars etc.
-should reflect SESSION info"). Of the rebuilt time card the creator then
-said: "I confirm that the first 4 lines are useless since they just state
-what the user already knows/has on screen. also remove stuff like 'with
-these boards settings' which are obvious. dont include that pointless
-actual division equation please. Get the point? please just cut all the
-fluff here for all mouseovers around here". So a card holds only what the
-row and the panel do not already show or say. Hovering or focusing a row
-opens it over the band, never reflowing it; the row itself takes no hover
-background (creator 2026-10-20: "entirely remove the blue-background when
-mousing over effect"), and keyboard focus keeps an outline. In order:
+- **Better on the left:** every distribution strip and hover card puts its preferred end on the left. Higher-is-better measurements descend left-to-right (`3BV/s: 3, 2.5, 2, …`); lower-is-better measurements ascend normally. A row's percentage equals the share of games left of this game's pin. (Lower scatter/property charts keep standard ascending x-axes.)
+- **Distributions view:** replaces the band with one aligned strip per row under `game summary perf` and `board traits` (columns: pool name, optional `value`, strip, `%`). Strips expand vertically to fill available height when fewer rows are shown; only if even the minimum strip height (`25 px`) overflows does text shrink with the strips.
+- **Strip rendering:**
+  - Pools of `<= 30` games draw a stacked dot plot at exact values (provided the tallest stack fits with `>= 4 px` dots); otherwise histogram bars (`<= 24 px` max bar width so constant pools stay narrow).
+  - **Discrete vs continuous binning:** whole counts, integer milliseconds, and safe-cell shares bin whole groups of possible values (`<= 60` values get 1 bar each; wider ranges group equally to ~36 bars) so histograms never show comb artifacts. Continuous measurements use 36 equal bins.
+  - **Linear clipped range:** x-axis spans Tukey whiskers `[Q1 − 1.5·IQR, Q3 + 1.5·IQR]` tightened inward to the furthest in-fence values (full range if `n < 8`; narrowest 90%-mass window if `IQR === 0`). Outliers past the fence are omitted from drawing (never folded into edge bins), while ranks still count every game and an out-of-fence current game pins to the edge. If the tallest bar is `>= 6×` the second tallest, the second bar draws at half strip height (shorter bars scaled proportionally) so point masses never crush the rest of the distribution.
+  - Time-window pools (including `session`) draw on the all-games axis and bins so window shifts stay visible; board-match pools draw on their own axis and bins.
+  - Every strip displays x-axis ticks and marks this game's dot or bar in `--this-game` light blue edged in black beneath a light-blue pin. No key line narrates the marks ([UI doctrine](ui-doctrine.md)).
+- **Hover cards:** show only facts not already visible on the row (never repeating name/value, worked arithmetic, or mark legends):
+  1. Exact pool rank (plus tail-aware `%` in band view).
+  2. Pool distribution strip (band view only; distributions view already draws it inline).
+  3. **This game's board** (when the measurement counts board items and the game has a saved board/trace; omitted in score viewer and Endgame drills), drawn in the player's chosen board style (`5–20 px`/cell) with marks and count key:
 
-1. The chosen pool's rank (plus its tail-aware percentage in the band, where
-   rows no longer print `%`), the card's largest text: "all games: 19th of
-   1,201 wins · 1.5%", "session: tied 3rd–5th of 56 games · 5%", "3BV 75: 4th
-   of 22 wins · 14%", or for a constant pool "all games: all 50 won boards
-   have this value · 50%". In distributions view, where each row already prints
-   `%`, the card keeps the rank alone. The population word is wins, games, or
-   won boards.
-2. In the band only, the pool's games on the measurement's axis, drawn as
-   the distributions view's strips are (Strips and example boards, below).
-   A distributions row already shows its strip, so its card does not draw
-   it again (creator 2026-10-20: "if mousing over shows more detail, but
-   the space given to that mouseover popup is smaller than the original
-   allocated space, yet it's more detailed, that's weird. why not just
-   always show the better version"). No key line names the marks (removed
-   2026-10-08, below).
-3. This game's board showing what the measurement counts, with a key of
-   counts, where the measurement has one (Strips and example boards,
-   below).
-4. Last, a definition, only where the name and unit leave the measurement
-   open, and never opening with its name: misclick rate, fastclick gap,
-   click rate, efficiency, no-op rate, board-changing click share, IOE, ZiNi and HZiNi
-   efficiency, IOS, STNB, mouse speed, cadence spread, unused flag share,
-   unflagged mine share,
-   and the board traits ZiNi, HZiNi, 3BV spread, 0–1 share, zero-opening
-   coverage, islands, and largest island. Time, 3BV/s, path / 3BV, path /
-   click, 3BV, max number, and zeros have
-   none. The configuration list shows the same definitions, and so does
-   every other place a performance measurement appears: each is the
-   measurement catalog's one definition, worded to hold for the whole game
-   and for any stretch of it ([Measurement catalog](measurement-catalog.md)).
+| Measurement | Marked on this game's board | Key |
+| --- | --- | --- |
+| `3BV`, `3BV/s`, `efficiency`, `IOE`, `IOS`, `STNB`, `path / 3BV` | each opening's squares (yellow), each number outside openings (ring) | N openings, M numbers outside them |
+| `ZiNi`, `HZiNi`, and their efficiencies | solve's clicks (ring), chords (dot), flags (yellow) | N clicks, N chords, N flags |
+| `max number` | squares holding it (yellow) | none |
+| `3BV spread` | work points (dots), RMS spread circle around centroid | N work points, spread around center |
+| `0–1 share` | 0s and 1s revealed by openings (yellow) | N of S safe squares |
+| `zero-opening coverage` | squares revealed by openings (yellow) | N of S safe squares |
+| `islands` | every mine (yellow) | none |
+| `largest island` | mines in largest island (yellow) | none |
+| `zeros` | every 0 (yellow) | none |
+| `misclick rate` | each misclick's square (ring) | N misclicks |
+| `no-op rate`, `board-changing click share` | each no-op click's square (ring) | N no-op clicks |
+| `unused flag share` | each unused flag (yellow) | N unused flags |
+| `unflagged mine share` | each unflagged mine at win (yellow) | N of M mines unflagged |
+| `time before a move` | destination of each move (ring) | N moves |
+| `moves leaving easy work` | move destinations (ring), proven-safe squares left (yellow) | N moves leaving easy work, M safe left |
+| `forks to the nearest area` | destination of each fork move (ring) | N forks |
 
-Removed by the cut (2026-10-08): the name-and-value title, the "This is …"
-plain sentence (added earlier the same day in answer to the creator's
-"also, things like the mouseover chart for 'time' saying 'this is your time
-from start to the win'"), definitions of self-evident measurements, this
-game's worked calculation, the example boards (back since 2026-10-20, drawn
-from this game's own board), the direction sentence (the
-histogram's "better →" stayed until 2026-10-11, below), the pool descriptions "so far with these
-board settings" and "this session (last hour)", the percentage arithmetic
-("17 ÷ 123 = 13.8%"), and the "Chart below" line (hovering still outlines
-that chart). Every pool holds only games with this game's board settings,
-and the row already shows the name, value, and percentage.
-
-Removed later the same day (creator: "'Green line: this game. Ticks under a
-lifetime or board strip: this session's games.' and similar rather
-pointless text shall not appear in this project, please"): the card's key
-line ("One bar per value.", "Each bar spans 0.834s.", "One dot per win.",
-"Ticks: this session's wins.", "Green line: this game.") and the line under
-the distributions strips ("Green line: this game. Ticks under a lifetime
-strip: this session's games."). The key's last part, a count of games
-beyond the 1st–99th percentiles ("2 wins beyond the 1st–99th percentiles
-are not drawn."), went with it: the rank above the chart counts every game,
-and the count only described the drawing. The marks are unchanged
-([UI doctrine](ui-doctrine.md), "No narrated marks").
-
-The chosen pool comes from the "compared with" picker: its rank, dots or
-bars, and their colors all come from that pool's games with these board
-settings (same size, mines, mode, generator), up to this game (or now when
-viewing an older win in High scores). Wins-only measurements count matching
-wins, action measurements matching wins and losses, and board traits matching
-won boards (or all won boards when a board-match pool is picked). Time-window pools
-(including session) draw on the all-games axis and bins, so switching windows
-shows where the window sits in overall play; a game past that range pins the
-axis end. Board-match pools draw on their own axis and bins, so a narrow
-same-3BV pool fills its strip instead of compressing into a sliver of the
-all-games range. Any pool needs two measured games; with fewer, the
-measurement is omitted. A small pool (at most 30 games) draws one dot per
-game.
-
-Better on the left (creator decision 2026-10-11, built the same day to try
-it). On 2026-10-08 the creator asked about the mixed sides ("some have
-good(green) on left, others on right. I do know the reason for that though
-and it makes sense too"), and each axis kept its numeric order while the card
-printed "better →" or "← better". On 2026-10-10 the creator asked "what if we
-flipped (left/right) some of the distributions, so that rather than some
-being left-green, right-red, and others revesred, they all had this
-property, that the green end of the distribution were drawn on the left
-side?", and of the resulting proposal: "I mean, i don't think this logically
-is good at all. let's try this please."
-
-- Every strip and card draws its better end on the left. A higher-is-better
-  measurement's axis runs from its highest value at the left to its lowest
-  at the right, so its axis labels descend (3BV/s: 3, 2.5, 2, …);
-  lower-is-better measurements, time among them, keep their numeric order.
-- A column of strips reads by position alone. A row's percentage, the share
-  of the other games that ranked better, is the share of its strip's games
-  left of the line (a tie counting half), and the best comes first, as in
-  the band, whose 0% is at the top.
-- The card's "better →" / "← better" is removed: it would read "← better"
-  on every card.
-- The your-perf and board-trait charts keep numeric order on x (their tick
-  values and trend lines read that way), so a mirrored row's strip runs
-  opposite to the chart its hover outlines.
-
-Bins (creator question 2026-10-08: "how do we choose bucketsize? i saw what
-might be artifacting on our 3bv count ones"). It was an artifact: whole
-counts spanning more than 60 values went into 36 equal bins whose width
-was not a whole number, so bins alternately held one or two possible
-values and the 3BV histogram drew a comb that was not in the data (the
-0–1 share and zero-opening coverage histograms, steps of one safe cell,
-had the same fault). Since 2026-10-08 a discrete measurement bins whole
-groups of its possible values: whole counts and whole milliseconds (step
-1), and the two shares of safe cells (step one cell, the same for every
-board with these settings). Up to 60 possible values get one bar each;
-wider ranges get equally many values per bar, for about 36 bars.
-Continuous measurements keep 36 equal bins. Axis labels sit at round
-values.
-
-Drawn range (creator 2026-10-11, of the misclick strip and the other
-strips flattened the same way: "so compressed horizontally i'm having
-trouble seeing the actual meaningful part"). A log axis was considered
-and not used. The tail that flattens a strip is not a smooth
-multiplicative scale — a per-minute rate in particular explodes on a game
-that lasted a few seconds — and a log axis would still spend most of an
-unlabeled strip on that tail, while a bar would stop covering a fixed
-interval. The strip stays linear. Its range is the box-plot whisker, the
-same fence path colors and the scatter y-axes use: Q1 − 1.5·IQR through
-Q3 + 1.5·IQR, then in to the most extreme values that still fall inside,
-so the axis is not padded with empty bins out to the fence itself. Fewer
-than 8 values leave the fence unstable, and the whole range is drawn.
-When the interquartile range is 0, at least half the values are one
-number and there is no whisker; the narrowest window that still holds
-90% of the values is drawn, so a point mass keeps the tail beside it
-instead of the strip collapsing onto the mass. Values past the fence are
-not drawn and are not folded into an edge bin. The rank still counts
-every game. This game does not stretch the axis; its pin past the fence
-sits on that edge. The value column still shows the untrimmed number. Bar height stays proportional to the count,
-except when the tallest bar is at least six times the next: that next bar
-is drawn at half the strip and shorter bars keep their ratios to it, so a
-point mass (most games at one value) does not flatten every other bar to
-a pixel. The tallest bar stays the tallest.
-
-Distributions mode (built 2026-10-07; the creator: "switch distributions
-mode is incredible, too!", and "showing both optionally is good. e.g. in the
-distribution mode ui there would just be a section for 'session' and another
-for 'lifetime'"): the saved "show distributions" checkbox replaces the bar
-with one strip per measurement in sections. Each row reads name, value
-(when shown), its strip, and the percentage. All strips share one left edge and width across sections, and
-a measurement keeps its catalog position in every section. A row's card
-shows its own section's pool.
-
-Pools and strips that fill the height (creator 2026-10-08: "plus, i want if
-i remove items then the remaining ones should expand vertically to fill the
-space! it's vital, since that way i can see things more nicely"; unified to
-one pool on 2026-11-23):
-
-- The same "compared with" picker in the options row drives both the band
-  and the distributions view; each side gets one group under its title, with
-  no "both" option. From 2026-10-08 to 2026-11-23 a separate "pools:
-  lifetime | session | both" switch (formerly "sections") stood in the
-  options row while distributions were shown.
-- No strip ticks the session's games under its axis (until 2026-10-20 the
-  lifetime strips did), no key under the strips names the marks (removed
-  2026-10-08), and measurements without two games in the chosen pool are
-  simply omitted (no "Not ranked in this session yet" notice).
-- The strips take all the height the rows leave: every strip gets the
-  tallest height at which the view still fits its box, so hiding
-  measurements (configure) or a side (its title) makes the remaining strips
-  taller. The text keeps its size; only when even the shortest strip (25 px:
-  pin, plot, ticks, and their labels) does not fit does the view shrink, its
-  text and strips together. The view never scrolls (2026-10-08). The plot
-  takes the extra height; the pin, ticks, and labels keep their size.
-
-Board name (creator request 2026-10-15, built the same day; removed
-2026-10-20): "dosession timings (in distribution view) include ONLYthat
-sizze game? i thinkthey should. e.g. beginner, intermed etc. ) make it
-clear to users with a subtle indicator too." They already did: every pool,
-lifetime and session, on both sides and in both views, holds only games
-with this game's board settings (size and mines, mode, and generator), and
-a no-mark win's pools only its no-mark games
-([No-mark wins](rankings.md#no-mark-wins-decided-2026-10-14)).
-
-- From 2026-10-15 to 2026-10-20 the indicator was the board's name
-  ("Beginner", "Intermediate", "Expert", or "Custom 20x20-60") heading one
-  name column per view. The creator then removed it: "remove duplicated
-  text "intermediate" hey, let's talk. why did this come bakc? it
-  shouyldn't have. there is already a visible-on-the screen indicator that
-  we are in intermediate mode. it's the fact that Intermediate is already
-  highlighted on top of the whole entire screen! in general, let's avoid
-  copying data from a canonical, visible location, to some other smaller
-  lcoation for "convenience"." It had come back through the 2026-10-15
-  request above. The highlighted preset link, or the other modes menu and
-  the mode options row for any other board, is the indicator; no head
-  repeats it ([UI doctrine](ui-doctrine.md), "No copies of a visible
-  fact").
-- Mode and generator were never repeated in the heads: their pickers show
-  them (creator 2026-10-19: "no need to name mode, it's in the picker.").
-- The distributions view's percentage heads and row labels use the pool
-  names, so a no-mark win's groups read "no-mark" and "no-mark session" as
-  the band's heads do. Until 2026-10-15 they read "lifetime" and "session"
-  even there, against the No-mark wins rule.
-
-### Section titles (creator 2026-10-15; revised 2026-10-20)
-
-"the section labels are wrong. The top which says "session" beginner shoulds
-say "your performance this game, within this session"", in the same message
-that put "during this game, second by second" above game data and named the
-column's order: "during this game second by second", "your perf totals for
-this game", then "board traits" ([During the game](during-game.md)). On
-2026-10-20: "rename the 2nd section to "game summary perf"", "someone added
-back in "within your lifetime" to each distribution section again. remove
-that agani.", and "remove topline "your games" which is pointless". Now:
-
-- Both views: "game summary perf" over the performance side and "board
-  traits" over the board side; each title is the button that opens and
-  closes its side (since 2026-10-17). In the distributions view each heads
-  its side's groups.
-- Distributions view: one group per side, with no pool title line of its own
-  (the former "both" option and two-group layout were removed on 2026-11-23).
-  Its column heads are the pool name ("all games", "session", "past week",
-  "3BV 75", "no-mark", "no-mark session", "3BV 75 · no-mark" on performance;
-  "won boards", "session wins", "past week · wins", "no-mark wins", "no-mark
-  session wins" on board traits) over the measurement names, "value", empty
-  over the strips, and "%".
-- The band: performance column heads are the pool name and "value"; board
-  traits column heads are the won-boards pool name, "value", and "rank". Both
-  sides read their percentiles on the shared middle bar.
-
-### Strips and example boards (creator 2026-10-20)
-
-Creator, verbatim: "redo the vertical "two horizontal blue black bars bewteen
-blue" indicator which i don't get what it means at all", "on the mouseover
-of each distribution, entirely remove the blue-background when mousing over
-effect. and rather than re-drawing the entire distribution in some other new
-way, why aren't we just using that way to draw it in the first place? like,
-if mousing over shows more detail, but the spasce given to that mouseover
-popup is smaller than the original allocated space, yet it's more
-detiale,d that's weird. why not just always show th better version and not
-have any mouseover? if mouseover isn't adding anything? actually, mouseover
-can have a function - many of them have text + (should ahve visible UI
-examples of what the nmber or trairt means (using mine boadr drawing code
-which uses the same exact visual styule as the suers' currently chosen
-board style!)). those board trait inline sparkline charst MUST have xticks,
-come on!" Built the same day:
-
-- A strip is drawn at its row's own size in pixels, not stretched to it,
-  and is the full drawing: a pool of at most 30 games draws one dot per
-  game at its exact value (touching dots stack) when its tallest stack
-  fits the strip with dots at least 4 px wide; otherwise, and for a larger
-  pool, bars count the games per value range. Dots and bars are colored by
-  standing, as before. No bar is wider than 24 px at full size, so a pool
-  holding one value is one bar at that value, not a bar across the strip.
-- X ticks: every strip has tick marks under its axis with their values,
-  9 px at full size; a label that would crowd the one to its left is left
-  out, with its tick. The band's cards draw the same strip at card size.
-- This game: its own dot, or the bar holding its value, in the this-game
-  light blue edged in black, under a small light blue pin at its exact
-  value. The pin replaced a full-height light blue line between two black
-  edge lines, which the creator could not read. A game past the fence pins
-  the axis end.
-- The card adds this game's board where the measurement counts something
-  on it: the finished board as the game board shows it, drawn with the game
-  board's own squares in the player's board style (number display, number
-  size, flag style, flag size, flag color strength, mine style, mine size), every mine no flag
-  covers shown as a mine, sized to fit the card (5 to 20 px a square). Marks
-  on its squares show what the measurement counts: a yellow square
-  background, a magenta ring, a small magenta dot in a square's corner, and
-  for 3BV spread its work points as magenta dots with a magenta circle of
-  the spread around their center. A key under the board gives each mark's
-  count where the name and value do not already give it:
-
-  | Measurement | Marked | Key |
-  | --- | --- | --- |
-  | 3BV, and 3BV/s, efficiency, IOE, IOS, STNB, path / 3BV | each opening's squares (yellow), each number outside every opening (ring) | N openings, M numbers outside them |
-  | ZiNi, HZiNi, and their efficiencies | the solve's clicks (ring), chords (dot), flags (yellow) | N clicks, N chords, N flags |
-  | max number | the squares holding it (yellow) | none |
-  | 3BV spread | work points, their spread around the center | N work points, their spread around the center |
-  | 0–1 share | 0s and 1s the openings reveal (yellow) | N of S safe squares |
-  | zero-opening coverage | squares the openings reveal (yellow) | N of S safe squares |
-  | islands | every mine (yellow), so touching groups read as islands | none |
-  | largest island | its mines (yellow) | none |
-  | zeros | every 0 (yellow) | none |
-  | misclick rate | each misclick's square (ring) | N misclicks |
-  | no-op rate, board-changing click share | each no-op click's square (ring) | N no-op clicks |
-  | unused flag share | each unused flag (yellow) | N unused flags |
-  | unflagged mine share | each mine without a flag at the end (yellow) | N of M mines unflagged |
-  | time before a move | where each move went (ring) | N moves |
-  | moves leaving easy work | where each move leaving easy work went (ring), the proven-safe squares those moves left (yellow) | N moves leaving easy work, M proven-safe squares left |
-  | forks to the nearest area | where each move at a fork went (ring) | N forks |
-
-  Time, click rate, fastclick gap, mouse speed, path / click, and cadence
-  spread count nothing on the board and have no example. A no-op click
-  with no square (outside the board) is counted in the key but not marked.
-  The examples need this game's board and trace, so they appear only for
-  the game just played or restored, not in the score viewer, and not for
-  an Endgame drill, whose measurements cover only its remnant; a trace
-  without recorded clicks has the board traits' examples only.
-- The 2026-10-08 cut removed example boards from the cards as fluff
-  (Hover card, above). These are this game's own board, not a generic
-  illustration, so they show the measured thing rather than restating the
-  screen ([UI doctrine](ui-doctrine.md), "No fluff in mouseovers").
-
-Linkage to the charts (creator: "this linkage should be very tight and
-clear"): each your-perf and board-trait chart heading carries a chip, "this
-1.784 · 55%", with this game's value and standing in the chosen pool on the
-standing color; its tooltip is the card's rank ("all games: 19th of 1,201
-wins", or the chosen pool).
-Hovering or focusing a game-data row outlines the charts that plot the same
-measurement. Hovering or focusing a board-match scoped performance row (such as
-`time · 3BV 62` or `click rate · 3BV 62`) also rings the paired `board traits`
-row (`3BV`) across the bar, and hovering or focusing a `board traits` row rings
-every matching board-scoped performance row on the left (creator 2026-11-24). A
-game summary perf row's hover also spotlights that measurement's line and event
-marks in the live perf charts, and hovering one of those lines or legend
-entries rings the row (creator request 2026-10-26;
-[Measurement catalog](measurement-catalog.md), "Hover link").
-
-The user intends game data to supersede many other result elements. Label
-wording and placement beside the board were settled on 2026-09-23 (above).
-Which elements it replaces is deferred ("later"); BACKLOG.md "Game data as
-the primary result surface" tracks it.
-
-Autozoom works in the bar's logit space: it pads the visible points' logit
-range by 5% (minimum 0.35 logit units) and snaps outward to nice percentage
-milestones (`0, 0.01, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 25, 30, 40, 50,
-60, 70, 75, 80, 90, 95, 98, 99, 99.5, 99.8, 99.9, 99.95, 99.99, 100`), bounded
-to 0–100%. Milestone labels are placed in priority order (`1st` and `last` at
-the ends, then decades, quartiles, and finer zoomed steps), omitting any tick
-that would collide with a higher-priority label. Green, white, and red retain
-their absolute rank meaning when zooming; a 40% endpoint does not become red.
-
-Tail-aware percentage formatting (creator 2026-11-24): everywhere a Game Data
-percentage is printed (band hover cards, distributions `%` column, chart chips,
-and accessible labels), `0%` is reserved strictly for 1st (`percentile === 0`)
-and `100%` strictly for last (`percentile === 100`). Values strictly inside
-`(0, 1)` and `(99, 100)` keep one significant tail digit (`0.4%` for 2nd of
-241, `0.02%` for 2nd of 5,001, `99.6%` for 240th of 241) so strong near-record
-ranks never round down to `0%`.
-
-"show values" (formerly "show actual value") is a saved checkbox in the
-options row. It immediately toggles the value column. Values are this
-game's measurements, not the aggregate of the chosen comparison pool. Hiding
-them changes neither rankings nor the zoom range. Hovering, focusing, or
-clicking a row still opens its card.
+  4. Catalog definition, only where the name and unit leave the measurement open (`time`, `3BV/s`, `path / 3BV`, `path / click`, `3BV`, `max number`, and `zeros` omit one; [Measurement catalog](measurement-catalog.md)).
+- **Tight chart linkage:**
+  - Every lower your-perf and board-trait chart heading carries a standing-colored chip (`this <value> · <pct>`) with exact rank tooltip.
+  - Hovering or focusing a Game Data row outlines matching lower charts, pairs board-scoped performance rows (`time · 3BV 62`) with their matching `board traits` row (`3BV`) across the bar (and vice versa), and spotlights matching lines/events in [live perf charts](during-game.md) (and vice versa).
 
 ## One session definition
 
-There is exactly one page-wide setting, `sessionDefinition`, and exactly one
-picker for it (user decision 2026-09-23: "there shall only be one session
-length picker? i think it should be in the upper left"). Requested behavior,
-all implemented the same day:
+- One page-wide setting (`sessionDefinition`) and one picker — in the settings row at the page foot ([Board and layout](board-and-layout.md)).
+- **Default:** `today` (since local midnight — distinct from `last 24 hours`).
+- **Choices:** last 10/30 minutes, last 1/2/4/24 hours, today, today since 6am, last 7 calendar days (local calendar boundaries, inclusive endpoints ending at the game's completion).
+- **Single label:** Game Data, session history, session summary, and `ranks won in session` all read simply `"session"` with no local picker and update in place when the foot picker changes.
 
-- **Where the picker is.** In the settings row at the page foot, labeled
-  "session", with the rest of the player's global configuration (creator
-  2026-10-20: "all usre-specific global configuration should be in the same
-  place";
-  [Settings row](board-and-layout.md#game-setup-top-bar-settings-row-and-footer)).
-  From 2026-10-14 it was in the top bar at the page's upper right (creator
-  request: "move the session definition to the upper right fully; there's
-  no point to having it as the single only thing in the UL!").
-  It reads "session today". The switch cost line's session estimate
-  follows it ([Switch cost line](#switch-cost-line-creator-request-and-approval-2026-09-28-under-game-data-since-2026-10-20)).
-  From 2026-09-23 to 2026-10-14 it was the value of the "session" heading
-  at the top of the left stats panel, removed on 2026-10-20
-  ([Session stats](session-stats.md)). The former top-of-board-column
-  chooser and the mirrored selectors in session stats, ranks won, and game
-  data are removed.
-- **Default "today".** Today means back to the most recent local midnight
-  (the user: "meaning back in time to midnight the night before"). It does
-  not mean the last 24 hours, which stays a separate choice.
-- **The other surfaces merely say "session".** Game data's session
-  comparisons, its session history, the session summary, and "ranks won in
-  session" use the one picked value and carry no picker or window name of
-  their own; changing the picker regenerates each in place. The user:
-  "Both the latter things should merely say 'session' and the value used
-  should be the single one picked in the dropdown!" The session summary's
-  and ranks won's help tooltips name the current window and point to the
-  picker; game data's no longer do (2026-10-08, Hover card above): the
-  picker shows the window.
+## Catalog, directions, and defaults
 
-Saved preferences are stored in full, so a profile saved under the old
-last-hour default keeps "last hour" until the picker is changed once.
-The former independent recent-placements and played-time window
-preferences and Clear-session override are removed.
+`configure` provides one-column checkboxes for performance measurements and board traits (independent of lower result-table switches), plus `time in specific pools`, `other scoped measurements`, `show values`, and `session history`. If nothing is checked on either list, the chart reads `"Nothing chosen to rank: choose measurements or board traits with configure."`. All measurement names, definitions, formats, and formulas come from `GameData.metrics` ([Measurement catalog](measurement-catalog.md)).
 
-Choices: last 10/30 minutes, last 1/2/4/24 hours, today, today since 6am, and
-last 7 calendar days. Calendar boundaries use local time. The shared
-`SessionScope.bounds` and `SessionScope.records` implement inclusive endpoints.
-Completed-game comparisons and historical session windows end at that
-game's completion, excluding future records; the switch cost line's session
-estimate ends at now. The ranks-won summary retains its selected
-report/reference date. Endpoints at the cutoff remain eligible.
+### Board traits (right side)
 
-## Ranking and direction
+- **Shown by default (8):** `3BV` (lower), `ZiNi` (lower), `max number` (higher), `HZiNi` (lower), `0–1 share` (higher), `zero-opening coverage` (higher), `islands` (lower), `zeros` (higher).
+- **Off by default (2):** `3BV spread` (lower), `largest island` (higher).
+- Directions are declared preferences (more opening coverage, fewer benchmark clicks, mines clumped tightly), not causal difficulty claims.
 
-The graph places each item at `100 × (rank − 1) / (measured count − 1)`: the
-share of the other measured games that beat this one. The best in its pool is
-0% at the top of the chart and the worst is 100% at the bottom (user decision
-2026-09-23, replacing the earlier top-share `100 × rank / count`, whose first
-place showed 100/N%: "if my number here was highest the entire session, the
-value would be 0%, i.e. I was the best"). Rank 2 of 3 is 50%.
-The selected game counts in its comparison population. All measured ties
-share mean ordinal ranks except solve-time ties, which retain earlier-finish
-order. A constant metric has no preference ordering and is shown neutrally
-at 50%. Comparisons require at least two eligible measured games, including
-the selected game. With fewer measurements, omit the statistic entirely:
-no point, label, "Only one measured game:" section, or replacement notice
-(user request 2026-09-26). Apply this per metric and pool, to lifetime,
-session, and board-trait comparisons; other eligible rows remain visible.
-Missing facts and undefined divisions are excluded, never converted to zero.
+### Performance measurements (left side)
 
-Every item's card is listed under "Hover card" above: the chosen pool's
-rank, its games on the measurement's axis, and a definition only where the name leaves the measurement open. The worked
-calculations, example boards, and percentage arithmetic added earlier on
-2026-10-08 were cut the same day as fluff; the 2026-09-26 direction "write
-them well without clutter" holds. The side titles' help states the
-position formula once. This chart does not estimate correlations or
-attribute time to board traits.
+- **Shown by default (13):**
+  - *Lower is better:* `time`, `misclick rate`, `fastclick gap`, `flag→chord gap`, `no-op rate`, `unused flag share`, `time before a move`, `moves leaving easy work`.
+  - *Higher is better:* `3BV/s`, `click rate`, `board-changing click share`, `mouse speed`, `unflagged mine share`.
+- **Optional (off by default, 19):**
+  - *Lower is better:* `path / 3BV`, `path / click`, `cadence spread`, plus the 9 rate metrics below.
+  - *Higher is better:* `efficiency`, `IOE`, `ZiNi efficiency`, `HZiNi efficiency`, `IOS`, `STNB`, `forks to the nearest area`.
 
-Each performance row ranks **this game's** metric against the chosen pool
-(`gameDataPool`: all games, session, a time window, or games matching one of
-this board's traits) within the same size, mine count, play mode, and
-generator. Historical comparisons end at the selected game (or now when
-viewing an older win in High scores).
-
-Right-side markers rank **board values themselves**, not solve times within
-matched-trait pools. Background is **won boards** in the same category through
-this game's finish (creator decision 2026-11-24: *"we still want the same thing
-as now on the 'board traits' area, and it still should focus on the board's
-traits (not the players's speed) but i mean we also here want to know how that
-trait (e.g. a specific board 3bv number) ranks within all won boards, by the
-order defined for that trait"*; until 2026-11-24 losses were included): the
-chosen time window when a time window or session is picked, or all won boards
-when all games or a board-match pool is picked. Preferred ends (creator
-decision 2026-09-23): higher 0–1 share, zero count, max number, largest island,
-and zero-opening coverage; lower 3BV, ZiNi, HZiNi, 3BV spread, and island count. A preferred board opens a lot
-from zeros, needs fewer benchmark clicks, and keeps its mines in one dense
-clump that can show a high number. These are declared preferences, not
-claims about a trait's causal difficulty.
-Raw spread/share measurements rank without rounded comparison buckets.
-Which traits get markers is chosen in configure (Catalog and configuration,
-below), apart from the This board tablecharts since 2026-10-14; until then
-each marker followed its tablechart's shown-things switch. The 3BV spread
-marker is off by default (user decision 2026-09-23: "i don't think we need
-to show 3bv spread by default"), as is largest island.
-Binary clue-presence and capped max-number table families do not duplicate
-the max number row. Identical time-table memberships do not collapse distinct scalar
-traits on this chart. Matching-board solve-time tables remain a separate analysis.
-
-Left-side performance directions: lower time, misclick rate, fastclick
-gap, no-op rate, path, cadence spread, unused flag share, the nine
-measurements added 2026-10-20, time before a move, and moves leaving easy
-work (Catalog and configuration, below); higher 3BV/s, click rate, the
-efficiency family, board-changing click share, IOS, STNB, mouse speed,
-unflagged mine share, and forks to the nearest area.
-
-## Catalog and configuration
-
-The in-element configuration screen is one column of checkboxes, one per
-measurement (2026-10-07; formerly separate session and lifetime columns,
-replaced when every row came to show both): each chosen measurement is
-compared with both lifetime and the session. An "all performance
-measurements" checkbox sets them all; a mixed selection shows an
-indeterminate state. Each choice, the plotted pool, distributions mode, and value
-visibility persist in the common preference schema and export. A saved
-profile's former selections carry over: a measurement either former column
-showed stays shown. Back buttons and Escape return to the chart.
-
-Board traits in configure (creator request 2026-10-14: "'configure' below
-the distributions list should also let me configure any/all/some board
-traits viz status too"; built the same day):
-
-- Under the performance measurements, a "board traits" list has one
-  checkbox per trait in the board side's row order: 3BV, ZiNi, max number,
-  HZiNi, 3BV spread, 0–1 share, zero-opening coverage, islands, largest
-  island, zeros. An "all board traits" checkbox sets them all; a mixed
-  selection shows it indeterminate. A trait whose card has a definition
-  opens it from its name, as the performance list does.
-- Each choice decides whether that trait gets a row on the board-traits
-  side, in the band and the distributions alike, and persists in the
-  preference schema and export.
-- It is its own choice. Until then a trait's row followed its This board
-  tablechart's switch (same-3BV, same-ZiNi, and the rest, the board-shape
-  switch for islands and zeros, and that and the largest-island switch for
-  largest island). Now configure decides what game data ranks, and the
-  result-section switches decide only which tables and board-trait charts
-  show.
-- Defaults are what the switches showed by default: every trait except 3BV
-  spread and largest island. A profile saved before 2026-10-14 starts from
-  what its own switches showed, so its game data does not change.
-- With nothing chosen on either list, the chart says "Nothing chosen to
-  rank: choose measurements or board traits with configure." instead of the
-  two-game minimum, which would not be the reason.
-
-The configuration tables' column heads ("measurement" or "trait", and
-"shown") are 14px over 12px rows, so they outrank the text beneath them.
-
-Defaults (user decision 2026-09-23, from a screenshot of the creator's own
-configuration: "the attached image also is the defaults we should show for
-leftside"): time, misclick rate, fastclick gap, 3BV/s, click rate, no-op
-rate, board-changing click share, mouse speed, and unused flag share; since 2026-10-07
-each also compares with the session; unflagged mine share since 2026-10-10,
-time before a move and moves leaving easy work since 2026-10-20 (below).
-Optional: efficiency, path / 3BV, IOE, ZiNi efficiency, HZiNi efficiency,
-IOS, STNB, path / click, cadence spread, (since 2026-10-20) the nine
-measurements below, and forks to the nearest area. Before this, both scopes defaulted to time, misclick rate,
-fastclick gap, 3BV/s, click rate, efficiency, no-op rate, and path / 3BV.
-Preferences are saved in full, so a profile that has saved any preference
-keeps its selections; the defaults reach new profiles.
-
-Added 2026-10-10 at the creator's request ("we need some way of tracking and
-evaluating a perf stat for 'fraction of mines which never needed to be
-marked'"): **unflagged mine share**, on by default, placed after unused flag
-share. It is the share of the board's mines with no flag on them when the
-game was won: the mine counter at the win divided by the mine count, since
-the won board keeps only the player's own flags
-([Board chrome](board-and-layout.md)). Higher ranks better: the player
-finished while flagging fewer of the mines. A markless win is 100%. The
-creator asked for it as a performance measure, so it takes a direction,
-unlike flagging volume in general (below). It is derived, never stored, from the
-record's flag counters: a flagged cell cannot be opened, so at a win every
-standing flag sits on a mine, and `flagsPlaced − flagsRemoved` flags stand.
-Every saved win since the removal counter (2026-08-20) is therefore measured
-retroactively, as are markless wins since 2026-08-19. Losses, Endgame drills
-(their mines outside the remnant were never in play), and wins recorded
-before the counters are unmeasured. Its histogram bins one bar per possible
-count of unflagged mines (step 1 ÷ the mine count). It also has a your-perf
-property chart and a row in the label/value table, and it is the per-game
-form of the session endings chart's "percent of mines unflagged when
-winning" line (removed with the left panel on 2026-10-20), which derived
-each win's share with the same definition. "Never needed" is read as "not
-flagged at the win": a flag that no chord used still counts as flagged here,
-and unused flag share measures those flags.
-
-Added 2026-10-20, when the left stats panel was removed
-([Session stats](session-stats.md)): the creator asked that its per-game
-charts, and then everything in it ("same for all, actually"), be optional
-rows the player can add or remove in the right-side sections. Nine
-measurements joined the catalog, all off by default and all ranking lower
-as better:
-
-| Measurement | What it counts | Games |
+| Optional rate measurement (lower is better) | What it counts | Games |
 | --- | --- | --- |
-| flag rate | flags placed per second of play in games that placed at least one flag (unblocked); removals do not subtract, and the automatic flags at a win do not count | flagged wins and losses |
-| flag-removal rate | flags taken back per minute in games that placed at least one flag (unblocked) | flagged wins and losses |
-| unused flag rate | correct flags no chord used, per minute, in wins that placed at least one flag (unblocked) | flagged wins |
-| game risk rate | the report's game risk actions, per minute | wins and losses |
-| early guess rate | the report's early guesses, per minute | wins and losses |
-| time loss rate | the report's time loss actions, per minute | wins and losses |
-| life maximization rate | the report's life maximization moves, per minute | wins and losses |
-| excess game risk rate | the game risk actions' extra chance of losing over the safest available move, summed, in percentage points per minute | wins and losses |
-| modeled life gap rate | the expected remaining life the one-move survival model saw given up in life maximization moves, summed, per minute | wins and losses |
+| `flag rate` | flags placed per second (unblocked, `flagsPlaced > 0`) | flagged wins and losses |
+| `flag-removal rate` | flags removed per minute (unblocked, `flagsPlaced > 0`) | flagged wins and losses |
+| `unused flag rate` | correct flags no chord used per minute (unblocked, `flagsPlaced > 0`) | flagged wins |
+| `game risk rate` | report game-risk actions per minute | wins and losses |
+| `early guess rate` | report early guesses per minute | wins and losses |
+| `time loss rate` | report time-loss actions per minute | wins and losses |
+| `life maximization rate` | report life-maximization moves per minute | wins and losses |
+| `excess game risk rate` | summed extra immediate death probability (pp/min) | wins and losses |
+| `modeled life gap rate` | summed one-move modeled life lost per minute | wins and losses |
 
-The last two were named "excess game risk" and "modeled life gap" until
-2026-10-26, when they took "rate" so the names no longer claimed a game's
-total, which the "this game" table shows under those names
-([Measurement catalog](measurement-catalog.md)).
+- **Eligibility and boundaries:**
+  - Completion-dependent metrics (`time`, `3BV/s`, efficiency family, `IOS`, `STNB`, `path / 3BV`, `unused flag share`, `unflagged mine share`, `unused flag rate`) compare **wins**; action, timing, move-habit, and report metrics compare **wins and losses**.
+  - **Flag-activity guard:** `flag rate`, `flag-removal rate`, `unused flag rate`, `unused flag share`, and `flag→chord gap` require `flagsPlaced > 0 && !flagsBlocked` so no-mark play, daily-limit flag-blocked games, and quick 0-flag losses stay unmeasured rather than polluting flagging rates with `0`. `unflagged mine share` stays measured on every win (`100%` on markless wins; unmeasured on Endgame drills).
+  - **Report-category guard:** games carrying measurement notes (older evaluator or legacy verdict) are unmeasured on the six report-category rates, never `0`.
+  - **Excluded from good/bad ranking:** duplicate `throughput`, raw counts, chording share/style, state tags, music, per-game death indicators, and measurement notes.
 
-Move habits, added 2026-10-20 (creator: "let's build: move habits and
-characterization of moves, when ih ave to move since local direction ends
-OR becomes very slow"; the moves are defined in
-[Live perf charts](during-game.md), "Events"): three measurements of
-wins and losses alike, read from the record's move habits
-([Per-game stats](per-game-stats.md), "Move habits"):
+## Historical tracking and button switch cost
 
-| Measurement | What it counts | Better | Default |
-| --- | --- | --- | --- |
-| time before a move | the median time from a board-changing click to a move | lower | shown |
-| moves leaving easy work | moves made while counting a single number had proved a square near the click before safe, as a share of all moves | lower | shown |
-| forks to the nearest area | of the moves made at a fork, the share that went to the area nearest the click before | higher | off |
-
-Leaving easy work ranks worse because that work must be come back to; the
-moves that left hard work, and those after the local work ended, are not
-ranked, since moving on from slow work can be the right choice. Going to
-the nearest area ranks better as the shorter way. Both are declared
-preferences. A game without a move has no time before a move or share of
-moves, and one without a fork no fork share. Each card's example board
-rings where the game's moves went (forks for the fork share; for moves
-leaving easy work, those moves, with the squares they left shaded). Games
-recorded before 2026-10-20 are unmeasured until their result is next
-restored, and so is a game before 2026-11-02 where the prover then stopped
-at its work limit at a move (it now always finishes).
-
-The categories are the report's exclusive ones ([Game-end
-evaluation](game-end-evaluation.md)), counted whatever the after-game
-report's scope shows. A game with any measurement note among its actions (an
-older evaluator version, a legacy verdict, a game saved before the ledger)
-is unmeasured for the last six rows, never counted as zero. The directions
-are declared preferences: a lower flag rate follows unflagged mine share's
-preference for flagging fewer mines, a removed flag was wrong or not needed,
-and each category is a kind of mistake. Since 2026-11-24 (creator choice,
-Option F1), all four flag-activity metrics (`flag rate`, `flag-removal rate`,
-`unused flag rate`, and `unused flag share`) require `flagsPlaced > 0` and
-`!flagsBlocked`: no-mark training games, daily-limit flag-blocked games, and
-quick 0-flag losses are unmeasured rather than counted as `0`, so zeros from
-non-flagging play do not pollute flagging rates. `unflagged mine share` stays
-measured on every win, including no-mark wins (100%). Not carried over, by decision: game
-loss and deaths with mistakes per minute and "died: likely misclick" (a game
-has at most one death, so per game these are yes-or-no facts, which the
-session results and the after-game report show), and measurement notes per
-minute (old evidence, not performance).
-
-Completion-dependent metrics (time, 3BV/s, efficiency variants, IOS/STNB,
-path / 3BV, unused flag share, unflagged mine share, unused flag rate)
-compare wins. Observable action/error/timing metrics (misclicks, no-ops,
-click rate, fastclick gap, board-changing click share, mouse speed, path /
-click, cadence spread, the other eight added 2026-10-20, and the move
-habits) compare measured wins and losses.
-Their directional wording describes that metric, not overall player skill.
-Faster click/mouse activity is not inherently more efficient; less cadence
-spread means more regular timing; unused flags measure observed chord use,
-not mental use. Literal double-click speed is not measured by fastclick gap.
-
-Throughput duplicates efficiency, so it is not a second rank. Raw counts,
-chording style, context tags, and music have no unambiguous preferred rank
-direction; they are not forced onto this good/bad axis. Flag rate ranks only
-by the declared preference above and only when the player adds it.
-
-## Historical tracking
-
-`game-data.js` owns the shared metric formulas, metric registry, session
-boundaries, ranking, zoom, and paginated historical-window summaries. Saved primary game records remain
-the source of truth; no percentile, session ID, or redundant aggregate is
-stored. Old records participate wherever the required facts were measured.
-
-"Session history" applies the current global definition at each saved game
-finish. Each row shows finish date, wins/games, measured n, median, and middle
-50% of the selected metric. These windows overlap and are explicitly labeled;
-they are not independent sessions. A median of per-game fastclick medians is
-not a pooled press-gap median. Only one requested page (20 windows) is
-materialized. A future person-to-person model still needs explicit identity
-and belongs in the separate correlation backlog.
-
-## Facts removed from the winning-game block
-
-Retained above the chart: Win/High scores, difficulty/board, mode, generator,
-and completion date.
-
-No longer displayed by this replacement (still in saved records or derivable):
-- Click count, flags placed, clicks over 3BV, and total path.
-- Chord share (activity/style, no preferred ranking direction). Flag rate,
-  dropped here for the same reason, returned on 2026-10-20 as an optional
-  row with a declared direction (Catalog and configuration).
-- Unused-flags absolute count and placed-flag denominator; unused flag share
-  keeps the percentage, not those two counts.
-- State tags and music-playing status.
-- Separate throughput value: the same fact is represented by efficiency.
-- When full report scope previously exposed them: raw no-op/misclick counts,
-  flag removals/rate, Guardian Angel count, guess/life-ledger facts, and report-category
-  counts/magnitudes. Their report/trace/session sources are not erased. The
-  flag-removal rate and the report categories' rates and magnitudes returned
-  on 2026-10-20 as optional rows.
-
-Still available in configuration but off initially: efficiency, path / 3BV,
-IOE, ZiNi and HZiNi efficiency, IOS, STNB, path / click, cadence spread, and
-the nine measurements added 2026-10-20. This inventory is for the user's next placement
-choices; it is not approval to add unrelated ranking directions.
-
-- **flag→chord gap** (added 2026-11-24, creator choice Option W1): median
-  press-to-press time of a planned flag followed immediately by a chord within
-  2 squares (Chebyshev distance `<= 2`, no other press between them, the
-  flagged mine and every square the chord opens already proven before the
-  flag), shown by default on flagged wins and losses (`flagsPlaced > 0 &&
-  !flagsBlocked`, lower is better, `Math.round(v) + 'ms'`). Works for
-  single-click, two-button, and 1.5-click chords alike. Stored as
-  `flagChordGapMs` on the game record and plotted as an optional line in live
-  perf charts and in the your-perf charts.
-
-## Switch cost line (creator request and approval 2026-09-28; under game data 2026-10-20 to 2026-11-24; moved to Training 2026-11-24)
-
-On 2026-11-24 (creator choice, Option W1), the under-chart switch cost line
-(`gameDataSwitchCost` and `game/switch-cost-line.js`) was retired from the
-game page and replaced by two cleaner pieces:
-
-1. Per-game **`flag→chord gap`** in `game summary perf` (above), giving an
-   immediate, intuitive millisecond number for each flagged game without
-   relying on a 500-game pooled regression to price single games.
-2. The pooled 500-game regression moved to the Training page's **Button switch
-   cost** section ([Training](training.md#button-switch-cost-moved-from-game-data-2026-11-24)),
-   narrowed to short-range `flag`/`chord` transitions (`<= 2` cells) across
-   flagged standard games (excluding no-mark and flag-blocked games), leading
-   with **ms per switch** (and its 95% interval) plus a formal two-sample 95%
-   interval comparison between the latest 500 and earlier 500 games.
-
-Historical record of the earlier game-page design (2026-09-28 to 2026-11-24):
-
-Creator request (verbatim): "what about a new type of user perf stat for
-"frequency of switching button presses"? i.e. from going between "marking"
-mode and "chording" or "clicking"? that swap reaquires some mental work
-compared to continuing doing the current action (e.g. mark mark vs mark
-chord) etc. maybe explore this statistically and see if you notice
-patterns?" The study ([reference/mode-switch-2026-09-28.md](../../reference/mode-switch-2026-09-28.md))
-proposed one stat; the creator approved it the same day: "yes let's at lesat
-create the perf stat(s) for this and apply, release them,".
-
-Session row (creator request, 2026-10-08, verbatim): "this entire sections
-seems weird. the switching stuff should really be made into a normal perf
-stat right? once that's done we can think about where this session definition
-chooser really belings, right?" Asked "Should I build the session row as
-described? I recommend yes.", the creator answered "YES". The four-row
-switching section became one row of the session stats.
-
-Under game data (2026-10-20): when the left stats panel was removed, the
-creator asked that everything in it be an option in the right-side sections
-("same for all, actually"). The recommendation, one optional line under
-game data's chart opening the same card, was followed.
-
-Made useful (creator request 2026-10-20: "review and finish switch cost
-please. think about hwo to m ake this useful."). A percentage alone says
-neither what the habit costs nor whether practice is shrinking it, so the
-line gained what this game's switches cost in seconds and an earlier
-500-game pool to compare with, and the card the cost per game of each
-standard board. The half-built per-game estimate (one game's own
-regression, partly built 2026-10-08 and never shown) was removed: the study
-found a single game's estimate is noise (split-half reliability about
-0.05). A game's cost instead prices its own switches at the latest 500
-games' estimate, which is stable.
-
-- **Where.** One line directly under game data's chart, shown when
-  configure's "switch cost, this game and over the session, the latest 500,
-  and the earlier 500 standard games" is checked (`gameDataSwitchCost`, off
-  by default). It shows with game data, which appears after wins. Nothing is
-  read while it is switched off. No game is estimated on its own: one game
-  has too few presses to measure the cost (split-half reliability of a
-  per-game estimate about 0.05 in the study), so every estimate pools many
-  games.
-- **The line.** "switch cost", then:
-  - **this game**: the time the shown game's button switches added, at the
-    latest 500 games' estimate, in seconds such as "+1.31s": each switched
-    transition's interval less the interval it would have taken without the
-    switch (the interval divided by e to the estimate). An en dash when the
-    shown game is not one of the counted games (a standard game with a saved
-    trace and at least one timed move) or the latest 500 have no estimate
-    yet.
-  - then each pool's name and estimate: how much longer the next press
-    takes after changing buttons, as a signed percent such as "+7.4%":
-    - **session**: the standard games that ended in the page-wide session
-      window ([One session definition](#one-session-definition)), however
-      many.
-    - **latest 500**: the latest 500 standard games, whenever played.
-    - **earlier 500**: the 500 standard games before those, so the latest
-      500 read against the play before them; where the two 95% intervals do
-      not overlap, the cost has changed.
-
-  A pool with fewer than 30 games, or whose moves cannot separate switching
-  from the model's other terms, shows the en dash. The values are bold and
-  larger than the names, in fixed-width digits, each in a box six
-  characters wide, so a reply never resizes the line. In a narrow details
-  column the line wraps between items, never inside one.
-- **Why "latest 500", not "lifetime".** The long-run pool holds at most the
-  latest 500 games, the window approved on 2026-09-28, so "lifetime" would be
-  false for any player with more games than that. A true lifetime pool was
-  not chosen: every page load would replay every saved trace, a cost that
-  grows without limit, and years of old play would outweigh how the hand
-  works now.
-- **The card.** The label opens it on hover, focus, or click. Per pool:
-  95% interval ("+6.4 to +8.4%"); per switch, the same extra time in
-  milliseconds at the median press-to-press time of the pooled switches
-  ("+18ms"); per Beginner, Intermediate, and Expert game, the mean time an
-  average game of that board in the pool lost to its switches at the pool's
-  own estimate ("+1.38s", an en dash for a board the pool lacks); moves that
-  switch, the share of consecutive moves that change buttons ("54%"); and
-  games, the count pooled. Then this game's switches ("This game: 71 button
-  switches among 152 timed moves; at the latest 500 games' estimate they
-  added 1.31s."), what the estimate is, how to read the earlier 500, and
-  which games count, with the 30-game minimum. A pool whose data cannot
-  measure it gets one sentence saying so. A reply closes an open card, which
-  would otherwise still show the previous values.
-- **Games pooled.** Standard games on the three standard boards (Beginner,
-  Intermediate, and Expert with Standard play and the default generator)
-  that have a saved trace and at least one timed transition. Other play
-  modes, custom boards, and other generators stay out: the study measured
-  standard play only.
-- **Estimate** (the study's pre-registered model P1). A transition is two
-  consecutive board inputs that are both moves (reveal, chord, flag) with no
-  other input between them, the first not the game-starting reveal, timed
-  press to press (a left move by its left press, a flag by its right press)
-  and kept when 40 ms to 5 s apart. Least squares on the log interval with
-  one intercept per game; terms for the previous and the next move type,
-  the button switch, the same-button change between reveal and chord,
-  natural cubic splines of travel distance (Fitts index), of the cells the
-  previous move opened, and of board progress; whether the previous move
-  opened an empty region; whether single-number logic offered the next
-  target; and how many chordable numbers, proven-safe cells, and proven
-  mines the visible board showed. The interval is cluster-robust by game.
-  Spline knots follow patsy's rule (extremes plus equally spaced
-  percentiles of the distinct values) with values within 1e-9 counted as
-  one, so the value does not depend on how an engine rounds the last bit
-  of a distance (the exact rule moved knots between numpy and JavaScript).
-- **Updates.** Computed from the saved traces when the line is switched on
-  (at page load when it is on), so the existing history counts at once
-  without new play; again after each standard game's trace is saved; when
-  another session is picked; and, whenever the line is built, if it sits
-  under another game than the last estimate priced or the window's start
-  has passed one of the pooled games since then. The line has no timer of
-  its own. Nothing new is stored. Turning it on reads up to 1,000 saved
-  traces once (the latest and the earlier 500) plus the session's; each
-  later game adds one.
-- **Not shown, by decision:** a game's own switch cost estimate or switch
-  index (noise at one game; the half-built per-game estimate was removed on
-  2026-10-20, and a game's cost uses the pooled estimate instead), the raw
-  switch rate as a performance measure (it mostly restates how often the
-  player flags, and the rate relative to chance did not track speed), and
-  breakdowns by direction or distance (in the study, not on the page; see
-  [BACKLOG.md](../../BACKLOG.md)).
-- **Reading.** The pooled value is a summary, not the cost of every switch:
-  in the study the cost sat in moves of one or two cells, vanished at three
-  or more, and was about 13 ms for flag and chord pairs, larger where a
-  reveal was involved.
-- **Superseded forms.** From 2026-09-28 to 2026-10-08, a "switching"
-  section of four rows between the session charts and the live rows of the
-  left panel, over the latest 500 games only: "switch cost +7.4% (+6.4 to
-  +8.4)", "per switch +18ms", "moves that switch 54%", "games 500". From
-  2026-10-08 to 2026-10-20, one row of the session stats directly under the
-  session heading, in a two-column table under a line naming the columns,
-  shown with the session stats and hidden with the collapsed panel.
+- **Derived on demand:** no percentiles, session IDs, or redundant aggregates are stored in IndexedDB. `Session history` applies the active `sessionDefinition` at each saved finish, materializing one page (20 overlapping windows) at a time with finish date, wins/games, measured `n`, median, and IQR — explicitly labeled overlapping.
+- **Button switch cost:** per-game flagging-to-chording speed is tracked directly via `flag→chord gap` in `game summary perf`; the pooled 500-game short-range button switch-cost regression lives on the Training page ([Training](training.md#button-switch-cost)).

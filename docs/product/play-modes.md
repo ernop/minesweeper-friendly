@@ -22,7 +22,7 @@ wqhich are duplicative and needlessly complex"):
   deep: every mode is an entry of its own, never a variant choice under
   another mode. Choosing an entry opens the mode options row with the board
   size, the generator where the mode uses one, and the mode's progress
-  ([Game setup](board-and-layout.md#game-setup-top-bar-settings-row-and-footer)).
+  ([Game setup](board-and-layout.md#navigation-and-progressive-disclosure)).
 - Until 2026-10-20 the mode was a separate menu in the details column, so a
   preset board could be played in any mode. Saved settings holding a preset
   with another mode continue as that mode on a custom board of the preset's

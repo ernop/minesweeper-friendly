@@ -171,4 +171,4 @@ is suspended: a running sync stops and restarts after the result is saved,
 so no background writing shares the machine with stimulus frames.
 
 Not yet built: more frozen tests, reminders, and long-horizon views. See
-[BACKLOG.md](../../BACKLOG.md#lifelong-self-measurement-roadmap-creator-2026-09-26).
+[BACKLOG.md](../../BACKLOG.md#lifelong-self-measurement-and-longitudinal-research).

@@ -1,477 +1,218 @@
 # minesweeper-friendly — Agent Index
 
-Start here. Agents load this file at startup. It holds the standing rules
-and the path to every other piece of project knowledge; open only the files
-a task needs.
+Start here. Loaded at startup by every agent. Holds standing rules, runtime
+wiring, and pointers to area docs; open only the area files a task needs. Keep
+this file concise (under 18 KB) so no agent harness truncates it at startup.
 
 ## Project
 
-A minesweeper clone of minesweeper.online's standard mode (same mechanics,
-classic-Windows look) with solver-aware variants such as Guardian Angel
-and Angelic play (the no-guess modes were removed 2026-10-21). The
-ambiguity design axis and the deduction levels that grade how hard each fact
-is to know and define "solvable" (`GuardianAngel.DEDUCTION_LEVELS`) are in
-[docs/product/design-axis.md](docs/product/design-axis.md).
+A classic-Windows Minesweeper web app (same standard mechanics, zero
+dependencies, no build step) with solver-aware variants (Guardian Angel,
+Angelic), live coaching modes, rich per-game analytics, and trace-based
+training diagnostics. Long-term vision: [PRODUCT.md](PRODUCT.md).
 
-Runtime: `index.html` + `style.css` load `storage.js`; pure `rng.js` /
-`guardian-angel.js` / `coach.js` / `board-shape.js` / `zini.js` / `board-metrics.js`;
-`board-metrics-ui.js` (historical backfill in `board-metrics-worker.js`); pure
-`endgame.js` / `solver.js` / `generators.js` / `pregen.js` / `odds.js` /
-`trial.js`; shared `game-data.js` / `during-game.js` (pure, the during-the-game
-model and rows, also in `analysis-worker.js`) / `board-icons.js` / `settings-core.js` / `preferences-game.js`;
-`analysis-client.js` (named worker queues in `analysis-worker.js`, using
-`trend-fit.js` for exact slope selection); the pure
-`play-limits.js` (daily play limits, after `settings-core.js`); then the game page's own scripts in `game/` (below). No dependencies, no
-build step. The settings page is
-`settings.html` + `settings-page.js`, loading the same `style.css`,
-`storage.js`, `generators.js`, `game-data.js`, `during-game.js`, `board-icons.js`,
-`settings-core.js`, and `play-limits.js` (both pages must load storage.js,
-game-data.js, during-game.js, board-icons.js, settings-core.js, and
-play-limits.js before their own script; the schema's mine-style choices come
-from board-icons.js, its during-the-game rows from during-game.js).
-The problems page is `problems.html` + `problems-page.js`, loading
-`style.css`, `problems.css`, `board-icons.js`, the pure `problems-core.js`,
-`problems-storage.js`, and the generated `problems-bank.json`; it keeps its own
-IndexedDB database (`minesweeper-problems`, names in `problems-storage.js`,
-which `archive-worker.js` also imports to archive it) and does not load
-`storage.js`.
-The self-check page is `self-check.html` + `self-check-page.js`, loading
-`style.css`, `storage.js`, `observation-context.js`, `archive.js`, and the pure
-`self-check-core.js`; the game page loads `observation-context.js` and
-`archive.js` right after `storage.js`, and the settings page loads `archive.js`
-too. `archive.js` drives the archive folder through `archive-worker.js`, which
-imports the pure `archive-format.js`. Every page's `storage.js` cache tag
-changes together: a stale copy would open an older database version and fail
-(`tests/storage-cache-tag-test.js` enforces it). Every file a page or worker
-loads must be listed in `deploy/runtime-files.json`, or the hosted release
-breaks; `python3 tests/hosting-release-test.py` fails on a missing one.
-Every page that runs game code loads `page-errors.js` right after the Pages
-redirect: the error bar, which shows any error no code handled
-([UI doctrine](docs/product/ui-doctrine.md), "Errors are shown";
-`tests/page-errors-test.js` enforces the order).
-Every page also loads `fuseki-stats.js`, Fuseki's play-statistics module,
-copied byte for byte from fuseki4_ai `setup/apps/fuseki-stats.js`; never edit
-it here. On the game page it loads deferred, just before the `game/` scripts.
-Calls to it log a failure to the console instead of raising it, a deliberate
-exception to the Anti-Fallback Principle below: statistics must never
-interrupt play (creator decision 2026-10-11;
-[Play statistics](docs/product/hosting.md#play-statistics)).
-The training page is `training.html` + `training-page.js`, loading
-`style.css`, `training.css`, `storage.js`, and `board-icons.js`;
-`training-worker.js` reads the saved games and runs the pure `training-core.js`
-with `guardian-angel.js`, `solver.js`, `rng.js`, `coach.js`, `game-data.js`,
-and `game/evaluation.js`; `mind-map-worker.js` runs in parallel with
-`mind-map.js` across Beginner, Intermediate, and Expert traced wins to build
-highlights, ranked traits, visual technique diagrams, endgame pointless-flag
-audits, and single-game thinking traces; and `switch-cost-worker.js` runs in
-parallel to estimate the short-range flag/chord button switch cost
-(`switch-cost.js`) across flagged standard games.
+### Runtime architecture & cache-tag rules
 
-### Game page code (`game/`)
+- **Game page (`index.html` + `style.css`):** loads `pages-redirect.js`,
+  `page-errors.js`, `storage.js`, `observation-context.js`, `archive.js`; pure
+  logic modules (`rng.js`, `guardian-angel.js`, `coach.js`, `board-shape.js`,
+  `zini.js`, `board-metrics.js`, `endgame.js`, `solver.js`, `generators.js`,
+  `pregen.js`, `odds.js`, `trial.js`, `game-data.js`, `during-game.js`,
+  `board-icons.js`, `settings-core.js`, `preferences-game.js`,
+  `analysis-client.js`, `play-limits.js`, `board-metrics-ui.js`); `fuseki-stats.js`;
+  then `game/*.js` in exact `index.html` load order.
+- **Companion pages:**
+  - `settings.html` + `settings-page.js` (loads `storage.js`, `archive.js`,
+    `generators.js`, `game-data.js`, `during-game.js`, `board-icons.js`,
+    `settings-core.js`, `play-limits.js`).
+  - `training.html` + `training-page.js` (loads `storage.js`, `board-icons.js`;
+    runs read-only workers `training-worker.js`, `mind-map-worker.js`, and
+    `switch-cost-worker.js` in parallel).
+  - `problems.html` + `problems-page.js` (separate `minesweeper-problems`
+    IndexedDB via `problems-storage.js`; does not load `storage.js`).
+  - `self-check.html` + `self-check-page.js` (`storage.js`,
+    `observation-context.js`, `archive.js`, `self-check-core.js`).
+- **Workers:** `analysis-worker.js` (named queues + `trend-fit.js`),
+  `board-metrics-worker.js`, `archive-worker.js` (`archive-format.js`),
+  `training-worker.js` (`training-core.js`), `mind-map-worker.js`
+  (`mind-map.js`), `switch-cost-worker.js` (`switch-cost.js`).
+- **Hard invariants (enforced by tests):**
+  - Every shipped page/worker file must be listed in `deploy/runtime-files.json`
+    (`python3 tests/hosting-release-test.py`).
+  - Every page running game code loads `page-errors.js` right after
+    `pages-redirect.js` (`tests/page-errors-test.js`).
+  - Every page's `storage.js?v=` tag must match (`tests/storage-cache-tag-test.js`).
+  - `fuseki-stats.js` is copied byte-for-byte from `fuseki4_ai`; never edit it
+    here. Logging-only failures in play statistics are the sole exception to
+    Anti-Fallback (stats must never interrupt play).
+  - `game/*.js` share one global scope in `index.html` order, share one `?v=`
+    tag (including worker imports in `analysis-worker.js` and
+    `training-worker.js`; bump worker creation URLs too), and `game/main.js`
+    loads last and alone defines `storageFailure` / `userdataReady`
+    (`tests/startup-presentation-test.js`; tests read via `tests/game-source.js`).
 
-The former single `minesweeper.js` is split by area into classic scripts
-in `game/` (user request 2026-09-23: split it "to some kind of logical
-division ... to make working with this file easy and sensible"; then
-"review and finish the move now properly"). Code moved verbatim: a first
-pass split the file in order, and a second pass the same day moved each
-misplaced piece into the file of its area. Section markers inside each
-file name what its parts hold. The rules:
+### `game/` files (load order)
 
-- The files share one global scope and load in `index.html` order. Code
-  that runs at load time may use only what its own file or an earlier file
-  declares. Functions called later may use any file.
-- `game/main.js` loads last and alone declares `storageFailure` and
-  `userdataReady`: `storage.js` starts the page as soon as `userdataReady`
-  exists, so every other file must be loaded by then.
-- All `game/` script tags share one `?v=` tag, including the `game/` files
-  that `analysis-worker.js` and `training-worker.js` import. Bump it in every
-  tag (one replace) whenever any `game/` file changes, then each changed
-  worker's own tag where it is created (`analysis-client.js`,
-  `training-page.js`) and that file's tag in its page. The workers' copies
-  once kept older tags while the page moved on (2026-10-14).
-- `tests/startup-presentation-test.js` enforces the last two rules, except
-  the workers' own tags. Tests
-  read the code through `tests/game-source.js`, which concatenates the files
-  in load order, so section-marker spans keep working across files.
-
-Files, in load order:
-
-| File | Holds |
+| File | Responsibility |
 | --- | --- |
-| `core.js` | the current game's state, shared DOM handles (incl. the page status line) |
-| `layout.js` | board position solver, wiring, and editor; zoom and pixel ratio; docked columns; clearance |
-| `play.js` | top panel (LCDs, face), generator glue and Generator menu, new-game flow, reveal/flag/chord, win/loss, Guardian Angel |
-| `play-modes.js` | other modes menu, mode predicates and labels; 3BV countdown (the code's "pregen"), Endgame drill, Board lab, trials on the live board |
-| `coach.js` | coaching practice modes (`coach-no-waste`, `coach-early-bail`, `coach-scan-shield`, `coach-full`): `#coach-bar`, live cell cues, off-frame Early bail & blind-spot timers, Scan shield reveal guard, wrong-flag brake, slow-pattern bookmarks, and post-game recap with replay jumps |
-| `play-limits.js` | daily play limits: the play spans (every saved one; this tab's begin, heartbeat, and ending), the closed-board gate and notice, the no-flags penalty gate, today's use in the top bar |
-| `evaluation.js` | game-end evaluation: pure verdict model; the game-end judgment of the saved decisions (run in the reports worker); raw capture at the click |
-| `results.js` | the saved record (`reportResult`, then `completeGameRecord` with the worker's judgment), after-game report, result view, High scores view; the openers (a title that opens and closes its block, remembered in `settings.panels`) |
-| `history.js` | record version stamps and schema, per-mode history, mode keys, normalization, transfer cleaning |
-| `rankings.js` | rank windows and relative ages, day categories, board families and their one name each (`BOARD_TRAIT_NAMES`), session summary and its results tree, the one session picker, ranks won in session, rank lists |
-| `charts.js` | chart models and presentation (heavy models execute in the analysis worker); chart basics (SVG namespace, count phrases, text widths, displayed numbers, sparkline sizes), axis ticks, trend lines, the (?) help tip, scatter and average-time charts |
-| `trial-review.js` | after-trial identity review, run overlays |
-| `game-data-chart.js` | game data: pure ranking and label layout, then the 0–100% band and its views, the strips, and the cards' example boards |
-| `during-game-chart.js` | live perf charts (head of the game data column): the progress, moves available, and relative charts and event tracks on one time axis, legend picks, the log or linear scale and the count axis, hover line, the card for the hovered line, the board's replay previewing the hovered moment, replay link, configure |
-| `result-ranks.js` | `renderRanks`: result tables and charts in section order |
-| `score-list.js` | full score lists: a rank table's every win in a window over the page, its columns and sort; the old games its rows open, compared as of now |
-| `input-trace.js` | the raw input trace; saving a finished game's record and trace together (`storeGame`) |
-| `replay-model.js` | path and choice replay, pure part |
-| `replay-view.js` | replay transport and playback, hover preview, frames, path canvas, legends |
+| `core.js` | live game state, shared DOM handles, status line |
+| `layout.js` | board position solver/editor, zoom, pixel ratio, adaptive dock, clearance |
+| `play.js` | top panel (LCDs, dove), generator glue, new-game, reveal/flag/chord, win/loss, Guardian Angel |
+| `play-modes.js` | other-modes menu, 3BV countdown, Endgame drill, Board lab, live trials |
+| `coach.js` | coaching practice modes (`coach-*`), coach bar, cues, bookmarks, recap |
+| `play-limits.js` | play spans, daily-limit gates, no-flags penalty, top-bar usage |
+| `evaluation.js` | pure verdict model, click capture, worker-run decision judgment |
+| `results.js` | saving records, after-game report, High scores view, collapsible openers |
+| `history.js` | record schema/version stamps, mode keys, normalization, transfer cleaning |
+| `rankings.js` | rank windows, day categories, session summary/tree, session picker, rank lists |
+| `charts.js` | chart presentation (models in worker), SVG helpers, ticks, trends, scatters |
+| `trial-review.js` | after-trial identity review and run overlays |
+| `game-data-chart.js` | game data percentile band, distributions, strips, example boards |
+| `during-game-chart.js` | live perf charts, move counts, event tracks, hover replay preview |
+| `result-ranks.js` | `renderRanks` section assembly |
+| `score-list.js` | full score-list windows, sorting, old-game comparison |
+| `input-trace.js` | raw cursor/button/layout trace capture and atomic `storeGame` |
+| `replay-model.js` | pure path and choice replay |
+| `replay-view.js` | replay transport, playback, hover preview, path canvas, legends |
 | `music.js` | music state sampling |
-| `trace-metrics.js` | trace metrics, pure (all measurement systems), and the press-timing constants and median the results use |
-| `metric-definitions.js` | shared metric display catalog and series projection (pure, also loaded in workers) |
-| `motion-stats.js` | motion stats, the open/close section at the page foot: live sample scheduling (computed only while it is open), rows and sparklines, the finished game's series on demand, Fitts curve, and spatial pace bias |
-| `player-states.js` | player state tags and their menu |
-| `controls.js` | board input events, new-game shortcut, game choice (preset links, other modes menu, mode options row), custom board, see-scores button |
-| `backup.js` | history/trace export and import, data-format card |
-| `main.js` | storage hooks, judging games a closed page left pending (`completePendingGames`), static chrome, `init` (last) |
+| `trace-metrics.js` | pure trace-motion measurement systems and press-timing medians |
+| `metric-definitions.js` | shared metric display catalog and series projection (also in workers) |
+| `motion-stats.js` | collapsible foot motion-stats section (computed only while open) |
+| `player-states.js` | player state tags and popover menu |
+| `controls.js` | board input events, Space restart, game choice, custom board |
+| `backup.js` | history/trace export/import, data-format card |
+| `main.js` | storage hooks, `completePendingGames`, static chrome, `init` (must load last) |
 
-Serve with `python3 -m http.server 8018 --bind 127.0.0.1` and open exactly
-`http://127.0.0.1:8018/`, never `localhost` or another host or port:
-IndexedDB is per origin, so another origin opens a different history.
-On PC, the enabled systemd user unit `minesweeper-friendly.service` owns this
-server (boot startup, survives logout, restarts after exit). Use
-`systemctl --user start/restart/status minesweeper-friendly.service` as
-appropriate; never launch a competing manual server. Source and installation:
-[README.md — Persistent local server](README.md#persistent-local-server-linux).
-Anything that writes storage during verification runs on
-`http://127.0.0.1:8099/` instead, the test origin, never used for the player's
-games ([docs/implementation/verification.md](docs/implementation/verification.md)).
+### Local server, hosting, and deploys
 
-Hosting: public GitHub repo `ernop/minesweeper-friendly`. The canonical game
-is https://minesweeper-friendly.fuseki.net/ and every master push releases it
-once the workflow's tests pass. GitHub Pages still publishes the master
-branch and redirects visitors there.
+- **Player origin:** `http://127.0.0.1:8018/` owned on PC by systemd unit
+  `minesweeper-friendly.service` (`systemctl --user status/restart`; never
+  start a competing manual server or use `localhost` — IndexedDB is per origin).
+- **Test origin:** anything that writes storage during verification runs on
+  `http://127.0.0.1:8099/` in an isolated profile, never `8018`.
+- **Canonical release:** public repo `ernop/minesweeper-friendly`; every push
+  to `master` deploys to `https://minesweeper-friendly.fuseki.net/` once CI
+  passes. Before pushing runtime changes, record the Firefox latency check
+  (`--record`) on the commit being pushed; after pushing, verify CI passes
+  (`gh run watch <id> --exit-status`). A failed deploy is a failed change.
 
-Pushing: finished work is committed and pushed (his user rule "Commit and
-push finished work"), so each push is a release to the players. Before it,
-record the latency check on the commit being pushed ("Latency budgets"
-below); after it, confirm the release run passed (`gh run watch <id>
---exit-status`; [verification](docs/implementation/verification.md),
-"Deploys"). A failed run is a failed change.
+## Documentation rules (optimized for cold-start agents)
 
-## Standing instructions
+- **Save decisions in the same turn:** every product guideline, design
+  decision, requirement, or new idea goes into checked-in files immediately
+  (chat is never the record). Keep specs and code in sync in the same change.
+- **Keep `docs/product/` present-tense, goal-first, and scannable:**
+  - Record **goals, principles, user ergonomics, and non-obvious invariants**
+    ("why" things behave as they do so a cold-start agent never regresses them).
+  - **Do not** paste verbatim chat transcripts, `"creator request YYYY-MM-DD:"`
+    attribution tags, retired-UI history (`"until X it sat in Y"`), or raw
+    implementation lists (pixel step arrays, CSS breakpoints, slider increments)
+    into `docs/product/`. Git holds history; code and `docs/implementation/`
+    hold exact constants and wiring.
+  - **Keep dates only** where time defines data semantics (schema boundaries
+    where older saved records lack fields) or on dated empirical studies in
+    `reference/`.
+- **Single home per kind of fact:**
+  - Product goals & behavioral invariants -> matching `docs/product/<area>.md`
+    (indexed in [PRODUCT.md](PRODUCT.md)).
+  - Code wiring, function names, constants, test notes ->
+    `docs/implementation/<area>.md`.
+  - Unbuilt ideas, deferred work, open decisions -> [BACKLOG.md](BACKLOG.md)
+    (prune shipped recaps; keep only unbuilt work).
+  - Empirical studies, pro audits, research logs -> `reference/`
+    ([reference/README.md](reference/README.md)).
+  - One definition per measurement: every performance metric's id, name,
+    definition, format, direction, and formula live once in `GameData.metrics`
+    (`game-data.js`; [docs/product/measurement-catalog.md](docs/product/measurement-catalog.md)).
+  - App-wide UI rules: always read [docs/product/ui-doctrine.md](docs/product/ui-doctrine.md)
+    before building or reshaping any surface.
 
-Standing user instruction (reaffirmed 2026-09-23): always save every
-user-provided product guideline, design, requirement, and decision to a
-project file in the same turn, without needing a reminder. Record product
-and UI specifications in the matching `docs/product/` file (indexed by
-[PRODUCT.md](PRODUCT.md)), the implementation mapping in the matching
-`docs/implementation/` file, and pending work in [BACKLOG.md](BACKLOG.md),
-linking any supporting design document from here.
-Preserve the user's intent and distinguish requested behavior from what is
-implemented. This applies even when no code change is requested; chat alone
-is not the record.
+## Area index
 
-The product spec is canonical for every product and UI decision. Read the
-affected section before changing behavior, and keep it and the code in sync
-in the same change. Implementation notes only map the spec onto code.
-
-App-wide UI rules (simplicity first, optional help must be useful and hidden
-behind a subtle tooltip affordance, options never more than one step deep,
-grouped in one place, and each shown in only one place, hover never reflows page content,
-semantic legend/key labels are never shortened, no text narrating what a
-chart's marks are ("Green line: this game."),
-layout stability, no distracting duplicate live values, clear ways in and out) live in
-[docs/product/ui-doctrine.md](docs/product/ui-doctrine.md) — read it before
-building or reshaping any surface.
-
-One definition per measurement (user request 2026-10-26: "a global clear
-definition of exactly what it is and how we think about it, uniquely across
-the ENTIRE coddebase"): every performance measurement's id, name,
-definition, format, direction, games covered, and formula live once, in
-`GameData.metrics` (`game-data.js`). Every surface reads them from there
-and none renames, redefines, or recomputes a measurement
-([docs/product/measurement-catalog.md](docs/product/measurement-catalog.md)).
-
-Unbuilt work lives in one file: [BACKLOG.md](BACKLOG.md). That is the
-place for generation ideas, deferred product, and requested rank lists
-that are not in the game yet. Do not leave new ideas only in chat.
-
-Documentation layout (decided 2026-09-23): this file holds only startup
-facts, rules, and pointers; details belong in the area files. Each area has
-one product file and at most one implementation file, listed below; a new
-area adds its files and its row in the same change. Cross-references cite
-the file path, plus the section heading when the file holds several.
-
-## Where to look
-
-| Area | Product spec | Implementation notes |
+| Area | Product spec | Implementation |
 | --- | --- | --- |
-| Public hosting and deployment, play statistics | [docs/product/hosting.md](docs/product/hosting.md) | [docs/implementation/hosting.md](docs/implementation/hosting.md) |
-| Design axis (ambiguity handling), deduction levels, move hierarchy (how the moves available at any moment are characterized, from proven moves to guesses and output per hour) | [docs/product/design-axis.md](docs/product/design-axis.md) | none |
-| UI doctrine (read before any UI work) | [docs/product/ui-doctrine.md](docs/product/ui-doctrine.md) | none |
-| Board chrome, page layout (game setup rows, top bar, settings row, footer), board position | [docs/product/board-and-layout.md](docs/product/board-and-layout.md) | [docs/implementation/board-and-layout.md](docs/implementation/board-and-layout.md) |
-| Play modes (Angelic, Endgame drill, trials, 3BV countdown, Board lab; the removed no-guess modes) | [docs/product/play-modes.md](docs/product/play-modes.md) | [docs/implementation/play-modes.md](docs/implementation/play-modes.md) |
-| Board generators, top score keys | [docs/product/board-generators.md](docs/product/board-generators.md) | [docs/implementation/board-generators.md](docs/implementation/board-generators.md) |
-| Guardian Angel | [docs/product/guardian-angel.md](docs/product/guardian-angel.md) | [docs/implementation/guardian-angel.md](docs/implementation/guardian-angel.md) |
-| Game-end evaluation, action evidence | [docs/product/game-end-evaluation.md](docs/product/game-end-evaluation.md) | [docs/implementation/game-end-evaluation.md](docs/implementation/game-end-evaluation.md) |
-| Result presentation and ordering | [docs/product/results.md](docs/product/results.md) | [docs/implementation/results.md](docs/implementation/results.md) |
-| Game data chart, shared session, switch cost line | [docs/product/game-data.md](docs/product/game-data.md) | [docs/implementation/game-data.md](docs/implementation/game-data.md) |
-| Live perf charts (in-game rows over time, moves available by deduction level and chordable numbers, move usefulness and distance, detected events: clicks, jumps and why each move happened, pauses; what each guess chose among, perfect play's chance to win) | [docs/product/during-game.md](docs/product/during-game.md) | [docs/implementation/during-game.md](docs/implementation/during-game.md) |
-| Measurement catalog (one id, name, definition, format, direction, games covered, and formula per measurement on every surface; the hover link between game summary perf and live perf charts; renamed ids and record fields; mouse path from the trace; trials' given-opening 3BV) | [docs/product/measurement-catalog.md](docs/product/measurement-catalog.md) | [docs/implementation/measurement-catalog.md](docs/implementation/measurement-catalog.md) |
-| Rank lists, highlights, recent placements, streaks, session summary and its results tree (incl. abandoned boards) | [docs/product/rankings.md](docs/product/rankings.md) | [docs/implementation/rankings.md](docs/implementation/rankings.md) |
-| Average-time charts, scatter plots | [docs/product/charts.md](docs/product/charts.md) | [docs/implementation/charts.md](docs/implementation/charts.md) |
-| Path and choice replay | [docs/product/replay.md](docs/product/replay.md) | [docs/implementation/replay.md](docs/implementation/replay.md) |
-| Per-game stats and counters (incl. move habits), music, guess ledger | [docs/product/per-game-stats.md](docs/product/per-game-stats.md) | [docs/implementation/per-game-stats.md](docs/implementation/per-game-stats.md) |
-| Board measurements, "This board" tables, backfill | [docs/product/per-game-stats.md](docs/product/per-game-stats.md), [docs/product/rankings.md](docs/product/rankings.md) | [docs/implementation/board-metrics.md](docs/implementation/board-metrics.md) |
-| Motion stats (the trace metrics, an open/close section at the page foot) | [docs/product/motion-stats.md](docs/product/motion-stats.md) | [docs/implementation/motion-stats.md](docs/implementation/motion-stats.md) |
-| Session stats and the left panel (removed 2026-10-20: the decision, where each part went) | [docs/product/session-stats.md](docs/product/session-stats.md) | none |
-| Player states | [docs/product/player-states.md](docs/product/player-states.md) | [docs/implementation/player-states.md](docs/implementation/player-states.md) |
-| Personal settings | [docs/product/settings.md](docs/product/settings.md) | [docs/implementation/settings.md](docs/implementation/settings.md) |
-| Daily play limits (play time, games, games per level, stop time; 4:00 play day; two confirmations; 2-minute loosening lock; no-flags-first penalty) | [docs/product/play-limits.md](docs/product/play-limits.md) | [docs/implementation/play-limits.md](docs/implementation/play-limits.md) |
-| Storage, raw input traces, history, backup, archive folder | [docs/product/storage-and-history.md](docs/product/storage-and-history.md) | [docs/implementation/storage-and-history.md](docs/implementation/storage-and-history.md) |
-| Measurement purpose, lifelong self-measurement, offline analysis | [docs/product/measurement.md](docs/product/measurement.md) | [docs/implementation/offline-analysis.md](docs/implementation/offline-analysis.md) |
-| Self-check (frozen reference tests: sleepiness rating, alertness test) | [docs/product/self-check.md](docs/product/self-check.md) | [docs/implementation/self-check.md](docs/implementation/self-check.md) |
-| Training toward an Expert win under 60 s (plan, stage targets, training page) | [docs/product/training.md](docs/product/training.md) | [docs/implementation/training.md](docs/implementation/training.md) |
-| Minesweeper problems (situation classes from pro replays, timed problems page, problem bank) | [docs/product/problems.md](docs/product/problems.md) | [docs/implementation/problems.md](docs/implementation/problems.md) |
+| Hosting, deploys, play stats | [hosting.md](docs/product/hosting.md) | [hosting.md](docs/implementation/hosting.md) |
+| Design axis, deduction levels, move hierarchy | [design-axis.md](docs/product/design-axis.md) | — |
+| UI doctrine (read before any UI work) | [ui-doctrine.md](docs/product/ui-doctrine.md) | — |
+| Board chrome, layout, board position, latency | [board-and-layout.md](docs/product/board-and-layout.md) | [board-and-layout.md](docs/implementation/board-and-layout.md) |
+| Play modes & live coaching modes | [play-modes.md](docs/product/play-modes.md) | [play-modes.md](docs/implementation/play-modes.md) |
+| Board generators & score keys | [board-generators.md](docs/product/board-generators.md) | [board-generators.md](docs/implementation/board-generators.md) |
+| Guardian Angel | [guardian-angel.md](docs/product/guardian-angel.md) | [guardian-angel.md](docs/implementation/guardian-angel.md) |
+| Game-end evaluation & action evidence | [game-end-evaluation.md](docs/product/game-end-evaluation.md) | [game-end-evaluation.md](docs/implementation/game-end-evaluation.md) |
+| Result presentation & ordering | [results.md](docs/product/results.md) | [results.md](docs/implementation/results.md) |
+| Game data chart & shared session | [game-data.md](docs/product/game-data.md) | [game-data.md](docs/implementation/game-data.md) |
+| Live perf charts (during the game) | [during-game.md](docs/product/during-game.md) | [during-game.md](docs/implementation/during-game.md) |
+| Measurement catalog | [measurement-catalog.md](docs/product/measurement-catalog.md) | [measurement-catalog.md](docs/implementation/measurement-catalog.md) |
+| Rankings, highlights, streaks, session summary | [rankings.md](docs/product/rankings.md) | [rankings.md](docs/implementation/rankings.md) |
+| Average-time & scatter charts | [charts.md](docs/product/charts.md) | [charts.md](docs/implementation/charts.md) |
+| Path and choice replay | [replay.md](docs/product/replay.md) | [replay.md](docs/implementation/replay.md) |
+| Per-game stats, board metrics, guess ledger | [per-game-stats.md](docs/product/per-game-stats.md) | [per-game-stats.md](docs/implementation/per-game-stats.md), [board-metrics.md](docs/implementation/board-metrics.md) |
+| Motion stats | [motion-stats.md](docs/product/motion-stats.md) | [motion-stats.md](docs/implementation/motion-stats.md) |
+| Retired left session panel | [session-stats.md](docs/product/session-stats.md) | — |
+| Player states | [player-states.md](docs/product/player-states.md) | [player-states.md](docs/implementation/player-states.md) |
+| Personal settings | [settings.md](docs/product/settings.md) | [settings.md](docs/implementation/settings.md) |
+| Daily play limits | [play-limits.md](docs/product/play-limits.md) | [play-limits.md](docs/implementation/play-limits.md) |
+| Storage, traces, backup, archive | [storage-and-history.md](docs/product/storage-and-history.md) | [storage-and-history.md](docs/implementation/storage-and-history.md) |
+| Lifelong self-measurement & offline analysis | [measurement.md](docs/product/measurement.md) | [offline-analysis.md](docs/implementation/offline-analysis.md) |
+| Self-check reference tests | [self-check.md](docs/product/self-check.md) | [self-check.md](docs/implementation/self-check.md) |
+| Training & trace mind-map | [training.md](docs/product/training.md) | [training.md](docs/implementation/training.md) |
+| Minesweeper problems | [problems.md](docs/product/problems.md) | [problems.md](docs/implementation/problems.md) |
 
-- Local tooling, test entry points, headless browsers, and deploys:
-  [docs/implementation/verification.md](docs/implementation/verification.md).
-- Research notes and external references: [reference/README.md](reference/README.md).
-- Promotion: `promo/PROMO.md` is the promotional page — player-facing pitch
- only, nothing technical — with `promo/win-screen-2026-11-19.png` (the board,
- docked live perf charts and game data, overview row, and rankings after a
- win) as its hero image. Keep it free of implementation detail.
- `promo/win-screen-2026-11-19-full-layout.png` (the layout at 1920 x 1080 on
- 2026-11-19: full-width board-first top stage with live perf charts and game
- data docked to the right of the board) is the README's top screenshot; the
- README's close-ups sit beside it in `promo/` under the same date.
- `tests/promo-screenshots.js` retakes all seven:
- [verification](docs/implementation/verification.md), "README and promo
- screenshots".
-- [2026-09-22 retained stash review](docs/stash-review-2026-09-22.md): recovered reporting work, superseded chart changes, and archived hosting proposal.
+Verification, browsers, and promo screenshots: [docs/implementation/verification.md](docs/implementation/verification.md).
+Research notes: [reference/README.md](reference/README.md). Player pitch: `promo/PROMO.md` (keep non-technical).
 
-## Rules for agents
+## Standing engineering rules
 
-Condensed from `~/proj/mybrowser/.cursor/rules/` (canonical source; read
-`00-absolute-rules.mdc` there for the full text).
-
-### The Anti-Fallback Principle
-
-This is a global principle. It governs every layer — library code, APIs, data
-handling, configuration, infrastructure, tooling, UI — not just imports.
-Anywhere a component can fail, it must fail loudly and visibly, never continue
-in a reduced or substituted mode.
-
-There is only the primary path. Any fallback is banned. When the primary path
-cannot do its job, stop and raise a loud, visible error that names what failed
-and where — never a backup path, a default value, a retry, or a degraded mode.
-Repair the primary path. A system must not contain a component whose absence
-it is built to tolerate; if you find yourself writing "works without X," X was
-not optional — its failure is a crash, not a mode.
-
-Why: a fallback hides the original mistake. Execution keeps going, so the
-failure surfaces later and far from its cause, and debugging costs about twice
-as long because you must first discover that a fallback swallowed the error.
-The design target is the inverse: the system should always be one mistake away
-from a huge, visible crash, so every mistake announces itself where it happens.
-
-The test for any error-handling code: does it let execution continue toward a
-wrong-but-quiet result (fallback — banned), or does it halt and show the
-failure (error — required)? Re-raising a caught exception verbatim, or a
-missing-config check that exits pointing at the fix, is failing visibly —
-that is the rule, not an exception to it.
-
-Banned, non-exhaustively:
-
-- Defensive imports (`try: import x / except ImportError`). Import directly;
-  if it fails, fix `requirements.txt`, never wrap in try/except.
-- Config-detection chains (storage → file A → file B → baked default). Read
-  the one authoritative source; if missing or invalid, error.
-- Trying multiple external tools until one works.
-- Method chains in our own code: running one method and, when it fails,
-  another. Use one method that works well (creator 2026-10-21, on no-guess
-  board generation: "we should use ONE technology which works well. not use
-  something, and if it fails, use another thing. that's a very bad
-  pattern.").
-- `tryAscertainValue` patterns checking field_a, then field_b, then field_c.
-- Catch-and-default / catch-and-continue: `try { x } catch { return [] }`, or
-  `value ?? DEFAULT` where a missing value is a bug.
-- Retry loops papering over an intermittent failure instead of fixing its
-  cause.
-- UI "graceful degradation" that hides a backend error behind a generic
-  offline/empty state. Render the actual status code and body.
-- The fix is always to improve the single upstream source, never to add
-  downstream alternatives.
+### Anti-Fallback Principle
+There is only the primary path. Anywhere a component can fail, raise a loud,
+visible error naming what failed and where — never catch-and-default, retry-loop
+past bugs, chain backup methods/tools/configs, or degrade silently in UI. Fix
+the single upstream source.
 
 ### Design requirements
+1. **Zero tolerated defects:** a known flaw is a bug to fix, not a trade-off.
+2. **No dead guards or legacy clutter:** never guard unreachable states. When a
+   history/schema change affects only existing stored records, ship it in two
+   steps (migrate on load, then delete the migration once active browsers load
+   step 1; track step 2 in `BACKLOG.md`).
+3. **Proper names:** name exact concepts with units/reference points (`timeMs`,
+   `endedAt`); one term per concept.
+4. **Store primary facts once; derive stable functions at read time:** store
+   independently measured quantities directly, never reconstructed by subtracting
+   two fields with mismatched edges.
+5. **No lying UI or data:** no sentinel "unknown" values, no rounded copy that
+   disagrees with its source, no display string acting as an identifier.
+6. **Exact values, never estimates:** compute every displayed fact exactly by
+   definition; a note saying "approximately" never fixes a shortcut. Scale the
+   algorithm instead.
+7. **Component independence:** storage emits data, not UI copy; presentation
+   does not own storage keys.
+8. **Replace, don't accumulate:** when a newly shipped behavior is rejected with
+   no real data on it, remove/replace it outright instead of adding an option
+   beside it.
 
-Recorded 2026-08-19 during the play-history design review. These govern every
-design in this repo and extend the Anti-Fallback Principle above.
+### Analysis isolation & latency budgets
+- Heavy analytics run in workers, never in gameplay/input handlers or the UI
+  thread; discard stale replies; no main-thread fallback.
+- Run `tests/latency-browser-check.js` in Firefox (~15 s, [verification.md](docs/implementation/verification.md))
+  when finishing any gameplay, game-end, storage, startup, or result-layout
+  change, and with `--record` on the commit being pushed (commit the appended
+  `tests/latency-history.jsonl` line separately as
+  `"Record latency for <commit>: ..."`). Budgets are tight and per machine
+  (`tests/latency-machine.txt`, gitignored).
+- Run only browser checks exercising the change; never let a stalled command
+  hang.
+- Never use environment variables for app config (use gitignored machine files).
 
-1. Perfect design, zero compromises. A tolerated known defect is a bug in the
-   design, not a trade-off.
-2. Ideal-world assumptions: there are no legacy problems, legacy users, or
-   support burdens. No fallbacks (see above) and no belt-and-suspenders:
-   never guard a state the system cannot reach — if a state is impossible,
-   the guard is banned; if it is possible, it must be handled truthfully.
-   Schema changes carry no migration shims or forward version provisioning;
-   change the schema and the code together.
-3. Proper names, always. A name states exactly what the thing is, with units
-   and reference points where they disambiguate (`timeMs`, `endedAt`). One
-   term per concept.
-4. Always the most efficient way possible — computation, storage,
-   implementation effort. Store each primary fact exactly once; derive
-   everything else at read time.
-5. No component ever lies in any message it emits — UI text, stored records,
-   return values. Every value shown or stored is exactly the fact it claims:
-   no sentinel values standing in for "unknown" or "impossible", no rounded
-   copy that can disagree with its source, no display string doing double
-   duty as an identifier.
-6. Components are relatively independent. Storage does not produce UI
-   strings; presentation does not define storage keys; a component's
-   interface is data, not another component's formatting.
-7. Correct division of concepts: nothing duplicated, nothing that is one
-   thing split, nothing that is two things merged. Storing a derived value
-   next to its primaries is duplication.
-8. Exact values, never estimates (creator direction 2026-10-22, on the guess
-   ledger's one-move expected life: "we definitely shouldn't use such
-   incorrect 'estimates' especially in UIs which present data as true! Note:
-   do NOT ever 'just add a note saying approximately'. That's not a
-   solution. In general, more notes aren't the solution; the answer is to do
-   things properly and in the best way! if 'too large to measure' i think
-   we'd better think a wee bit more carefully"). Every value shown or stored
-   as a fact is computed exactly by its definition. A shortcut that
-   approximates it is a defect to fix; a caption or note ("approximately",
-   "may differ") never fixes one. A size limit is a reason to find a method
-   that scales (count instead of listing cases, use symmetry, dynamic
-   programming), not to give up or substitute a value.
-
-Refinement to 4 and 7 (2026-08-20, decided with the user): "store each
-primary fact exactly once" means store every independently MEASURED
-quantity directly and straightforwardly; derive at read time only what is
-a pure, definition-stable function of stored facts (3BV/s from bv3 and
-timeMs). Never store a measured value only as a remainder to be
-reconstructed by subtracting one stored value from another — if the two
-measurements' windows or thresholds differ even at the edges, the
-reconstruction lies. The duplication rule 7 bans is two copies of the
-same fact; two related measurements are not copies. Since raw traces
-became the stored ground truth ([Raw input traces](docs/product/storage-and-history.md)), per-game
-scalars are summaries of the trace and definitions can be recomputed
-retroactively; when in doubt, add the straightforward scalar rather than
-a clever reconstruction.
-
-Removal and replacement (creator direction 2026-09-26; the case was the
-self-check's 3-minute test, rejected minutes after release, then kept beside
-its replacement and then kept readable for one saved check):
-
-- Replace, don't add. When the creator rejects a behavior ("too long",
-  "wrong"), change it rather than adding the fix as an option beside the
-  rejected one, unless a choice is what they asked for.
-- Weigh a removal by its situation. A feature the creator rejected right after
-  it shipped, with nothing real built on it, goes outright: code, tests, docs,
-  and its test data, with no compatibility path. That is not a license to
-  remove freely: anything holding real accumulated data, or in real use, keeps
-  its data or waits for the creator's decision before anything is deleted.
-
-Changes to saved history (creator decision 2026-10-26): "we are okay with
-changes to history as long as we make reasonable steps; but we don't want to
-make any extremely painful patches which new users from this point on
-wouldn't have." A change that only histories saved before it need ships in
-two steps: one release changes each history as it loads, and a later release
-deletes that code once every active player's history has loaded it ("we can
-do the cleanup in two steps; there aren't many active users (basically only
-me another guy)"). BACKLOG.md lists each pending second step. Details:
-[docs/product/storage-and-history.md](docs/product/storage-and-history.md),
-"Storage".
-
-### Analysis isolation
-
-User requirement (2026-09-25): expensive analytics must run in workers, never
-in gameplay/input handlers or the UI thread. Keep result jobs bound to captured
-games and discard stale view updates. No main-thread calculation fallback. See
-[Preparation and completion cost](docs/product/board-and-layout.md#preparation-and-completion-cost).
-
-### Latency budgets
-
-User requirement (2026-09-26): the system must never get slow again. Run
-`tests/latency-browser-check.js` in Firefox (about 15 seconds on the PC) when
-finishing each change to gameplay, game end, storage, startup, or result
-presentation, so a slowdown shows at the change that caused it (creator
-decision 2026-10-26; it had run only before a push). Before each push, run it
-once more with `--record` on the commit being pushed, then commit the line it
-appends to `tests/latency-history.jsonl` by itself ("Record latency for
-<commit>: ..."). The line names the commit it measured, and its `dirty` says
-whether other sessions' uncommitted edits were in the tree, which does not
-hold the push. A budget failure means the change is not finished: find the
-slowdown, or ask the creator to loosen that budget. Besides input and
-startup, the check times a long Expert win to its full results, the analysis workers' share included (added
-2026-10-26, after a change that doubled the workers' after-game work had
-passed it). Results show part by part as their data arrives, so that budget
-may be raised while the player is never blocked: the winning click and the
-freeze after it keep tight budgets (creator decision 2026-11-03,
-[Input latency](docs/product/board-and-layout.md#input-latency-user-report-2026-09-26)).
-Budgets are per machine (creator request 2026-10-18): the gitignored
-`tests/latency-machine.txt` names the machine running the check (`linux-pc`,
-`windows-laptop`), and a run is judged only against that machine's budgets.
-Budgets sit just above that machine's measured times, never at generous round
-numbers; they tighten when code gets faster and loosen only by recorded
-creator decision. Commands:
-[verification](docs/implementation/verification.md).
-
-### Test speed
-
-User requirement (2026-10-17): no slow test runs. Run only the browser checks
-that exercise the change, never the whole list by routine, and stop any
-command that has stalled instead of waiting on it again. Details:
-[verification](docs/implementation/verification.md), "Test speed".
-
-### Configuration
-
-- Never use environment variables for configuration: a machine's own
-  settings go in a gitignored file, as `tests/latency-machine.txt` does. The
-  repo holds no secrets; the deploy key exists only as the GitHub secret
-  `FUSEKI_DEPLOY_SSH_KEY`.
-
-### Communication
-
-- Plain terms (user request 2026-09-26): use normal words; when a technical
-  term or a name you coined is needed, define it in the same sentence where it
-  first appears, not elsewhere.
-- Questions (user request 2026-09-26): ask in plain text with a recommended
-  answer, not in question forms; forms were closed unanswered twice and cost
-  round trips.
-- Answer first (user request 2026-09-26): answer the user's question in the
-  first message, then do any long audit or fix; a yes/no question once
-  waited 28 minutes behind its fix.
-- No emojis anywhere — files, responses, commits.
-- No relationship-management speech: no praise, validation, verdicts on the
-  user's statements ("You're right"), reassurance, or servile offers. Present
-  analysis; agreement is its conclusion, not its opening.
-- Preserve the epistemic status of the user's words — a claim stays a claim,
-  neither upgraded ("brilliant insight") nor downgraded ("instinct", "hunch").
-- Banned words/phrasings: "honest(ly)" framing, "heads-up", "wrinkle",
-  "lands/land" for "is done", "say the word", "walk you through", empty
-  intensifiers ("genuinely", "really", "actually" as filler), smell words
-  ("cruft", "hacky", "code smell", "bloat", "footgun", "overengineered",
-  "elegant", "clean code" as praise). State concrete pros and cons instead.
-- Put meaning in statements, not in a word's connotation. If something is
-  risky or costly, say so and why.
-- Report status straight: what is done, what is not; name issues as issues.
-- Be terse; present alternatives as labeled options, not padded prose. Do the
-  task, report, stop — but do obvious follow-up housekeeping without asking.
-- When uncertain whether a recommendation suffices, investigate and resolve
-  the uncertainty before answering; return an answer, not a basic/ironclad
-  menu.
-
-### Code style
-
-- Comments explain why, not what. No comments that restate the function name.
-- Type hints in Python; `pathlib.Path` for paths; constants for magic values.
-- One term per concept; unify immediately when dual terminology appears.
-- Filenames we create: `[A-Za-z0-9._-]` only — no spaces or metacharacters.
-
-### Structural fixes only
-
-"The agent will remember/try harder next time" is not a fix — future sessions
-start from the same weights and files. Valid fixes change the code path, the
-checked-in rule files, or an injected hook so the correct behavior is the
-default. Durable facts go in checked-in files linked from an AGENTS.md, never
-in an agent's private memory.
-
-### Cost-efficiency
-
-Prevent problem classes at the earliest, cheapest point (linter rule,
-pre-commit hook, script) rather than repeatedly hand-fixing instances. If
-grep or a script can do it, don't spend model time on it.
+### Communication & style
+- Plain player-known terms; define any technical term inline where first used.
+- Ask questions in plain text with a recommended answer (not modal forms);
+  answer questions before starting long work.
+- No emojis anywhere (files, responses, commits).
+- No relationship fluff, praise, validation, or empty intensifiers (`genuinely`,
+  `really`, `actually` as filler, `honestly`, `heads-up`, `wrinkle`, `lands`
+  for done, `say the word`, `walk you through`, smell words).
+- Code comments explain current "why", never dated changelogs or what the code
+  already says. Filenames: `[A-Za-z0-9._-]` only.
+- Structural fixes over promises: fix code, linters, hooks, or loaded docs so
+  cold-start sessions behave right by default.

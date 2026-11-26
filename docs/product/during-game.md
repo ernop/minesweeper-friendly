@@ -1,699 +1,106 @@
-# During the game (requested 2026-10-15)
+# Live perf charts (during the game)
 
-Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation
-notes: [docs/implementation/during-game.md](../implementation/during-game.md).
+Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation notes: [docs/implementation/during-game.md](../implementation/during-game.md).
 
-## Request
+## Goal and placement
 
-Creator request 2026-10-15: beside "your perf" (each measurement as one
-value for the whole game) and the game stats, a deeper kind of perf: how the
-measurements moved during the game. "perf now has the average fastclick gap
-for the whole game; but this new type of chart has values either raw incident
-by incident during the game, or else with sub-averages (in say 5s buckets,
-and/or rolling averages)." Most current perf measurements get an in-game
-row; new rows show progress, "how i'm progressing at marking 100% of mines by
-time, opening squares". An events view shows detected events: the known ones
-("mark/unmark same sq (misclick), or pointlessly click somewhere") and new
-ones: moments where "the user actually had two choices for which way to go"
-and chose one, and when local work "peters out" and the player makes "a big
-move to the other side of the board", a decision in which "individuals would
-vary a lot". Rows are toggleable, like the game data measurements and board
-traits. The purpose is the project's: to "fully understand, see, and
-eventually train and see into and help me to optimize my play"
-([Measurement purpose](measurement.md)).
+Show how progress, available moves, pace, move efficiency, and discrete events unfolded second-by-second through the finished game, linking every moment directly back to the main board's replay without duplicating the board.
 
-## Revision of the first build (creator 2026-10-15)
+- **Placement:** titled `live perf charts` (no `(? )` button), heading the details dock above [Game data](game-data.md) on wins and filling the dock on losses (or flowing full-width below the board when neither flank fits; [Board and layout](board-and-layout.md)). Shown after finished wins/losses and restored old games, not in High scores or trial review.
+- **Layout stability and visibility:** the dock is reserved before game end so finishing never moves the board. Clicking the title collapses/expands the block (remembered across games, returning freed height to Game Data); the `live perf charts` display switch removes the block completely.
+- **Off-thread computation:** computed once after game end in the reports worker (never during play), sharing incremental board proofs with [game-end evaluation](game-end-evaluation.md).
 
-Of the first build, a section among the lower result sections, with a
-screenshot of the game data distributions view: "I think during the game
-should be the one on the right, above the attached image. ... the new
-"during the game" block should be above THIS one, got it? so it's "during
-this game second by second", "your perf totals for this game", then "board
-traits"." Then: "for during the game, consult the 'session stats' - this is
-analogous to that. But keep your new code in the new place. also make these
-changes to it: a few of the items which progress from 0-100% can reuse the
-same chart. that chart shall have useful x-axis tics and labels ofc. same for
-y axis, not just 0 and 100%." On hover: "the mouseover should show the value
-at that moment along with the board status. the area the board status
-appears shall not be relative to the mouse, though - it should rather appear
-somewhere either to the right (preferred) or left if needed of this space at
-a fixed height. so the MOUSEOVER shows the value of the series we're above at
-that moment, and also any mousing over any series will cause the board state
-at that position to be shown, too, autoadjusting. and ofc all board uis such
-as this should obey the board style choices the user has entered in their
-config too!" And: "the datarows here are of many new types so it's okay to
-use new viz styles for them as you've done. but when we're not needing a new
-style and an old one would work, consider using it to reduce variability".
-The same message renamed game data's sections ([Game data](game-data.md#section-titles-creator-2026-10-15-revised-2026-10-20)).
-Everything below follows it; the first build's layout (one row per
-measurement with a small scale label at its top left, values in a column at
-the right, a card with a small board following the pointer) is gone.
+## Charts, scales, and legends
 
-## Revision (creator 2026-10-20)
+Four stacked parts share one game-seconds x-axis (first click to game end, aligned vertical gridlines, seconds labeled under the first and last parts). Any chart with no visible rows hides itself:
 
-Creator, verbatim: "rename the first section from "during this game, second
-by second" to "live perf charts"". Of the averaging menu: "the default
-setting for all of thsees shall be "2s rolling average" but it shall follow
-whatever the users chatnes it to." Of the charts: "let's tihnk of a logical
-way to combine or convey the information from all the middle, solitary line
-cahrst. e.g. from 3bv/s, click rate, action gaps, mouse speed, safe sq
-known, squares moved (should be " - between actions". can we combine them
-and make it so that as we mouseover, we see the specific data baout the
-specific line we are mousing over at that point including the actual
-value?" Of the event lanes: "the lower section with data on no-op clicks,
-misclicks, flags removed. let's think creatively and also consult other ui
-manuals and things like that; maybe we can figure out another method of
-displaying this data which is meaningful yet also compact?" And of the
-section's (?) and game data's two side titles' (?): "remove all three (?)
-buttosn and mouseovers entirely, not replacing orputting the removed text
-anywhere; it merely wil lbe gone."
+| Order | Part | Y axis / representation |
+| --- | --- | --- |
+| 1 | **Progress** | `0%` to `100%` (labeled every `20%`): `3BV solved`, `squares opened`, `mines flagged`. |
+| 2 | **Moves available** | Raw count starting at `0` (step `1/2/5 × 10^k`, `<= 5` labels, `120 px` plot height); step lines showing board options between clicks. |
+| 3 | **Event tracks** | Three horizontal lanes (`clicks`, `jumps`, `pauses`); instants draw as distinct shape + color marks, spans draw as bands/bars. |
+| 4 | **Relative against whole game** | Pace, move usefulness/distance, board, and report rows plotted as value divided by whole-game value (`1×` black reference line). |
 
-Built the same day:
+- **Log vs linear scale (`duringGameRelativeScale`):** controlled by the `log scale` checkbox in the options row (checked by default):
+  - *Log (default):* doubling ticks (`⅛×`, `¼×`, `½×`, `1×`, `2×`, `4×`, `8×`), 1–3 doublings each way as needed; values beyond `3` doublings clamp at the edge and `0` sits on the floor. Series whose whole-game value is `0` or unmeasured draw no line (their legend still shows the value).
+  - *Linear:* `0` on the floor up to `2×–8×` (step `½×`, `1×`, or `2×`, `<= 6` labels, always marking `1×`), clamping out-of-range spikes at the top so one outlier never flattens other lines.
+  - Plot left edges reserve room for every ratio or native-unit label so switching scales or hovering never shifts plots horizontally.
+- **Native unit y-axis on focus:** whenever one line on the relative chart is hovered/focused (via chart, legend, or its `game summary perf` row) or is the sole drawn line, the y-axis ticks relabel in that line's own units (`r × whole-game value`, e.g., `273ms` at `1×`) without moving ticks or lines.
+- **Legends below each part:** each legend sits directly beneath its own part (`whole game (1×)` on the relative chart, `game average` on moves available, counts on event tracks), listing swatch/mark, name (definition on hover), and summary value.
+- **Transient legend picks:** clicking a legend entry when all rows are shown solos that row; clicking another adds it; clicking a shown row hides it. Hiding the last visible row (or restoring the last hidden one) restores all rows, since showing none is useless. Hidden entries keep their place struck through; event tracks retain all three lanes to avoid vertical reflow. Picks persist across redraws for the current game and reset to all-shown on the next game.
+- **Hover link with Game Data:** hovering a line or legend entry rings the matching `game summary perf` row (or rows counted over that event), and hovering a `game summary perf` row spotlights its matching line and event marks here ([Measurement catalog](measurement-catalog.md)).
+- **Footer options row:** `averaging`, `log scale`, and `configure` sit in one compact row at the bottom.
 
-- The section is titled "live perf charts", with no (?) on its title.
-- The averaging default is a 2 s rolling average, for everyone once; the
-  player's choice persists after that (Averaging, below).
-- The pace and board rows share one chart, each line drawn against its own
-  whole-game value (Charts, below). Their units differ (per second,
-  milliseconds, px/s, squares), so no shared axis of raw values exists; the
-  ratio to the game's own value has no unit, and it shows where in the game
-  each measure ran above or below its own level.
-- Hover over a chart names the one line nearest the pointer with its value
-  at that moment.
-- "squares moved" is "squares moved between actions".
-- The event lanes, one per row, became three tracks of marks with one
-  legend. The practice consulted: a profiler's category tracks with details
-  on hover (the Chrome DevTools Performance panel), event-timeline glyphs
-  that differ in shape first and color second so they stay apart when
-  printed or for color-blind readers (swimmer plots in clinical timelines;
-  timeline design guides), and instants drawn as marks but spans as bands
-  (Grafana's annotations).
+## Hover preview and replay link
 
-## Revision (creator 2026-10-21)
-
-Creator, verbatim, of the board that appeared beside the block on hover:
-"what if instead of a popup, we just scrolled within the jsut-ended game
-review setup, instantly, to that point? that way we don't duplicate teh
-baord." Of the second chart's doubling scale: "can there be a way to toggle
-this charts' viz between log and linear?" And of the legends: "clicking a
-label toggles enable/disable for its viz. when all are viz ==true (the
-default), clicking one shows ONLY it. clicking another adds that other to
-the viz (so there would be two). clicking one, then clicking it again,
-reverts to "all are shown" (since showing NONE at all is pointless). make
-sense? and this should apply to both the top chart with 3BV/s, and also the
-2nd one with "action gaps" where you should also add a similar list of
-labels. yes i know this changes what i said before, I intend to change my
-prior rules."
-
-Built the same day:
-
-- Hover moves the replay under the board to the moment under the pointer,
-  and the board beside the block is gone (Hover and the board at that
-  moment, below). This replaces the 2026-10-15 request for the board status
-  "to the right (preferred) or left if needed of this space at a fixed
-  height".
-- "scale" in the options row switches the second chart between log, the
-  doubling scale, and linear (Charts, below).
-- Every legend entry in the block is also its row's switch (Legend picks,
-  below). The message names "the top chart with 3BV/s" and "the 2nd one
-  with "action gaps"", adding a list of labels to the second. The progress
-  chart, the second chart (where 3BV/s and action gaps both are), and the
-  event tracks each already had one legend listing its rows with their
-  whole-game values, so the rule applies to all three legends and no list
-  was added.
-
-Later the same day, verbatim: "make the "log/linear" control a boolean click
-toggler, not ad ropdown." And: "move the chart which has 3BV/s to the 3rd
-position, from its current 2nd position, within live perf charts."
-
-Built the same day:
-
-- The scale is one "log scale" checkbox in the options row, checked by
-  default; unchecked draws the linear scale. It replaces the "scale" select
-  built that morning, and a choice saved with the select carries over
-  (`duringGameRelativeScale`, `log` or `linear`).
-- The chart against the whole game, the one with 3BV/s, moved from second to
-  third: top to bottom the block shows the progress chart, the event tracks,
-  then that chart (Charts, below).
-
-## Revision (creator 2026-10-26)
-
-Creator, verbatim: "within the live perf charts lets add a raw numerical
-counter for every moment of the game show shows the count of moves
-available, by type: 1. markable mines by simple means (not whole-board
-based calculations) 2. the prior, but only near the last move (within dist
-5 manhattan distance) (1 & 2 should be straight clear calculations e.g. a 2
-with only 2 neighbors, so its obvious." The same message asked for a
-"well-bordered complexity leel system" for knowing facts about the board;
-that part is quoted, with the levels built from it, in
-[Design axis](design-axis.md), "Deduction levels". It ends: "the 3rd new
-metric should be similar, but for "chordable tile count" such as a 1 with
-multiple uknnown adjacent squares, and one already marked mine, so it's
-ready to be clicked. by using these new metrics, i can see the options the
-player has, as they increase/decrease through the game."
-
-Built the same day:
-
-- A third chart, the moves available chart (named after its rows' group
-  in configure), second in the block, above the event tracks: raw counts
-  on a count axis, each line a step that holds what the board offered from
-  one click to the next (Charts, below).
-- Its rows (Rows, below), shown by default: mines by counting (the first
-  request), mines by counting near the last move (the second), chordable
-  numbers (the third), and safe squares known. Off by default: mines
-  known, and the safe squares and the mines each deduction level is the
-  first to prove.
-- Choices made in building it, for the creator to change:
-  - "Simple means" is the first deduction level, counting single numbers.
-    Each square counts at the first level proving it, so a kind's level
-    rows add up to its known row.
-  - The levels read only open numbers and the board's mine count; a flag
-    is the player's note, not proof. A "markable" mine is covered and
-    unflagged.
-  - Near the last move: at most 5 steps, a step one square across or down,
-    from the square of the last click that changed the board (a chord's:
-    its number); none before the first such click.
-  - A chordable number has as many flags beside it as its number, every
-    flag on a mine, and a covered square left for the chord to open. A
-    number with a wrong flag beside it is not counted: its chord loses.
-  - Safe squares known moved from the chart against the whole game, where
-    the 2026-10-20 revision had combined it with the pace lines, to the
-    moves chart beside the other counts. The chart against the whole game
-    is fourth, still under the tracks.
-
-## Revision (creator 2026-10-26, legends and the y axis)
-
-Creator, verbatim, with a screenshot of the chart against the whole game:
-"the labels for this, I think, shoudl be bELOW the chart. secondly, what do
-you thyink of the y-axis marks - can't they be denominated in terms of the
-actual unit we're focusing on in the case of mouseover or only a single
-series being shown?" The same message asked for a review of the fastclick
-gap's definition; that part is quoted in
-[Per-game stats](per-game-stats.md), "Fastclick gap", where the definition
-it led to, planned pairs, built the same day, is given.
-
-Built the same day:
-
-- Every legend sits under its part (Charts, below). The message named the
-  chart against the whole game; the progress and moves charts' legends
-  moved with it, so each legend is under what it names, as the event
-  tracks' already was. Above its chart, that chart's legend had sat right
-  under the tracks' legend and read as part of it.
-- The chart against the whole game labels its y axis in one line's values
-  while that line is in focus or is the only one drawn (Charts, below).
-  The ticks stay where they are and only their labels change, so nothing
-  moves under the pointer. The cost: the plots' left edge makes room for
-  the widest such label any line can get (8× the mouse speed, as a rule),
-  so every plot in the block starts about 25 pixels further right.
-
-## Revision (creator 2026-10-26, the move hierarchy)
-
-Creator, verbatim, of the move hierarchy's unbuilt levels
-([Design axis](design-axis.md), "Move hierarchy"): "biuld them". A question
-asked before it, what "connected guess" means, went unanswered; it is built
-with the reading proposed in that question, a guess on a square beside open
-numbers.
-
-Built the same day:
-
-- A fifth row group, move usefulness and distance, on the chart against
-  the whole game (Rows, below). Shown by default: most 3BV per click, the
-  best that any one proven move offered at each moment, and steps to the
-  nearest safe square from the last board-changing click. Off by default:
-  both by deduction level.
-- The guess card says what the guess chose among (Events, below): whether
-  it was beside open numbers; the lowest mine risk beside them and away
-  from them; perfect play's chance to win after this square and at best;
-  and when nothing else on the board could ever settle the guess, how long
-  that had been so, and on a loss how much sooner taking it at once would
-  have ended the game.
-- Choices made in building it, for the creator to change:
-  - Usefulness is the 3BV a proven move solves per click. Opening a square
-    is one click. A chord is its own click plus one for each mine beside
-    it not yet flagged, since it needs those flags first. A zero solves its
-    whole opening, 1 3BV, and so does a number touching no zero; a number
-    on an opening's edge solves none, its opening's 3BV being counted with
-    the zero. The move's level is the hardest level among the facts it
-    needs, so a chord needing an overlap fact is an overlap move.
-  - Distance counts steps of one square across or down, as "near the last
-    move" does, from the square of the last board-changing click (a
-    chord's: its number) to the nearest covered, unflagged, proven-safe
-    square. Proven mines are left out: flagging one solves no 3BV.
-  - "Connected" means beside an open number. The lowest risks are the exact
-    mine probabilities the guess ledger uses, shown only where the ledger
-    measured the guess: every guess since 2026-11-02, when the ledger's
-    work limit was removed.
-  - Perfect play's chance to win counts every mine layout the visible board
-    allows as equally likely, as the ledger's risks do, and plays each
-    remaining layout as well as any strategy can: it opens every square no
-    remaining layout mines before it guesses again. It is shown only where
-    the mines were fixed: the ledger measured the guess and Guardian Angel
-    was off, since Guardian Angel moves mines. It is an exact count of
-    layouts won. Since 2026-10-27 (the creator: "there should be a proper
-    way to actually calculate this"), the board is first split into
-    separate games: groups of squares no number, open or still to open,
-    can tell anything about another, and that the mine total leaves one
-    mine count each. Perfect play wins the whole board exactly when it
-    wins each of them, so the chance to win is the product of theirs;
-    groups the mine total leaves several counts are searched together.
-    Since 2026-11-02 the search skips "dead" squares (JSMinesweeper's
-    term, [reference/jsminesweeper.md](../../reference/jsminesweeper.md)):
-    a square whose number is the same in every layout that leaves it safe
-    teaches nothing, and perfect play never needs to guess one while a
-    square that can teach something remains. When none remains, perfect
-    play wins exactly one of the layouts left.
-    Where a search passes its work limit, the card says so and shows no
-    chance. On the guesses of simulated games guessing the lowest risk
-    (`tests/win-chances-bench.js`, 2026-11-02, when every guess's odds
-    became measurable, so the simulated games play to their end), it is
-    computed for 27 of 42 Beginner guesses, 52 of 93 Intermediate, and 116
-    of 387 Expert, at most about 11 ms a guess. The published release on
-    the same guesses computed 26, 49, and 89, and had no odds at all for
-    1, 16, and 121 of them; the two agree exactly on every guess both
-    compute. On 2026-10-27, of the 122 Expert guesses then left, 96 had a
-    group of a million or more layouts that nothing splits, 82 of them more
-    than 10^12: the unopened area joins them, and the chance to win there
-    is the value of the whole rest of the game in that area, where the
-    layouts early in a game can number more than 10^80 and no known exact
-    method finishes. JSMinesweeper's own exact search runs only while
-    fewer than 1,000 layouts remain in play (in its analyzer, a setting
-    from 0 to 20,000, 5,000 by default), with a heuristic beyond. On
-    the 2026-11-02 guesses, a limit 10 times higher computes 7 more Expert
-    guesses (123 of 387) at up to 61 ms a guess, and 100 times higher 14
-    more (130) at up to 259 ms.
-  - "Nothing else on the board could ever settle it" is Guardian Angel's
-    test for a guess it would protect, applied to the position before the
-    guess in every mode. The wait runs back over the unbroken run of
-    positions where the test held, to the click that began it. (Until
-    2026-11-02 a position whose proof stopped at its work limit ended the
-    walk, and the card then gave no wait.)
-
-## Placement
-
-- A stat section titled "live perf charts" heads the details column's
-  statistics beside the board: it sits above game data's one chart, whose
-  sides are "game summary perf" and "board traits"
-  ([Game data](game-data.md)), or above a lost game's statistics. Its title
-  opens and closes it, remembered across games; closed, it gives its height
-  to game data ([Layout](board-and-layout.md), creator 2026-10-17). From
-  2026-10-15 to 2026-10-17 it led a separate game data column.
-- The block is not among the lower result sections (the first build put it
-  between This board and your perf).
-- It describes the game that just ended, won or lost, or the saved game whose
-  replay is restored, so it appears after a game and not in the score viewer
-  or trial review.
-- The details column is reserved before the game ends, so finishing a game
-  never moves the board.
-- The "live perf charts" switch hides it. It sits in the result sections'
-  This game group, just before game data, the order the column shows them
-  (the first build's switch was in the Charts group). Closing the section
-  by its title keeps it on the page, one line high; the switch removes it.
-
-## Charts
-
-- Charts keep the grammar first built for the session stats ([Session stats](session-stats.md)):
-  a framed plot with light gridlines, y ticks labeled in bold black, and each
-  line in its series' color. Hovering a line's legend entry spotlights it:
-  the line thickens and the chart's other lines fade. Clicking it chooses
-  which lines show (Legend picks, below).
-- Linked to game summary perf (creator request 2026-10-26): hovering a
-  line or legend entry of a game data measurement rings that measurement's
-  game summary perf row, and an event row's entry rings the rows of the
-  measurements counted over its events; hovering a game summary perf row
-  spotlights its measurement's line and event marks here alone
-  ([Measurement catalog](measurement-catalog.md), "Hover link").
-- Top to bottom: the progress chart, the moves available chart, the event
-  tracks, then the chart against the whole game (the moves chart since
-  2026-10-26; the chart against the whole game moved below the tracks on
-  2026-10-21, from second).
-- Three charts, each drawing only its shown rows and disappearing when none
-  are shown:
-
-  | Chart | Rows | Y axis |
-  | --- | --- | --- |
-  | progress | 3BV solved, squares opened, mines flagged | 0% to 100%, labeled every 20% |
-  | moves available | the counts of moves the board offered | a count from 0 |
-  | against the whole game | every pace, board, and report row | the line's value divided by its whole-game value, on a doubling (log) scale or a linear one |
-
-- The moves chart's axis starts at 0 and steps by 1, 2, or 5 times a power
-  of ten, at most five labels, up to the first label at or past the
-  highest count its shown lines reach (at least 1). Its plot is 120 pixels
-  high, the height of the chart against the whole game, so counts a few
-  apart stay apart.
-
-- The scale of the chart against the whole game is log by default and
-  doubles at each label: 1×
-  is the line's whole-game value, drawn as a black line across the plot,
-  and ½×, ¼×, ⅛× below it and 2×, 4×, 8× above it. It runs as many
-  doublings each way as its farthest value needs, at least one and at most
-  three; a value past three doublings is drawn at the edge, and zero on the
-  floor. A line whose whole-game value is zero, or not measured, has nothing
-  to be measured against and is not drawn; its legend entry still gives the
-  value.
-- Its linear scale (creator 2026-10-21; the "log scale" checkbox in the
-  options row chooses it when unchecked) runs from 0 on the floor to the farthest value its lines
-  draw (in raw, which draws no lines, its farthest incident), at least 2×
-  and at most 8×, rounded up to a label. The labels step by ½×, 1×, or 2×,
-  at most six of them, and 1× is always labeled and drawn as the black
-  line. A raw dot or a value past the top is drawn at the edge, as past 8×
-  on the log scale: fitting the dots would let one far incident flatten
-  every line. Either scale leaves every plot in the same place: the plots'
-  left edge has room for every label either scale can draw, as a ratio or
-  in any line's values. The choice persists (`duringGameRelativeScale`).
-- On either scale the y labels give one line's values instead of ratios
-  (creator 2026-10-26) while that line is in focus (the pointer is on it,
-  on its legend entry, or on its game summary perf row) or is the only line
-  the chart draws (one row picked or configured, or the others not
-  measured; rates in raw draw only ticks and do not count). Each line is
-  drawn at its value divided by its whole-game value, so the label at r×
-  is exactly r times that value, in the line's format: 1× reads the value
-  its legend gives, and for a 273 ms fastclick gap the linear labels read
-  0ms, 137ms, 273ms, 410ms, 546ms. The ticks and lines stay where they
-  are. With no single such line the labels give the ratios.
-- Legend picks (creator 2026-10-21): clicking a legend entry chooses which
-  of its part's rows show. With all shown, the default, a click shows that
-  row alone; a click on another adds it, and a second click on a shown one
-  removes it. Removing the last one shown, or adding back the last one
-  hidden, shows them all again, since showing none is pointless. Each
-  chart and the event tracks choose for themselves. A hidden row's entry
-  keeps its place, its swatch or mark, and its whole-game value, with its
-  name struck through; hovering it spotlights nothing. The moves chart and
-  the chart against the whole game fit their scales to the lines shown; the
-  event tracks keep all three lanes when a lane's marks are hidden, so
-  nothing below moves. The picks hold for the game shown, through every
-  redraw of its block (averaging, scale, configure, the result drawn again
-  as its measurements finish), and start over, all shown, with the next
-  game. Configure still decides which rows the block has at all.
-- Under each chart (above it until 2026-10-26) one line names its lines:
-  a swatch in the line's color,
-  the row's name (it shows the row's definition on hover), and its
-  whole-game value, the most legible text there. A legend sits nearer its
-  own part than the next part below. The line of the chart
-  against the whole game starts with "whole game (1×)", in bold, so the
-  values beside the names read as the 1× each line is measured against;
-  the moves chart's starts with "game average", since its values are each
-  count's average over the game's time, which the plot does not mark.
-- One time axis: every plot spans the same width, game seconds from the first
-  click to the end of the game, with vertical gridlines at the same seconds
-  in every chart. The seconds are labeled under the first part and under
-  the last.
-- Event tracks sit between the moves chart and the chart against the whole
-  game, on the same time axis: three thin
-  tracks named at their left, "clicks", "jumps", and "pauses", holding every
-  shown event row's marks by what the events are about (Events, below).
-  Each row's mark differs in shape within its track and in color: an instant
-  is a small shape at its moment, a long gap a band through the pauses
-  track over its span, and the window left a bar along that track's top
-  over its span. One legend under the tracks lists every shown event row:
-  its mark, its name (its definition on hover), and its count.
-- "averaging", "log scale", and "configure" sit in one small row at the
-  bottom of the block, as game data's options do.
-
-## Hover and the board at that moment
-
-- Hover anywhere over the charts draws one vertical line through all of
-  them.
-- A small card beside the pointer shows the moment and, over a chart, the
-  one line nearest the pointer: its swatch, its name, and its value then
-  (on the chart against the whole game, the line's own value, not its
-  ratio). That line
-  comes forward and the chart's other lines fade; on the chart against the
-  whole game its values label the y axis (Charts, above). Where no line has a value
-  at that moment the card says "nothing measured at this moment". Over an
-  event track the card names the track and gives its events at that moment
-  in words, such as "left 3 proven-safe squares unopened; jumped 9 squares"
-  or "1.8 s pause, ended by a reveal", or "none at this moment". Only the
-  rows the legends show count (Legend picks, above). The card opens right of
-  the pointer, away from the board left of the column, or left of it where
-  the window has no room; above the pointer where there is room, else
-  below.
-- The board itself shows that moment (creator 2026-10-21, replacing the
-  board shown beside the block from 2026-10-15). While the pointer is over
-  the charts within their time axis, the replay under the board moves at
-  once to the moment under the pointer: the position before the next click,
-  with that click's squares shaded, and the replay's overlays, slider,
-  status line, and legend, all as the transport shows them and in the
-  player's board settings ([Path and choice replay](replay.md)). The last
-  click ends the game, so the axis's last 6 pixels (the hover's reach) show
-  the finished board. Hovering stops playback.
-- Leaving the charts, or their time axis, returns the board to the replay's
-  own position: the finished board after a game, or wherever the transport
-  or a click left it. A hovered moment is never saved as the replay's
-  position.
-- A click on a chart or an event track keeps its moment: the replay stays
-  there after the pointer leaves, saved as the transport's moves are, and
-  the board scrolls into view if the page had scrolled it away. A click on
-  a legend is a legend pick, not a move.
-- Gone with the board beside the block: its head line (the transport's
-  status names the moment and the next click instead), its fixed size and
-  place, and the proven-safe ring on only the squares the hovered events
-  concern (the ones a move left behind, or every proven-safe square during
-  a pause). Under the replay's "available moves" overlay, on by default,
-  every proven-safe square of the moment is ringed, so the squares a move
-  left behind are among them but not set apart
-  ([BACKLOG.md](../../BACKLOG.md)).
+- **Vertical hairline and card:** hovering anywhere over the charts draws one vertical line through all parts and opens a compact card beside the pointer (avoiding the board) showing the timestamp and nearest visible line's native value (or track events at that moment, or `"nothing measured at this moment"` / `"none at this moment"`). The nearest line thickens while sibling lines fade.
+- **In-place board preview:** while the pointer moves across the time axis, the main game board's replay scrubs live to the position immediately before the next click (shading that click's squares and keeping the player's board style and replay overlays; [Path and choice replay](replay.md)). The last `6 px` of the axis show the finished board. Hovering stops active playback; leaving the charts restores the replay's saved position without overwriting it.
+- **Click to lock:** clicking a chart or event track commits the replay to that moment and scrolls the board into view if needed (clicking a legend toggles the series instead).
 
 ## Averaging
 
-One choice in the options row applies to every averaged row, listed in this
-order: a rolling average over 2, 5, or 10 seconds centered on each moment,
-raw incidents, or fixed 2, 5, or 10 second buckets counted from the first
-click. The default is the 2 second rolling average (creator 2026-10-20; it
-was 5 second buckets). Raw incidents stay drawn under an average: dots in
-the line's color for measured values, and short ticks at the plot's foot
-for rate incidents. A rate in raw draws only its ticks. A bucket or window
-with under one second of play shows no value, the rule the session stats
-used: a rate over a sliver of time is not evidence. The whole-game value has
-no such minimum (since 2026-10-26): it is game data's value, which a game
-under a second has too. Progress, board-state, and
-event rows have no average.
+One options-row control (`duringGameAveraging`, default `2 s rolling average`) governs all averaged rows: rolling `2 s`, `5 s`, or `10 s` centered on each moment; `raw incidents`; or fixed `2 s`, `5 s`, or `10 s` buckets from first click.
 
-## Rows
+- Raw incidents stay visible beneath averages (colored dots for measured values, foot ticks for rate incidents; rates in raw mode show ticks only).
+- Buckets or windows spanning `< 1 s` of play show no value (avoiding noise over slivers of time); whole-game values have no minimum and match [Game data](game-data.md) exactly. Progress, board-state, and event rows do not average.
 
-A row showing a game data measurement is that measurement: its name,
-definition, and format are the measurement catalog's, the same as game
-data's, measured over the bucket or window instead of the whole game
-([Measurement catalog](measurement-catalog.md)). Its whole-game value is
-exactly game data's value for the game: rates divide by the record's time
-(until 2026-10-26 by the axis's span, the record's time or the last action,
-whichever was later), and the fastclick line plots the planned pairs'
-times, whose median the record stores. Every other row has a name no
-catalog measurement uses.
-In its legend entry, a progress row
-shows its final share, a moves, move usefulness and distance, or board row
-its average over time, a rate or ratio the whole game's, and an incident
-row its median or mean; an event row shows its count. A move usefulness
-and distance row averages the moments it had a move to measure; where it
-had none all game, its entry says "none".
+## Row catalog
 
-Shown by default:
+Any row representing a catalog measurement uses its exact catalog name, definition, format, and whole-game value ([Measurement catalog](measurement-catalog.md)). Progress rows start from the initial state (a given opening counts as already solved). Moves-available and usefulness/distance rows read the board before each click using exact unlimited proofs (all deduction levels follow [Design axis](design-axis.md#deduction-levels), counting each square at the first level proving it; flags are player notes, not proof).
+
+### Default-shown rows
 
 | Row | Group | Definition |
 | --- | --- | --- |
-| 3BV solved | progress | share of the board's 3BV done by each moment; an opening counts once, when any of its zeros opens; a number touching no opening counts when it opens |
-| squares opened | progress | share of the board's safe squares open |
-| mines flagged | progress | share of the board's mines carrying a flag; flags on safe squares do not count |
-| 3BV/s | pace | 3BV solved per second |
-| click rate | pace | board-changing clicks per second |
-| action gaps | pace | time from one board-changing click to the next; averages take the median |
-| fastclick gap | pace | press-to-press time of each planned pair, at its second click: two clicks in a row on touching squares, all they open proven safe and all they flag proven mines before the first, nothing pressed between, no rest after an opening click, no flag removals ([Per-game stats](per-game-stats.md), "Fastclick gap"); averages take the median; not measured on a game where a proof stopped at its work limit on a pair |
-| mouse speed | pace | cursor travel per second, pauses included; each dot is the speed between two board-changing clicks |
-| safe squares known | moves available | covered, unflagged squares the visible board had proved safe, between clicks |
-| mines by counting | moves available | covered, unflagged squares counting single numbers proves mines, one number at a time, as a 2 with only two covered squares beside it |
-| mines by counting near the last move | moves available | the mines by counting at most 5 steps (one square across or down each) from the last board-changing click; none before the first |
-| chordable numbers | moves available | open numbers with as many flags beside them as their number, every flag on a mine, and a covered square left beside them |
-| most 3BV per click | move usefulness and distance | the most 3BV any one proven move solved per click, between clicks: opening a proven-safe zero or a number touching no zero (1 3BV, 1 click), or a chord of an open number whose covered neighbors are all proven, opening at least one square (the distinct 3BV it opens, over 1 click plus one per unflagged mine beside it); 0 where the proven moves solve no 3BV (numbers on an opening's edge), none where no proven move opens a square |
-| steps to the nearest safe square | move usefulness and distance | steps (one square across or down each) from the last board-changing click to the nearest covered, unflagged, proven-safe square, between clicks; none where no square is proven safe, and nothing before the first click |
-| squares moved between actions | board | squares (in any direction) from each board-changing click to the one before; averages take the mean |
+| `3BV solved` | progress | share of board 3BV solved (openings count once when any zero opens; isolated numbers count when opened) |
+| `squares opened` | progress | share of safe squares opened |
+| `mines flagged` | progress | share of mines carrying a flag (wrong flags on safe squares excluded) |
+| `3BV/s` | pace | 3BV solved per second |
+| `click rate` | pace | board-changing clicks per second |
+| `action gaps` | pace | gap between consecutive board-changing clicks (averaged by median) |
+| `fastclick gap` | pace | press-to-press ms of each planned pair at click 2 (averaged by median; [Per-game stats](per-game-stats.md#timing-cursor-and-movement-stats)) |
+| `mouse speed` | pace | cursor travel per second including pauses (dots show speed between board-changing clicks) |
+| `safe squares known` | moves available | covered, unflagged squares proven safe between clicks |
+| `mines by counting` | moves available | covered, unflagged squares proven mined by single-number counting (level 1) |
+| `mines by counting near the last move` | moves available | `mines by counting` within `<= 5` Manhattan steps of last board-changing click (none before click 1) |
+| `chordable numbers` | moves available | open numbers with flags equal to their count, every adjacent flag on an actual mine, and `>= 1` covered neighbor |
+| `most 3BV per click` | move usefulness & distance | best `3BV / click` among proven moves (opening a zero or isolated number = `1/1`; chord of a fully proven open number = distinct 3BV opened divided by `1 + unflagged adjacent mines`; `0` for edge-of-opening numbers; `none` when no proven move opens a square) |
+| `steps to the nearest safe square` | move usefulness & distance | Manhattan steps from last board-changing click (chord = its number) to nearest covered, unflagged proven-safe square (none before click 1 or when none proven) |
+| `squares moved between actions` | board | Chebyshev squares between consecutive board-changing clicks (averaged by mean) |
 
-Off by default: efficiency, board-changing click share, IOE, no-op rate,
-misclick rate, path / click, path / 3BV (each as game data defines it);
-work areas (separate places holding proven-safe squares, squares at most 2
-apart counting as one place); and in the moves available group, mines known
-(covered, unflagged squares the visible board had proved mines) and the
-squares each deduction level is the first to prove, safe and mines apart:
-safe by counting, safe by overlap, safe by all numbers, safe by the mine
-total, mines by overlap, mines by all numbers, and mines by the mine total
-([Design axis](design-axis.md), "Deduction levels"). A square counts at one
-level only, so the four safe rows add up to the safe squares known and the
-four mine rows to the mines known. In the move usefulness and distance
-group, the same two measures for each deduction level's moves: most 3BV
-per click by counting, by overlap, by all numbers, and by the mine total,
-where a move's level is the hardest level of the facts it needs; and steps
-to the nearest safe square by counting, by overlap, by all numbers, and by
-the mine total, to the squares that level is the first to prove.
+### Optional rows (off by default)
 
-Off by default since 2026-10-20, when the left stats panel was removed and
-the creator asked for its measurements as optional rows ("same for all,
-actually"; [Session stats](session-stats.md)), each as game data defines it
-([Catalog and configuration](game-data.md#catalog-and-configuration)):
+- **Pace & efficiency:** `efficiency`, `board-changing click share`, `IOE`, `no-op rate`, `misclick rate`, `path / click`, `path / 3BV`, `flag→chord gap`, `flag rate`, `flag-removal rate`, `cadence spread` (flagging rows unmeasured when `flagsPlaced === 0` or `flagsBlocked`).
+- **Board:** `work areas` (separate clusters of proven-safe squares, merging squares `<= 2` Chebyshev steps apart).
+- **Moves available:** `mines known`, plus first-level breakdowns: `safe by counting / overlap / all numbers / mine total` (summing to `safe squares known`) and `mines by overlap / all numbers / mine total` (summing with `mines by counting` to `mines known`).
+- **Move usefulness & distance by level:** `most 3BV per click` and `steps to the nearest safe square` split by `counting`, `overlap`, `all numbers`, and `mine total` (a move's level is the hardest fact it needs).
+- **Report categories:** `game risk rate`, `early guess rate`, `time loss rate`, `life maximization rate`, `excess game risk rate`, `modeled life gap rate` (each placed at the action's timestamp; `"not measured"` when the game carries measurement notes).
 
-| Row | Group | Definition |
-| --- | --- | --- |
-| flag rate | pace | flags placed per second in games that placed at least one flag; removals do not subtract (unmeasured when no flags were placed) |
-| flag-removal rate | pace | flags taken back per minute in games that placed at least one flag (unmeasured when no flags were placed) |
-| cadence spread | pace | the width of the middle half of the gaps between all button presses divided by their median; raw shows each press as a tick |
-| game risk rate | report categories | the report's game risk actions per minute |
-| early guess rate | report categories | the report's early guesses per minute |
-| time loss rate | report categories | the report's time loss actions per minute |
-| life maximization rate | report categories | the report's life maximization moves per minute |
-| excess game risk rate | report categories | the game risk actions' extra chance of losing over the safest available move, in percentage points per minute |
-| modeled life gap rate | report categories | the expected remaining life the one-move survival model saw given up, per minute |
+## Events and move characterization
 
-A report row counts each action when it took effect, in the category the
-after-game report files it under. A game with any action filed under
-measurement notes (judged by an older evaluator) has no measured counts:
-its report rows draw no line, and their legend entries say "not measured".
-
-A progress row starts from what the board showed at the first action, so a
-given opening counts as already done. The moves rows count the board as it
-stood before each click. Every moves row and every move usefulness and
-distance row is measured at every click: since 2026-11-02 the prover
-counts every layout with no work limit. (Until then safe squares known,
-mines known, work areas, the all-numbers and mine-total rows, and the
-usefulness and distance rows for all moves said nothing where the search
-stopped at its work limit.)
-
-The rows are computed after the game ends, in the reports worker, never
-during play. Each board is proved once, for these rows and the game's
-judgment together ([Game-end evaluation](game-end-evaluation.md), "When it
-is judged"), and each proof continues from the previous board's, since a
-fact proved there still holds. (Until 2026-11-03 the worker proved each new
-board during play, between its other jobs, and proved every board from
-scratch.)
-
-## Events
-
-Each event row has its mark on one of the three tracks. "Near" a click
-means within 2 squares, in any direction, of anything that click opened or
-marked.
+`"Near"` a click in move events means within `<= 2` Chebyshev squares of anything that click opened or marked. A *move* (jump) is a board-changing click `>= 3` squares away.
 
 | Track | Rows (mark) |
 | --- | --- |
-| clicks | no-op clicks (ring), misclicks (cross), flags removed (down triangle), flags on safe squares (up triangle), guesses (diamond), openings (square), unused flags (outlined up triangle) |
-| jumps | moved on (chevron right), left hard work (outlined arrow right), left easy work (arrow right), forks (fork), came back (chevron left) |
-| pauses | long gaps (band over the gap), window left (bar along the track's top) |
+| `clicks` | `no-op clicks` (ring), `misclicks` (cross), `flags removed` (down triangle), `flags on safe squares` (up triangle), `guesses` (diamond), `openings` (square), `unused flags` (outlined up triangle) |
+| `jumps` | `moved on` (chevron right), `left hard work` (outlined arrow right), `left easy work` (arrow right), `forks` (fork), `came back` (chevron left) |
+| `pauses` | `long gaps` (span band), `window left` (top span bar) |
 
-Shown by default:
-
-- **no-op clicks** — clicks that changed nothing, with the reason in the
-  card ("number still short of flags").
-- **misclicks** — actions the visible board had already proved wrong:
-  opening a proven mine, flagging a proven-safe square, removing a proven
-  mine's flag, or chording against the visible proof. The same judgment as
-  the game's misclick count.
-- **flags removed** — a flag taken off; within 1 second of placing it, a
-  quick undo (the mark/unmark of the request).
-- **flags on safe squares** — a flag placed where no mine was.
-- **guesses** — opening a square the visible board had not proved safe,
-  after the first click. The card says whether the square was beside open
-  numbers ("guess beside open numbers" or "guess away from open numbers"),
-  gives its mine risk and the lowest available, the lowest risk beside
-  open numbers and away from them, and perfect play's chance to win after
-  this square and at best ("chance to win with perfect play: 50% after
-  this square, 50% at best", or that the exact search stopped at its work
-  limit). Where nothing else on the board could ever settle the guess, it
-  says so and how long that had been so ("it had waited 1.0 s"), and on a
-  loss with fixed mines, "taking it at once would have ended the game
-  1.0 s sooner". It says when a proven-safe square was available. Risks
-  appear only where the guess ledger measured the guess, the chance to
-  win only where the mines were also fixed (Revision (creator 2026-10-26,
-  the move hierarchy), above).
-- **long gaps** — 1 second or more between board-changing clicks, drawn over
-  the gap. The card says how many proven-safe squares were known (in all, by
-  counting, and near the previous click), what ended the pause, how many
-  no-op clicks fell inside it, and whether the window was left.
-- **moved on** — a jump of 3 or more squares from everything the previous
-  board-changing click opened or marked, after the proven-safe squares near
-  it had run out: the local work ended and the player went elsewhere.
-- **left hard work** — the same jump made while proven-safe squares near
-  the previous click were still unopened (and not toward them), none of
-  which counting a single number proves: only numbers taken together
-  prove them, so the local work had turned slow.
-- **left easy work** — the same jump made while counting a single number
-  had proved at least one of those squares safe.
-- **forks** — a move (moved on or left either kind of work) made while
-  proven-safe squares lay in 2 or more separate places: a choice of where
-  to go next. The card says how many places there were and whether the
-  player went to the nearest one.
-- **window left** — the game's window hidden or out of focus, drawn over the
-  span. Games saved before 26 September 2026 did not record it; their legend
-  entry says "not recorded", the card over the pauses track says "window
-  left: not recorded for this game", and their long gaps say nothing about
-  the window.
-
-Off by default:
-
-- **came back** — a move back to proven-safe squares an earlier move that
-  left work left behind, with how long they waited.
-- **openings** — a click that opened a zero region.
-- **unused flags** — a correct flag no chord used, at its placement; known
-  only on wins.
-
-Every move event's card says how long after the previous board-changing
-click the move came ("moved on after 1.4 s"), whether it was a guess, and
-how far the nearest proven-safe square was; a move that left work says how
-many proven-safe squares it left and how many of them counting proved
-("left hard work after 2.3 s: 2 proven-safe squares unopened, none by
-counting"). Moves and forks need the exact proof, which since 2026-11-02
-always completes. (Until then, where the prover stopped at its work limit,
-only leaving work could still be judged, from the squares it did prove.)
-
-### Move characterization and habits (creator request 2026-10-20)
-
-The creator asked to build "move habits and characterization of moves, when
-ih ave to move since local direction ends OR becomes very slow". Each move
-gets its reason: the local work ended (moved on), it had turned slow (left
-hard work: what remained needed numbers taken together), or the player left
-work counting alone would have done (left easy work), with the time it took
-to move and where it went (a guess, the nearest place with proven-safe
-squares, or another place). Built the same day:
-
-- The split of the former "left work" event into left hard work and left
-  easy work (above). A row choice saved before the split carries to both.
-- Per-game habits, stored on every game record from now on, wins and losses
-  alike ([Per-game stats](per-game-stats.md), "Move habits"): the moves of
-  each kind, the median time before a move, and the forks and how many went
-  to the nearest place.
-- Game data ranks three of them against lifetime and the session
-  ([Game data](game-data.md), "Catalog and configuration"): time before a
-  move and moves leaving easy work, shown by default, and forks to the
-  nearest area, off by default.
-
-Games saved earlier get their habits when their result is next restored on
-the game page; a backfill of every saved game is in
-[BACKLOG.md](../../BACKLOG.md).
-
-The thresholds (2 squares near, 3 squares a jump, 1 second a long gap, 1
-second a quick undo) are first choices to be checked against the creator's
-games ([BACKLOG.md](../../BACKLOG.md)).
+- **Default events (11):**
+  - `no-op clicks`: reason named in card (e.g., `"number still short of flags"`).
+  - `misclicks`: actions contradicted by visible proof (matching the game's misclick count).
+  - `flags removed`: within `1 s` of placement labeled a quick undo.
+  - `flags on safe squares`: flags placed where no mine existed.
+  - `guesses`: opening an unproven square after click 1. Card reports connected (`beside open numbers`) vs disconnected (`away from open numbers`), chosen risk vs lowest overall/beside/away risks (from exact guess ledger), exact **perfect play's chance to win** (`Odds.winChances`, fixed-mine games without Guardian Angel only — splits board into independent mine-count components and multiplies exact win chances while skipping dead squares whose revealed number never varies across safe layouts; reports explicitly when the search hits its work limit rather than estimating), whether a proven-safe move existed, and — when Guardian Angel's test shows nothing else on the board could ever settle the guess — how long that state had persisted (plus time saved on a fixed-mine loss if taken immediately).
+  - `long gaps`: `>= 1 s` between board-changing clicks; card reports proven-safe squares (total, counting, near last click), ending action, no-ops inside the gap, and whether the window lost focus.
+  - `moved on`: jump `>= 3` squares after local proven-safe squares ran out.
+  - `left hard work`: jump `>= 3` squares while local proven-safe squares remained (and not toward them), none provable by single-number counting.
+  - `left easy work`: jump `>= 3` squares while single-number counting had proved at least one local square safe.
+  - `forks`: move made while proven-safe squares lay in `>= 2` separate work areas; card names area count and whether the nearest area was chosen.
+  - `window left`: window hidden or unfocused span (games saved before `2026-09-26` did not record focus loss and report `"not recorded"`).
+- **Optional events (3, off by default):** `came back` (returning to proven-safe squares left earlier, with wait duration), `openings` (clicks opening a zero region), and `unused flags` (correct flags unused by any chord, wins only).
+- **Move event cards** report elapsed time since the previous board-changing click, whether the move was a guess, distance to nearest proven-safe square, and (when leaving work) how many safe squares remained and how many were provable by counting. Per-game counts feed `moveHabits` ([Per-game stats](per-game-stats.md#timing-cursor-and-movement-stats)) and [Game data](game-data.md#catalog-directions-and-defaults).
 
 ## Configure
 
-"configure" in the options row replaces the charts with one checklist of
-every row, grouped as progress, moves available, move usefulness and
-distance, pace, board, report categories, events,
-with back buttons at
-its top and bottom ("back to live perf charts"); Escape also returns.
-Choices apply at once and persist in the settings (`duringGameRows`); the
-averaging choice persists as `duringGameAveraging` (renamed from
-`duringGameAverage` on 2026-10-20, so the new default reached every player
-once), and the "log scale" checkbox as `duringGameRelativeScale` (`log` or
-`linear`). Legend
-picks are not saved: they last as long as the game shown (Charts, above).
-
-## Built and requested
-
-Built 2026-10-15: a first build, then the same day the 2026-10-15
-revision; the 2026-10-20 revision the day it was asked, and the move
-characterization and habits (above) later that day; the 2026-10-21 and
-2026-10-26 revisions the days they were asked, and on 2026-10-26 also the
-link with game summary perf and the catalog's definitions
-([Measurement catalog](measurement-catalog.md)) and the move hierarchy's
-rows and guess facts. Requested but not built
-yet, in [BACKLOG.md](../../BACKLOG.md): forks inside one work area (several
-ways forward from the same frontier) and the habits of games saved before
-2026-10-20. Proposed there with them: threshold calibration, rows plotted
-against progress instead of time, and live rows during play.
-The cadence-spread row proposed there was built on 2026-10-20 with the
-other rows from the left panel.
+`configure` replaces the charts with one checklist grouped by `progress`, `moves available`, `move usefulness and distance`, `pace`, `board`, `report categories`, and `events`, with top/bottom back buttons and `Escape` to return. Selections persist immediately in `duringGameRows`, `duringGameAveraging`, and `duringGameRelativeScale`; legend picks stay transient per game.

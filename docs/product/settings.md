@@ -70,7 +70,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   session picker and the board display (Zoom, position, pixel ratio), with
   the settings page's own button (below) at the upper right since
   2026-10-21 and the daily limits link beside it since 2026-10-22
-  ([Game setup, top bar, settings row, and footer](board-and-layout.md#game-setup-top-bar-settings-row-and-footer)).
+  ([Game setup, top bar, settings row, and footer](board-and-layout.md#navigation-and-progressive-disclosure)).
   Choices that belong to one game setup, the board size and the generator,
   stay beside the mode they configure. Each option has one place (creator
   2026-10-21; [UI doctrine](ui-doctrine.md)): a setting the settings page
@@ -242,7 +242,7 @@ Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation note
   [During the game](during-game.md));
   `shownThings.sessionSummary`
   (default on) — the session summary table (see
-  [Rank lists](rankings.md#session-summary-requested-and-built-2026-10-07));
+  [Rank lists](rankings.md#session-summary-and-results-partition));
   `shownThings.sessionEndings` (default on, added 2026-10-11 as "session
   loss types"; "session results by type" since 2026-10-14) — the summary's
   results tree under it for the current board type alone (its size, mode,

@@ -93,7 +93,7 @@ it is never inferred from cursor data.
 - a persistent-storage request, so the browser does not evict the database
   under disk pressure.
 
-The rest is the ordered roadmap in [BACKLOG.md](../../BACKLOG.md#lifelong-self-measurement-roadmap-creator-2026-09-26).
+The rest is the ordered roadmap in [BACKLOG.md](../../BACKLOG.md#lifelong-self-measurement-and-longitudinal-research).
 
 ## Behavioral signatures and state research (requested 2026-08-30)
 

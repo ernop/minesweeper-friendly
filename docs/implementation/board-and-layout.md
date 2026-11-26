@@ -280,7 +280,7 @@ arrives); worker latency cannot move the board after startup reveals it.
 
 ## Click-time evidence cost (2026-09-26)
 
-Spec: [Input latency](../product/board-and-layout.md#input-latency-user-report-2026-09-26).
+Spec: [Input latency](../product/board-and-layout.md#startup-readiness-and-responsiveness).
 Each board action runs, before it mutates the board, the visible-position
 proof (misclick classification, evidence, and Guardian Angel all share one cached
 proof), then guess scoring for reveals or `Odds.analyzeView` for flags and

@@ -12,7 +12,7 @@ its data has arrived, in this order
    Two lines (2026-09-23; formerly one item per line): the larger bold
    outcome followed by board · mode · generator in regular weight, then
    the date and time in bold tabular digits. A no-mark win adds "no-mark"
-   on that context line ([No-mark wins](rankings.md#no-mark-wins-decided-2026-10-14)).
+   on that context line ([No-mark wins](rankings.md#no-mark-wins)).
 2. **Facts / game data** — the adaptive details dock beside the board (or directly below it at full width when neither flank holds 320 px): "live perf charts" after any game, outside the score viewer and trials ([During the game](during-game.md)), then the winning-game chart ("game summary perf" and "board traits"). A loss's or a trial game's label/value stats are not in this column: they are the "this game" table (item 4; [This game's stats](#this-games-stats-creator-request-2026-10-26)).
 3. **Analysis** — post-game action interpretation only, framed under its own full-width "after-game report" opener (2026-11-19).
 4. **Tables** — the session summary first, then the "ranks won in session"
@@ -183,7 +183,7 @@ go forward with this!"):
 - A session summary of games, wins, and win rate per board type, with each
   type's best session time and its lifetime rank, left of the board; ranks
   won in session, kept in its table form, right of the board; the board in
-  the middle ([Session summary](rankings.md#session-summary-requested-and-built-2026-10-07),
+  the middle ([Session summary](rankings.md#session-summary-and-results-partition),
   [Layout](board-and-layout.md)). On the creator's 2560 x 970 viewport this
   filled the area that was empty beside a Beginner board. Since 2026-10-08
   the summary also shows the session's mean time, 3BV/s, and IOE per type;
@@ -192,7 +192,7 @@ go forward with this!"):
   the board.
 - Rank colors: green good, red bad, the this-game light blue for this
   game's row (fluorescent green from 2026-10-08 to 2026-10-15), no edge
-  or podium ([Rank highlights](rankings.md#rank-highlights-built-2026-09-21-recolored-2026-10-07)).
+  or podium ([Rank highlights](rankings.md#rank-highlights)).
 - Game data: uncolored labels in aligned columns, one row per measurement
   with session and lifetime percentages, a colored bar, a hover card with
   the distribution, a distributions mode with lifetime and session sections,
@@ -248,7 +248,7 @@ Built the same day:
   between charts. Play is never blocked; the
   latency check holds the winning click, and the freeze in the two seconds
   after it, to tight limits, and only the time to the full results was raised
-  ([Input latency](board-and-layout.md#input-latency-user-report-2026-09-26)).
+  ([Input latency](board-and-layout.md#startup-readiness-and-responsiveness)).
 
 On the latency check's Expert win (Firefox, the PC; the game places one
 flag, so its results rank it among the history's 1,576 Expert wins and draw

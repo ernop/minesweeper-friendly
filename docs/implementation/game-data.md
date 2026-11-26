@@ -311,7 +311,7 @@ Spec: [docs/product/game-data.md](../product/game-data.md). Index: [AGENTS.md](.
 
 ## Switch cost line (2026-09-28 estimator; under game data since 2026-10-20)
 
-Spec: [Switch cost line](../product/game-data.md#switch-cost-line-creator-request-and-approval-2026-09-28-under-game-data-since-2026-10-20).
+Spec: [Switch cost line](../product/game-data.md#historical-tracking-and-button-switch-cost).
 
 - `switch-cost.js` (pure; the page loads it for `SwitchCost.KEYS`,
   `WINDOW_GAMES`, and `MIN_GAMES`; the worker and Node tests run it):

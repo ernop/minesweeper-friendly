@@ -103,7 +103,7 @@ Spec: [docs/product/game-end-evaluation.md](../product/game-end-evaluation.md). 
   `renderTrialReview` exposes the same blocks under each run's nested
   action report. `fatalActionStatusKind` is the technical fatal-action
   status (training's avoidable kinds read it). `lossTypeOf` refines it into
-  the loss type ([spec](../product/game-end-evaluation.md#loss-types-requested-2026-10-11)),
+  the loss type ([spec](../product/game-end-evaluation.md#loss-types)),
   memoized per evaluation object in a WeakMap: `refinedLossType` checks a
   Proof-or-die chord (saved games of that removed mode), then the wrong flag (`besideFlagSatisfiedNumber` on
   the saved position, or any chord), then the stored tier
@@ -129,7 +129,7 @@ Spec: [docs/product/game-end-evaluation.md](../product/game-end-evaluation.md). 
   square, and wrong-button Likely misclick lines, which `buildVerdictBlocks`
   passes to `actionEvaluationLines` as `extraLines`; the Certainty and Safe
   alternative lines name the stored tier (`PROOF_TIER_PHRASES`).
-  `winTypeOf(record)` (2026-10-14; [spec](../product/game-end-evaluation.md#win-types-requested-2026-10-14))
+  `winTypeOf(record)` (2026-10-14; [spec](../product/game-end-evaluation.md#win-types-and-session-result-kinds))
   sits after `lossKindOf` in the pure verdict span: a saved Proof-or-die
   win is `win-no-guess`; any legacy or other-version evaluation leaves only the
   ledger's `guesses === 0`; otherwise `worstSurvivedGuess(evaluations)`
@@ -144,7 +144,7 @@ Spec: [docs/product/game-end-evaluation.md](../product/game-end-evaluation.md). 
   `WIN_TYPE_LABELS` holds the win types in order,
   cleanest first. Its known answers are in
   `tests/game-end-evaluation-test.js`.
-  `sessionResultKind(record)` (2026-10-14; [spec](../product/game-end-evaluation.md#session-result-kinds-requested-2026-10-14))
+  `sessionResultKind(record)` (2026-10-14; [spec](../product/game-end-evaluation.md#win-types-and-session-result-kinds))
   follows: a win's `winTypeOf`; a loss's `lossKindOf`, with
   `guess-early` split by `evaluationRiskDelta` into `guess-early-min`,
   `guess-early-higher`, or `guess-early-unmeasured`; then, for kinds in

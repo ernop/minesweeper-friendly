@@ -1,7 +1,7 @@
 # Minesweeper problems (requested 2026-09-26)
 
 Product spec section; index: [PRODUCT.md](../../PRODUCT.md). Implementation notes: [docs/implementation/problems.md](../implementation/problems.md).
-Why and how it fits the training plan: [training.md](training.md#situations-memorization-and-problems-requested-2026-09-26-evening).
+Why and how it fits the training plan: [training.md](training.md#companion-drills-and-planned-extensions).
 
 User requests (2026-09-26): "Minesweeper problems" with a set starting mouse
 position, each beginning just as a square opens, taken from the real games of
@@ -42,7 +42,7 @@ opened a square whose number made one to four covered squares provably safe.
   (changed 2026-09-27: the earlier rule, 20 judged moves in the whole corpus,
   would have admitted the 1-2 rule at the edge with at most 7 per level and an
   empty ladder; see the analysis in
-  [training.md](training.md#situations-memorization-and-problems-requested-2026-09-26-evening)).
+  [skill-comparison-2026-09-26.md](../../reference/skill-comparison-2026-09-26.md)).
   The bank has four classes and 40 problems each; since 2026-09-27 its level
   statistics come from 3,498 corpus games (bank `saolei-3498-20260927`).
 
@@ -263,7 +263,7 @@ first, so GitHub Pages visitors are sent to the site.
 
 Exact judgement of clicks outside the answer squares (provable or a guess),
 adaptive scheduling by class, mine-answer problems, problems from the player's
-own games, and archive-folder copies: [BACKLOG.md](../../BACKLOG.md#minesweeper-problems).
+own games, and archive-folder copies: [BACKLOG.md](../../BACKLOG.md#training-coaching-and-mind-map).
 Judging the player's own games (how a game should be filed, not solving a
 position) exists only as a local research page for the creator, outside this
 page and the release: `analysis/judgment/NOTES.md`.
