@@ -1,8 +1,16 @@
 # Long-Term Sub-60 Research, Development, Practice & Iteration Program (2026-11-25)
 
-Master program consolidating all research, product designs, practice protocols,
-experiments, and check-in loops developed on 2026-11-25. Feeds directly into
-iterative `/goal` runs with check-ins between Ernest and the agent.
+Working hypothesis log and current research/experiment catalog serving the
+three enduring product goals in [PRODUCT.md](../PRODUCT.md):
+1. Build the world's best play-mode Minesweeper for players.
+2. Integrate intelligence and invent/discover ever-better self-training methods,
+   empirically tested against real play.
+3. Let ordinary play naturally rise into fun record-keeping, lucid stats, and
+   deep self-understanding.
+
+Everything below represents current measurements and candidate experiments —
+not fixed commitments. New research, trace findings, or better ideas replace
+earlier methods whenever evidence favors them.
 
 Supporting empirical reports:
 - [deep-performance-review-2026-11-25.md](deep-performance-review-2026-11-25.md)

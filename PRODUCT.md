@@ -10,14 +10,29 @@ both. Player-facing pitch in `promo/PROMO.md`; unbuilt work in
 
 ## Product goals
 
-- Start from a faithful clone of minesweeper.online's standard mode: same
-  mechanics, same classic-Windows look.
-- Grow toward friendlier variants (the design axis is mapped in
-  [docs/product/design-axis.md](docs/product/design-axis.md); the no-guess
-  modes built on it were removed 2026-10-21, see
-  [docs/product/play-modes.md](docs/product/play-modes.md)).
-  First variant implemented 2026-08-20: "Guardian Angel" (named "A just universe" until 2026-11-23;
-  [docs/product/guardian-angel.md](docs/product/guardian-angel.md)).
+Long-term vision (creator direction 2026-11-26):
+
+1. **The world's best play-mode Minesweeper for players:** faithful standard
+   mechanics and crisp classic-Windows feel, ultra-low latency, effortless
+   clarity, and thoughtful friendlier variants (the design axis is mapped in
+   [docs/product/design-axis.md](docs/product/design-axis.md); first variant
+   implemented 2026-08-20: "Guardian Angel", named "A just universe" until
+   2026-11-23, [docs/product/guardian-angel.md](docs/product/guardian-angel.md);
+   the earlier no-guess modes were removed 2026-10-21,
+   [docs/product/play-modes.md](docs/product/play-modes.md)).
+2. **Integrated intelligence and inventive self-training:** continually
+   research, discover, and invent better methods to model how a player reads,
+   thinks, moves, and decides, and turn those discoveries into effective,
+   empirically verified ways to self-train — treating specific drills,
+   coaching detectors, and experiments as testable hypotheses to evolve or
+   replace as new findings emerge.
+3. **Play naturally rising into stats, self-understanding, and fun
+   record-keeping:** ordinary play organically feeds lucid rankings, personal
+   records, automatic highlights, visual replays, and lifelong self-measurement
+   without cluttering play or feeling like homework.
+
+Standing defaults and hosting:
+
 - The public game is https://minesweeper-friendly.fuseki.net/ . Every push
   to master releases that site. GitHub Pages still publishes the repository
   and redirects visitors there. The page links back to the repo via a subtle
