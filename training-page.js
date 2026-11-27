@@ -26,6 +26,7 @@ let activeDatabaseInfo = null;
 let latestMindMapData = null;
 let latestTrainingSummary = null;
 let mentationFeedbackState = { version: 1, entries: {} };
+let playerGameCellSize = 28;
 let problemsDrillSummary = { attempts: 0, lastFlagSolved: 0, pointingRuns: 0, skillDrills: {} };
 let inspectorJumpHandler = null;
 let inspectorRequestCounter = 0;
@@ -78,11 +79,19 @@ function storageFailure(what) {
 
 function loadMentationFeedback(onDone) {
   const tx = db.transaction(USERDATA_STORE);
-  const req = tx.objectStore(USERDATA_STORE).get('mentationFeedback');
+  const store = tx.objectStore(USERDATA_STORE);
+  const req = store.get('mentationFeedback');
   req.onsuccess = () => {
     const val = req.result;
     if (val && typeof val === 'object' && val.entries && typeof val.entries === 'object') {
       mentationFeedbackState = val;
+    }
+  };
+  const setReq = store.get('settings');
+  setReq.onsuccess = () => {
+    const s = setReq.result;
+    if (s && typeof s === 'object' && Number.isInteger(s.cellSize) && s.cellSize >= 16 && s.cellSize <= 96) {
+      playerGameCellSize = s.cellSize;
     }
   };
   tx.oncomplete = () => onDone();
@@ -1569,8 +1578,26 @@ function renderTrainingInspector(data) {
   slider.value = '0';
   slider.setAttribute('aria-label', 'Move index in inspected game');
 
+  const INSPECTOR_TILE_CHOICES = [16, 20, 22, 24, 28, 32, 36, 40, 48, 56, 64];
+  let tilePx = Number.isInteger(mentationFeedbackState.tilePx) && INSPECTOR_TILE_CHOICES.includes(mentationFeedbackState.tilePx)
+    ? mentationFeedbackState.tilePx
+    : (INSPECTOR_TILE_CHOICES.includes(playerGameCellSize) ? playerGameCellSize : 28);
+
+  const sizeWrap = trainingElement('label', 'training-game-meta', 'Square size ');
+  const sizeSelect = document.createElement('select');
+  sizeSelect.className = 'training-game-select';
+  sizeSelect.setAttribute('aria-label', 'Inspector board square size');
+  for (const sz of INSPECTOR_TILE_CHOICES) {
+    const opt = document.createElement('option');
+    opt.value = String(sz);
+    opt.textContent = sz + ' px' + (sz === playerGameCellSize ? ' (game)' : '');
+    opt.selected = sz === tilePx;
+    sizeSelect.appendChild(opt);
+  }
+  sizeWrap.appendChild(sizeSelect);
+
   const stepReadout = trainingElement('span', 'training-game-meta', 'Loading trace\u2026');
-  transport.append(firstBtn, prevFlagBtn, prevBtn, playBtn, nextBtn, nextFlagBtn, lastBtn, slider, stepReadout);
+  transport.append(firstBtn, prevFlagBtn, prevBtn, playBtn, nextBtn, nextFlagBtn, lastBtn, slider, sizeWrap, stepReadout);
   topBar.append(gameSelect, transport);
 
   // Main 2-column stage: Left = Full board + cursor canvas + legend; Right = Claim & Ground-Truth Verdict Card
@@ -1602,7 +1629,16 @@ function renderTrainingInspector(data) {
   let currentStepIdx = 0;
   let playTimer = null;
   let tileEls = [];
-  const TILE_PX = 22;
+
+  sizeSelect.addEventListener('change', () => {
+    const nextSz = Number(sizeSelect.value);
+    if (!INSPECTOR_TILE_CHOICES.includes(nextSz)) return;
+    tilePx = nextSz;
+    mentationFeedbackState.tilePx = tilePx;
+    saveMentationFeedback();
+    boardEl.style.setProperty('--insp-tile', tilePx + 'px');
+    drawStep(currentStepIdx);
+  });
 
   const stopPlay = () => {
     if (playTimer !== null) {
@@ -1626,10 +1662,10 @@ function renderTrainingInspector(data) {
       + (step.isFlaggedEpisode ? ' \u00b7 [flagged episode]' : '');
 
     // Rebuild board grid if dimensions changed
+    boardEl.style.setProperty('--insp-tile', tilePx + 'px');
     if (tileEls.length !== width * height) {
       boardEl.style.setProperty('--insp-w', String(width));
       boardEl.style.setProperty('--insp-h', String(height));
-      boardEl.style.setProperty('--insp-tile', TILE_PX + 'px');
       tileEls = [];
       boardEl.replaceChildren();
       for (let i = 0; i < width * height; i++) {
@@ -1688,8 +1724,8 @@ function renderTrainingInspector(data) {
 
     // Draw cursor trajectory on overlay canvas
     const dpr = window.devicePixelRatio || 1;
-    const cw = width * TILE_PX;
-    const ch = height * TILE_PX;
+    const cw = width * tilePx;
+    const ch = height * tilePx;
     canvasEl.width = cw * dpr;
     canvasEl.height = ch * dpr;
     canvasEl.style.width = cw + 'px';
@@ -1704,8 +1740,8 @@ function renderTrainingInspector(data) {
         const p0 = pts[i];
         const p1 = pts[i + 1];
         ctx.beginPath();
-        ctx.moveTo(p0.x * TILE_PX, p0.y * TILE_PX);
-        ctx.lineTo(p1.x * TILE_PX, p1.y * TILE_PX);
+        ctx.moveTo(p0.x * tilePx, p0.y * tilePx);
+        ctx.lineTo(p1.x * tilePx, p1.y * tilePx);
         ctx.lineWidth = p1.band === 'hover' ? 3.2 : p1.band === 'drift' ? 2.4 : 1.8;
         ctx.strokeStyle = p1.band === 'hover'
           ? 'rgba(210, 45, 25, 0.92)'
@@ -1717,7 +1753,7 @@ function renderTrainingInspector(data) {
       // Start point 'O'
       const s0 = pts[0];
       ctx.beginPath();
-      ctx.arc(s0.x * TILE_PX, s0.y * TILE_PX, 4, 0, Math.PI * 2);
+      ctx.arc(s0.x * tilePx, s0.y * tilePx, 4, 0, Math.PI * 2);
       ctx.fillStyle = '#ffffff';
       ctx.fill();
       ctx.lineWidth = 2;
@@ -1726,8 +1762,8 @@ function renderTrainingInspector(data) {
 
       // End click point 'X'
       const sEnd = pts[pts.length - 1];
-      const ex = sEnd.x * TILE_PX;
-      const ey = sEnd.y * TILE_PX;
+      const ex = sEnd.x * tilePx;
+      const ey = sEnd.y * tilePx;
       ctx.beginPath();
       ctx.moveTo(ex - 4, ey - 4);
       ctx.lineTo(ex + 4, ey + 4);
@@ -1742,7 +1778,7 @@ function renderTrainingInspector(data) {
       const ds = step.cursor.detourSpot;
       ctx.beginPath();
       ctx.setLineDash([4, 3]);
-      ctx.arc(ds.x * TILE_PX, ds.y * TILE_PX, TILE_PX * 0.85, 0, Math.PI * 2);
+      ctx.arc(ds.x * tilePx, ds.y * tilePx, tilePx * 0.85, 0, Math.PI * 2);
       ctx.lineWidth = 2;
       ctx.strokeStyle = '#b45f06';
       ctx.stroke();
@@ -1751,11 +1787,11 @@ function renderTrainingInspector(data) {
 
     if (step.cursor && step.cursor.abandonedHover) {
       const ah = step.cursor.abandonedHover;
-      const ax = ((ah.anchorCell % width) + 0.5) * TILE_PX;
-      const ay = (Math.floor(ah.anchorCell / width) + 0.5) * TILE_PX;
+      const ax = ((ah.anchorCell % width) + 0.5) * tilePx;
+      const ay = (Math.floor(ah.anchorCell / width) + 0.5) * tilePx;
       ctx.beginPath();
       ctx.setLineDash([3, 3]);
-      ctx.arc(ax, ay, TILE_PX * 0.95, 0, Math.PI * 2);
+      ctx.arc(ax, ay, tilePx * 0.95, 0, Math.PI * 2);
       ctx.lineWidth = 2;
       ctx.strokeStyle = '#6e22a8';
       ctx.stroke();

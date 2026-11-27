@@ -30,6 +30,7 @@ let problemDb = null;
 let bank = null;
 let attempts = [];
 let cellPx = PROBLEM_DEFAULT_CELL_PX;
+let gameCellPx = null;
 // The set being played: its problems, position, and start time.
 let run = null;
 // The problem on screen. phase: waiting (cursor not yet on the start square),
@@ -98,10 +99,46 @@ async function loadBank() {
   return readProblemBank(await response.json());
 }
 
+// Reads the player's regular game settings.cellSize from minesweeper-friendly
+// when that database already exists on this origin, without creating or
+// upgrading it when absent.
+function readGameCellSize() {
+  return new Promise((resolve) => {
+    let existed = true;
+    const req = indexedDB.open('minesweeper-friendly');
+    req.onupgradeneeded = (event) => {
+      if (event.oldVersion === 0) {
+        existed = false;
+        event.target.transaction.abort();
+      }
+    };
+    req.onerror = () => resolve(null);
+    req.onsuccess = () => {
+      const gameDb = req.result;
+      if (!existed || !gameDb.objectStoreNames.contains('userdata')) {
+        gameDb.close();
+        resolve(null);
+        return;
+      }
+      const getReq = gameDb.transaction('userdata').objectStore('userdata').get('settings');
+      getReq.onsuccess = () => {
+        const size = getReq.result && typeof getReq.result === 'object' ? getReq.result.cellSize : null;
+        gameDb.close();
+        resolve(PROBLEM_CELL_SIZES.includes(size) ? size : null);
+      };
+      getReq.onerror = () => {
+        gameDb.close();
+        resolve(null);
+      };
+    };
+  });
+}
+
 async function startProblemsPage() {
   try {
-    const [db, loaded] = await Promise.all([openProblemDb(), loadBank()]);
+    const [db, loaded, detectedGameCellPx] = await Promise.all([openProblemDb(), loadBank(), readGameCellSize()]);
     problemDb = db;
+    gameCellPx = detectedGameCellPx;
     problemDb.onversionchange = () => {
       problemDb.close();
       showFailure('the problem database changed in another tab; reload this page');
@@ -123,9 +160,19 @@ async function startProblemsPage() {
     }
     drillAttempts = drills;
     const size = await requestResult(db.transaction(PREFERENCE_STORE).objectStore(PREFERENCE_STORE).get('cellPx'), 'preferences failed to load');
-    if (size !== undefined) {
-      if (!PROBLEM_CELL_SIZES.includes(size)) throw new Error('stored square size ' + size + ' is not offered');
+    const seenGameSize = await requestResult(db.transaction(PREFERENCE_STORE).objectStore(PREFERENCE_STORE).get('gameCellPxSeen'), 'preferences failed to load');
+    if (size !== undefined && !PROBLEM_CELL_SIZES.includes(size)) {
+      throw new Error('stored square size ' + size + ' is not offered');
+    }
+    if (gameCellPx !== null && seenGameSize !== gameCellPx) {
+      cellPx = gameCellPx;
+      const syncTx = db.transaction(PREFERENCE_STORE, 'readwrite');
+      syncTx.objectStore(PREFERENCE_STORE).put(gameCellPx, 'cellPx');
+      syncTx.objectStore(PREFERENCE_STORE).put(gameCellPx, 'gameCellPxSeen');
+    } else if (size !== undefined) {
       cellPx = size;
+    } else if (gameCellPx !== null) {
+      cellPx = gameCellPx;
     }
     const storedSkills = await requestResult(db.transaction(PREFERENCE_STORE).objectStore(PREFERENCE_STORE).get('skillDrills'), 'skill drills failed to load');
     if (storedSkills && typeof storedSkills === 'object') {
@@ -166,6 +213,8 @@ function hideHome() {
 function renderCellSizes() {
   const field = byId('problems-cell-size');
   for (const old of field.querySelectorAll('label')) old.remove();
+  const playSelect = byId('problems-play-cell-size');
+  if (playSelect) playSelect.replaceChildren();
   for (const size of PROBLEM_CELL_SIZES) {
     const label = document.createElement('label');
     const input = document.createElement('input');
@@ -176,13 +225,58 @@ function renderCellSizes() {
     input.addEventListener('change', () => saveCellSize(size));
     label.append(input, ' ' + size + ' px');
     field.append(label);
+    if (playSelect) {
+      const opt = document.createElement('option');
+      opt.value = String(size);
+      opt.textContent = size + ' px' + (size === gameCellPx ? ' (game)' : '');
+      opt.selected = size === cellPx;
+      playSelect.append(opt);
+    }
+  }
+  if (playSelect && !playSelect.dataset.bound) {
+    playSelect.dataset.bound = '1';
+    playSelect.addEventListener('change', () => {
+      const next = Number(playSelect.value);
+      if (PROBLEM_CELL_SIZES.includes(next)) saveCellSize(next);
+    });
+  }
+}
+
+function applyLiveCellSize() {
+  const boardElement = byId('board');
+  if (!boardElement || squareElements.length === 0) return;
+  boardElement.style.setProperty('--cell-size', cellPx + 'px');
+  measureGrid();
+  if (live !== null) {
+    if (live.phase === 'preview') cancelPreview();
+    const problem = live.problem;
+    if (!byId('problems-start-ring').hidden) placeRing(problem);
+    const boxProblem = (live.mode === 'drill' || problem.isLastFlagStyle)
+      ? { ...problem, start: problem.number }
+      : problem.isTrapBail
+        ? { ...problem, freshSafe: problem.primaryOverlapSafe }
+        : problem.isEyesAhead
+          ? { ...problem, start: problem.freshSafe[0] }
+          : problem;
+    if (!byId('problems-focus-box').hidden) placeFocusBox(boxProblem);
+    if (problem.isTrapBail && problem.easyElsewhereCells && problem.easyElsewhereCells.length > 0 && !byId('problems-bail-box').hidden) {
+      placeBailBox(problem.easyElsewhereCells);
+    }
   }
 }
 
 function saveCellSize(size) {
   cellPx = size;
+  for (const input of byId('problems-cell-size').querySelectorAll('input[name="problems-cell-size"]')) {
+    input.checked = Number(input.value) === size;
+  }
+  const playSelect = byId('problems-play-cell-size');
+  if (playSelect) playSelect.value = String(size);
+  if (!byId('problems-play').hidden) applyLiveCellSize();
   const tx = problemDb.transaction(PREFERENCE_STORE, 'readwrite');
-  tx.objectStore(PREFERENCE_STORE).put(size, 'cellPx');
+  const store = tx.objectStore(PREFERENCE_STORE);
+  store.put(size, 'cellPx');
+  if (gameCellPx !== null) store.put(gameCellPx, 'gameCellPxSeen');
   tx.onerror = () => showFailure('square size not saved: ' + tx.error);
 }
 

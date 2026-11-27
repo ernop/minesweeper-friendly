@@ -655,13 +655,14 @@ body.training-page .return-to-game {
 }
 
 .training-inspector-stage {
-  display: grid;
-  grid-template-columns: max-content minmax(300px, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 16px;
-  align-items: start;
+  align-items: flex-start;
 }
 
 .training-inspector-board-col {
+  flex: 0 0 auto;
   overflow-x: auto;
   max-width: 100%;
 }
@@ -710,6 +711,8 @@ body.training-page .return-to-game {
 }
 
 .training-inspector-claim-col {
+  flex: 1 1 340px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;

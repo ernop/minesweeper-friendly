@@ -90,6 +90,9 @@ const screenshots = process.argv[4];
       });
     });
     assert.equal(boxHolds, true, 'the box encloses the start square and every answer square');
+    await page.selectOption('#problems-play-cell-size', '40');
+    assert.equal(await page.evaluate(() => squareElements[0].getBoundingClientRect().width), 40, 'live resize in play header updates board square size to 40 px');
+    await page.selectOption('#problems-play-cell-size', '24');
     await shot('waiting');
 
     // The preview starts over when the cursor leaves the start square.

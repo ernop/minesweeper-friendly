@@ -58,8 +58,13 @@ Spec: [docs/product/problems.md](../product/problems.md).
     `renderSkillDrillResult` in `problems-page.js`, persisted under key
     `'skillDrills'` in `PREFERENCE_STORE`).
 - `problems-page.js`:
-  - opens IndexedDB `minesweeper-problems` version 1 (stores `attempts`, keyPath
-    `startedAt`, and `preferences`, key `cellPx`) and fetches
+  - opens IndexedDB `minesweeper-problems` version 3 (stores `attempts`,
+    `pointingRuns`, `drillAttempts`, and `preferences`, keys `cellPx`,
+    `gameCellPxSeen`, and `skillDrills`), reads the player's regular game
+    `settings.cellSize` from `minesweeper-friendly` (`readGameCellSize`) when
+    that database already exists on the origin (syncing `cellPx` whenever the
+    game's `cellSize` changes, and exposing live resizing during play via
+    `#problems-play-cell-size` and `applyLiveCellSize`), and fetches
     `problems-bank.json` together; any failure shows in the status line and
     throws;
   - phases per problem: `waiting` → `preview` (cursor in the start square;
