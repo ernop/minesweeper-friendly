@@ -17,13 +17,20 @@ discovered bug or gap awaiting action.
   catalog, reconstruct full board area-visitation order, and track pooled
   `Beg + Int + Exp` technique latencies longitudinally over time.
 - **creator** — **Sub-board focused pattern trainer + 100-game Intermediate
-  transfer test:** drill one weak pattern across ~100 cluttered, multi-orientation
-  mini-boards using blocked-to-interleaved ARTS response-time sequencing (retire
-  items only once accurate and below target RT, e.g. `< 300 ms`), paired with
-  automated before/after latency & skip checks on *that exact pattern* (plus an
-  untrained control) across `100` Intermediate games via `mind-map.js`. Priority
-  starters: partial exhaustive `4/5/6/7`, `interior 1-2 flag`, straight-edge
-  `1-2-1` / `1-2-2-1`, endgame direct finishing, no-flag counting reveals.
+  transfer test:** design governed by
+  [reference/mentation-model-2026-11-26.md](reference/mentation-model-2026-11-26.md):
+  cluttered `9×9`–`12×12` multi-orientation sub-boards (never sterile `5×5`
+  cutouts, since fresh overlap flags slow `+340 ms` in clutter vs Beginner),
+  whole `2–4`-click chunk execution scored on press-to-press chunk entry RT +
+  follow-up tempo + zero no-ops, `~25%` bail-vs-solve trap boards (`Space` to
+  bail or jump to easy counting), eyes-first anti-drift cursor ratio (`<= 1.25×`
+  vs `2.0×` clue-looping) and pre-down hover (`<= 80 ms`), using blocked-to-
+  interleaved ARTS response-time sequencing paired with automated before/after
+  `Fresh Local P2P` latency & skip checks across `100` Intermediate games via
+  `mind-map.js`. Priority packs: (1) cluttered no-flag counting reveals (`641 ms`
+  fresh P2P), (2) cluttered `interior 1-2` / `edge 1-2-1` / `1-2-2-1` chunk
+  entry (`705–936 ms`), (3) ready partial `4/5/6/7` pop-out, (4) endgame direct
+  finishing, (5) two-pocket eyes-ahead transition (`< 50 ms` departure).
 - **creator** — **Shield mode `+20 s` discipline penalty & exhaustive `4/5/6/7`
   rule:** keep death protection in `Coach: Scan shield`, add a configurable
   time penalty (default `+20 s`) when skipping a ready `4/5/6/7`, jumping past

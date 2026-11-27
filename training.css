@@ -545,6 +545,18 @@ body.training-page .return-to-game {
   flex: 1;
 }
 
+.training-mentation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.training-mentation-grid .training-card-value {
+  font-size: 22px;
+  font-weight: 700;
+}
+
 @media (max-width: 760px) {
   #training-layout {
     width: calc(100% - 28px);

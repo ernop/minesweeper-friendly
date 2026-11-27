@@ -1,8 +1,9 @@
 'use strict';
 
-// Cross-size trace mind-map, visual technique catalog, ranked performance
-// traits, automatic notable highlights, and single-game thinking
-// reconstruction (creator direction 2026-11-25; docs/product/training.md).
+// Cross-size trace mind-map, visual technique catalog, mentation profile,
+// ranked performance traits, automatic notable highlights, and single-game
+// thinking reconstruction (docs/product/training.md;
+// reference/mentation-model-2026-11-26.md).
 //
 // Pure computation: runs in mind-map-worker.js off the page thread and in
 // Node tests. Never touches the DOM or IndexedDB directly.
@@ -25,7 +26,8 @@ const MIND_MAP_SAMPLE_CAPS = Object.freeze({
 });
 
 const MIND_MAP_RECENT_EXPERT_TRACES = 12;
-const MIND_MAP_MIN_GAP_MS = 40;
+const MIND_MAP_BOARD_BORDER_CELLS = 1 / 8;
+const MIND_MAP_MIN_GAP_MS = 35;
 const MIND_MAP_MAX_GAP_MS = 15000;
 const MIND_MAP_SLOW_MS = 600;
 const MIND_MAP_FLUENT_MS = 240;
@@ -38,6 +40,14 @@ const MIND_MAP_HOVER_LEAVE_CELLS = 2.5;
 const MIND_MAP_REVERSAL_PX = 45;
 const MIND_MAP_REVERSAL_COS = -0.6427876096865394; // cos(130 deg)
 const MIND_MAP_BURST_WINDOW_MS = 1000;
+const MIND_MAP_DETOUR_MS = 120;
+const MIND_MAP_DETOUR_RADIUS = 1.2;
+const MIND_MAP_DETOUR_DIST = 2.0;
+const MIND_MAP_EYES_AHEAD_DEPART_MS = 45;
+const MIND_MAP_CHUNK_MAX_GAP_MS = 380;
+const MIND_MAP_DRIFT_MIN_GAP_MS = 450;
+const MIND_MAP_HOVER_SPEED = 2.0; // cells/s
+const MIND_MAP_FAST_SPEED = 10.0; // cells/s
 
 // Compact board diagram builder from row strings:
 //   '.' = covered square     'S' = covered square (proven safe target)
@@ -165,7 +175,7 @@ const MIND_MAP_TECHNIQUES = Object.freeze([
     id: 'reveal-1-1-interior',
     label: 'Interior 1-1 reveal',
     tier: 'overlap',
-    help: 'When one 1 sits inside another 1’s covered squares away from the edge, the extra square is safe.',
+    help: 'When one 1 sits inside another 1\u2019s covered squares away from the edge, the extra square is safe.',
     diagram: mindMapDiagram(['...S', 'F11.', '____']),
   },
   {
@@ -249,6 +259,13 @@ function mindMapMedian(values) {
   return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
+function mindMapMean(values) {
+  if (values.length === 0) return null;
+  let sum = 0;
+  for (let i = 0; i < values.length; i++) sum += values[i];
+  return sum / values.length;
+}
+
 function mindMapPercentile(values, p) {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
@@ -306,7 +323,7 @@ function mindMapCrop(view, board, targetIdx, markKind) {
 // the local effective-number frontier around targetIdx.
 function mindMapClassifyOverlap(view, board, targetIdx, isFlag, level) {
   const { width, height } = board;
-  const { revealed, flagged, adjacent, around } = view;
+  const { revealed, adjacent, around } = view;
   const adjNums = [];
   for (const n of around[targetIdx]) {
     if (revealed[n] && adjacent[n] > 0) adjNums.push(mindMapCellInfo(view, n, width));
@@ -324,7 +341,6 @@ function mindMapClassifyOverlap(view, board, targetIdx, isFlag, level) {
   }
   const cluster = [...clusterMap.values()].filter((a) => a.rem > 0 && a.cov.length > 0);
 
-  // Check 1-3-1 inner corner (effective rem 3 corner wedged between two orthogonal rem 1 arms)
   for (const center of cluster) {
     if (center.rem !== 3 || center.cov.length < 4) continue;
     const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
@@ -345,12 +361,10 @@ function mindMapClassifyOverlap(view, board, targetIdx, isFlag, level) {
   if (level === 'allNumbers') return 'all-numbers';
   if (level === 'mineTotal') return 'mine-total';
 
-  // Straight-edge 1-2-1 and 1-2-2-1 check (horizontal or vertical line of open numbers)
   const at = (x, y) => (x >= 0 && x < width && y >= 0 && y < height ? clusterMap.get(y * width + x) : undefined);
   for (const a of adjNums) {
     if (a.rem !== 1 && a.rem !== 2) continue;
     for (const [dx, dy] of [[1, 0], [0, 1]]) {
-      // Check 1-2-2-1 centered around a
       for (const shift of [-3, -2, -1, 0]) {
         const c0 = at(a.x + shift * dx, a.y + shift * dy);
         const c1 = at(a.x + (shift + 1) * dx, a.y + (shift + 1) * dy);
@@ -360,7 +374,6 @@ function mindMapClassifyOverlap(view, board, targetIdx, isFlag, level) {
           if (isFlag) return 'flag-edge-1-2-2-1';
         }
       }
-      // Check 1-2-1 centered around a
       for (const shift of [-2, -1, 0]) {
         const c0 = at(a.x + shift * dx, a.y + shift * dy);
         const c1 = at(a.x + (shift + 1) * dx, a.y + (shift + 1) * dy);
@@ -372,7 +385,6 @@ function mindMapClassifyOverlap(view, board, targetIdx, isFlag, level) {
     }
   }
 
-  // Pairwise 2-clue overlap rules (1-1 and 1-2, wall vs interior)
   const onWall = (cell) => cell.x === 0 || cell.x === width - 1 || cell.y === 0 || cell.y === height - 1;
   for (let i = 0; i < cluster.length; i++) {
     for (let j = 0; j < cluster.length; j++) {
@@ -385,11 +397,9 @@ function mindMapClassifyOverlap(view, board, targetIdx, isFlag, level) {
       const onlyB = B.cov.filter((c) => !setA.has(c));
       if (onlyA.length === 0 && onlyB.length === 0) continue;
       const wall = onWall(A) || onWall(B);
-      // Flagging a mine in onlyA because A.rem - B.rem === onlyA.length
       if (isFlag && onlyA.includes(targetIdx) && A.rem - B.rem === onlyA.length) {
         return wall ? 'flag-1-2-wall' : 'flag-1-2-interior';
       }
-      // Revealing a safe square in onlyA because B.rem - A.rem === onlyB.length (or A.rem === B.rem & onlyB empty)
       if (!isFlag && onlyA.includes(targetIdx)) {
         if (onlyB.length === 0 && A.rem === B.rem) {
           return wall ? 'reveal-1-1-wall' : 'reveal-1-1-interior';
@@ -436,7 +446,6 @@ function mindMapClassifyStep(step, view, board, proof) {
       if (bestVal === 4) return { techId: bestFresh ? 'flag-exh-4-fresh' : 'flag-exh-4-partial', tier: 'counting' };
       return { techId: 'flag-exh-1-3', tier: 'counting' };
     }
-    // Reveal proved at counting tier: check whether any adjacent number already has its flags placed
     let satisfiedByFlags = false;
     for (const n of view.around[idx]) {
       if (!view.revealed[n] || view.adjacent[n] === 0) continue;
@@ -472,17 +481,86 @@ function mindMapCountEasyElsewhere(proof, view, board, targetIdx) {
   return count;
 }
 
+function mindMapCountLocalSafeCounting(proof, view, board, originIdx) {
+  if (originIdx === null || originIdx === undefined) return 0;
+  const ox = originIdx % board.width;
+  const oy = Math.floor(originIdx / board.width);
+  let count = 0;
+  for (const [cell, fact] of proof.facts.entries()) {
+    if (fact !== 2) continue;
+    if (proof.levelOf.get(cell) !== 'counting') continue;
+    if (view.revealed[cell] || view.flagged[cell]) continue;
+    if (Math.max(Math.abs((cell % board.width) - ox), Math.abs(Math.floor(cell / board.width) - oy)) <= 2) {
+      count++;
+    }
+  }
+  return count;
+}
+
+// Check on a cross-board jump whether both counting-easy and overlap-only work
+// areas existed on the board, and whether the player picked a counting-easy one.
+function mindMapCheckCountingFork(proof, view, board, targetIdx) {
+  const cells = [];
+  for (const [idx, fact] of proof.facts.entries()) {
+    if (view.revealed[idx] || view.flagged[idx]) continue;
+    cells.push({
+      idx,
+      x: idx % board.width,
+      y: Math.floor(idx / board.width),
+      counting: proof.levelOf.get(idx) === 'counting',
+    });
+  }
+  if (cells.length < 2) return null;
+  const visited = new Uint8Array(cells.length);
+  const areas = [];
+  for (let i = 0; i < cells.length; i++) {
+    if (visited[i]) continue;
+    const q = [i];
+    visited[i] = 1;
+    const members = [];
+    let hasCounting = false;
+    for (let h = 0; h < q.length; h++) {
+      const u = cells[q[h]];
+      members.push(u);
+      if (u.counting) hasCounting = true;
+      for (let j = 0; j < cells.length; j++) {
+        if (visited[j]) continue;
+        if (Math.max(Math.abs(u.x - cells[j].x), Math.abs(u.y - cells[j].y)) <= 2) {
+          visited[j] = 1;
+          q.push(j);
+        }
+      }
+    }
+    areas.push({ members, hasCounting });
+  }
+  if (areas.length < 2) return null;
+  const anyCounting = areas.some((a) => a.hasCounting);
+  const anyNonCounting = areas.some((a) => !a.hasCounting);
+  if (!anyCounting || !anyNonCounting) return null;
+  const tx = targetIdx % board.width;
+  const ty = Math.floor(targetIdx / board.width);
+  for (const a of areas) {
+    if (a.members.some((m) => Math.max(Math.abs(m.x - tx), Math.abs(m.y - ty)) <= 1)) {
+      return a.hasCounting;
+    }
+  }
+  return null;
+}
+
+// Layout events measure #board's border box (1/8-cell bevel on each side).
 function mindMapLayoutsOf(trace, board) {
   if (!trace || !Array.isArray(trace.events)) return [];
   const layouts = [];
   for (const e of trace.events) {
     if (e.kind === 'layout' && e.width > 0 && e.height > 0) {
+      const bw = e.boardWidth || board.width;
+      const bh = e.boardHeight || board.height;
       layouts.push({
         t: e.t,
         left: e.left,
         top: e.top,
-        cellW: e.width / (e.boardWidth || board.width),
-        cellH: e.height / (e.boardHeight || board.height),
+        cellW: e.width / (bw + 2 * MIND_MAP_BOARD_BORDER_CELLS),
+        cellH: e.height / (bh + 2 * MIND_MAP_BOARD_BORDER_CELLS),
       });
     }
   }
@@ -499,19 +577,40 @@ function mindMapLayoutAt(layouts, t) {
   return active;
 }
 
-// Compute cursor hover dwell (ms before click inside target cell) and movement
-// reaction time using pointer samples (typed or plain arrays) and layout rects.
-function mindMapPointerTiming(trace, layouts, prevT, curT, targetIdx, board) {
+function mindMapToCell(layout, x, y) {
+  return [
+    (x - layout.left) / layout.cellW - MIND_MAP_BOARD_BORDER_CELLS,
+    (y - layout.top) / layout.cellH - MIND_MAP_BOARD_BORDER_CELLS,
+  ];
+}
+
+// Dissect cursor kinematics over [prevT, curT]:
+//   - Pre-down hover (curDownT - arriveT) separating button hold from dwell
+//   - Mid-flight detours (>= 120 ms dwell >= 2 cells from origin & target)
+//   - When fullScan is true: 3-speed velocity budget (hover < 2, drift 2-10,
+//     fast >= 10 cells/s), slow time hovering over open clue numbers vs other
+//     covered squares, departure time, and path/chord drift ratio.
+function mindMapDissectInterval(trace, layouts, prevT, curT, prevIdx, curIdx, curDownT, board, view, fullScan) {
+  const empty = {
+    valid: false,
+    preDownHoverMs: null,
+    departMs: null,
+    hasDetour: false,
+    detourMs: 0,
+    hoverMs: 0,
+    driftMs: 0,
+    fastMs: 0,
+    slowOnClueMs: 0,
+    slowOnOtherCovMs: 0,
+    pathRatio: null,
+  };
   const st = trace.sampleT;
   const sx = trace.sampleX;
   const sy = trace.sampleY;
-  if (!st || !sx || !sy || st.length < 4 || layouts.length === 0) {
-    return { hoverMs: null, reactMs: null };
-  }
+  if (!st || !sx || !sy || st.length < 4 || layouts.length === 0) return empty;
   const layout = mindMapLayoutAt(layouts, curT);
-  if (!layout) return { hoverMs: null, reactMs: null };
-  const tx = targetIdx % board.width;
-  const ty = Math.floor(targetIdx / board.width);
+  if (!layout) return empty;
+
   let lo = 0;
   let hi = st.length;
   while (lo < hi) {
@@ -521,28 +620,153 @@ function mindMapPointerTiming(trace, layouts, prevT, curT, targetIdx, board) {
   }
   let end = lo;
   while (end < st.length && st[end] <= curT) end++;
-  if (end - lo < 2) return { hoverMs: null, reactMs: null };
+  if (end - lo < 2) return empty;
 
-  // Hover: continuous time inside the target square leading up to curT
-  let hoverStart = curT;
-  for (let i = end - 1; i >= lo; i--) {
-    const cx = Math.floor((sx[i] - layout.left) / layout.cellW);
-    const cy = Math.floor((sy[i] - layout.top) / layout.cellH);
-    if (cx === tx && cy === ty) hoverStart = st[i];
-    else break;
+  const w = board.width;
+  const h = board.height;
+  const ox = (prevIdx % w) + 0.5;
+  const oy = Math.floor(prevIdx / w) + 0.5;
+  const tx = curIdx % w;
+  const ty = Math.floor(curIdx / w);
+  const tcx = tx + 0.5;
+  const tcy = ty + 0.5;
+
+  // Build cell-coordinate samples for [prevT, curT]
+  const startRef = lo > 0 && st[lo - 1] <= prevT ? lo - 1 : lo;
+  const [sx0, sy0] = mindMapToCell(layout, sx[startRef], sy[startRef]);
+  const ptsT = [prevT];
+  const ptsX = [sx0];
+  const ptsY = [sy0];
+  for (let i = lo; i < end; i++) {
+    if (st[i] > prevT && st[i] < curT) {
+      const [cx, cy] = mindMapToCell(layout, sx[i], sy[i]);
+      ptsT.push(st[i]);
+      ptsX.push(cx);
+      ptsY.push(cy);
+    }
   }
-  // Reaction: time after prevT before cursor moves >= 6 px from starting point
-  const x0 = sx[lo];
-  const y0 = sy[lo];
-  let reactMs = null;
-  for (let i = lo + 1; i < end; i++) {
-    const dist = Math.hypot(sx[i] - x0, sy[i] - y0);
-    if (dist >= 6) {
-      reactMs = st[i] - prevT;
+  const [ex, ey] = mindMapToCell(layout, sx[end - 1], sy[end - 1]);
+  ptsT.push(curT);
+  ptsX.push(ex);
+  ptsY.push(ey);
+  const nPts = ptsT.length;
+
+  // Continuous arrival inside target cell leading up to curT
+  let lastOut = 0;
+  for (let i = nPts - 1; i >= 0; i--) {
+    const x = ptsX[i];
+    const y = ptsY[i];
+    if (!(x >= tx && x < tx + 1 && y >= ty && y < ty + 1)) {
+      lastOut = i;
       break;
     }
   }
-  return { hoverMs: curT - hoverStart, reactMs };
+  const arriveT = lastOut + 1 < nPts ? ptsT[lastOut + 1] : curT;
+  const preDownHoverMs = curDownT !== null
+    ? Math.max(0, curDownT - arriveT)
+    : Math.max(0, curT - arriveT);
+
+  // Origin departure (>= 0.35 cells from start pos)
+  let departMs = curT - prevT;
+  for (let i = 1; i < nPts; i++) {
+    if (Math.hypot(ptsX[i] - sx0, ptsY[i] - sy0) >= 0.35) {
+      departMs = ptsT[i] - prevT;
+      break;
+    }
+  }
+
+  // Mid-flight detours (>= 120 ms dwell >= 2.0 cells from origin & target)
+  let detourMs = 0;
+  let dStart = ptsT[0];
+  let ax = ptsX[0];
+  let ay = ptsY[0];
+  for (let i = 1; i < nPts; i++) {
+    if (Math.hypot(ptsX[i] - ax, ptsY[i] - ay) > MIND_MAP_DETOUR_RADIUS || i === nPts - 1) {
+      const dur = ptsT[i] - dStart;
+      if (dur >= MIND_MAP_DETOUR_MS
+        && Math.hypot(ax - ox, ay - oy) >= MIND_MAP_DETOUR_DIST
+        && Math.hypot(ax - tcx, ay - tcy) >= MIND_MAP_DETOUR_DIST) {
+        detourMs += dur;
+      }
+      dStart = ptsT[i];
+      ax = ptsX[i];
+      ay = ptsY[i];
+    }
+  }
+
+  if (!fullScan) {
+    return {
+      valid: true,
+      preDownHoverMs,
+      departMs,
+      hasDetour: detourMs > 0,
+      detourMs,
+      hoverMs: 0,
+      driftMs: 0,
+      fastMs: 0,
+      slowOnClueMs: 0,
+      slowOnOtherCovMs: 0,
+      pathRatio: null,
+    };
+  }
+
+  let hoverMs = 0;
+  let driftMs = 0;
+  let fastMs = 0;
+  let slowOnClueMs = 0;
+  let slowOnOtherCovMs = 0;
+  let pathCells = 0;
+
+  for (let i = 0; i < nPts - 1; i++) {
+    const dt = ptsT[i + 1] - ptsT[i];
+    if (dt <= 0) continue;
+    pathCells += Math.hypot(ptsX[i + 1] - ptsX[i], ptsY[i + 1] - ptsY[i]);
+    const midT = 0.5 * (ptsT[i] + ptsT[i + 1]);
+    let b = i;
+    let f = i + 1;
+    while (b > 0 && midT - ptsT[b] < 20) b--;
+    while (f < nPts - 1 && ptsT[f] - midT < 20) f++;
+    const wdt = (ptsT[f] - ptsT[b]) / 1000;
+    const spd = wdt > 0.005 ? Math.hypot(ptsX[f] - ptsX[b], ptsY[f] - ptsY[b]) / wdt : 0;
+
+    if (spd < MIND_MAP_HOVER_SPEED) hoverMs += dt;
+    else if (spd < MIND_MAP_FAST_SPEED) driftMs += dt;
+    else fastMs += dt;
+
+    // Non-origin, non-target slow reading (< 3.0 cells/s) classified by cell under cursor
+    if (spd < 3.0 && view) {
+      const mx = 0.5 * (ptsX[i] + ptsX[i + 1]);
+      const my = 0.5 * (ptsY[i] + ptsY[i + 1]);
+      const inTarget = mx >= tx && mx < tx + 1 && my >= ty && my < ty + 1;
+      const nearOrigin = Math.hypot(mx - ox, my - oy) <= 0.7;
+      if (!inTarget && !nearOrigin) {
+        const cx = Math.floor(mx);
+        const cy = Math.floor(my);
+        if (cx >= 0 && cx < w && cy >= 0 && cy < h) {
+          const ci = cy * w + cx;
+          if (view.revealed[ci] && view.adjacent[ci] > 0) slowOnClueMs += dt;
+          else if (!view.revealed[ci] && !view.flagged[ci]) slowOnOtherCovMs += dt;
+        }
+      }
+    }
+  }
+
+  const chord = Math.hypot(tcx - ox, tcy - oy);
+  const pathRatio = chord >= 0.8 ? pathCells / chord : null;
+
+  return {
+    valid: true,
+    preDownHoverMs,
+    departMs,
+    hasDetour: detourMs > 0,
+    detourMs,
+    hoverMs,
+    driftMs,
+    fastMs,
+    slowOnClueMs,
+    slowOnOtherCovMs,
+    pathRatio,
+  };
 }
 
 // Classify no-op root causes: habit/checking/sequencing vs physical/button slips.
@@ -593,7 +817,6 @@ function mindMapScanPointerBehavior(trace, layouts, stepSnapshots, board) {
     return { checks, reversals };
   }
 
-  // 1) Mid-flight direction reversals between consecutive clicks
   let snapIdx = 0;
   for (let i = 2; i < st.length - 1; i++) {
     while (snapIdx + 1 < stepSnapshots.length && stepSnapshots[snapIdx + 1].t <= st[i]) snapIdx++;
@@ -619,7 +842,6 @@ function mindMapScanPointerBehavior(trace, layouts, stepSnapshots, board) {
     }
   }
 
-  // 2) Abandoned frontier hovers between clicks (only inside gaps >= 350 ms)
   let ptr = 0;
   for (let s = 1; s < stepSnapshots.length; s++) {
     const prevT = stepSnapshots[s - 1].t;
@@ -634,8 +856,7 @@ function mindMapScanPointerBehavior(trace, layouts, stepSnapshots, board) {
     let anchorX = 0;
     let anchorY = 0;
     for (let i = ptr; i < st.length && st[i] <= endT; i++) {
-      const cx = (sx[i] - layout.left) / layout.cellW;
-      const cy = (sy[i] - layout.top) / layout.cellH;
+      const [cx, cy] = mindMapToCell(layout, sx[i], sy[i]);
       if (dwellStart === null) {
         dwellStart = st[i];
         anchorX = cx;
@@ -715,7 +936,7 @@ function mindMapClassifyHoverSite(anchorX, anchorY, snap, board) {
 }
 
 // Reconstruct readable decision episodes for one game (latest Expert wins)
-// so the player can inspect what they were doing, in order, and why.
+// annotating fresh vs queued recognition, cursor-drift loops, and detours.
 function mindMapBuildEpisodes(stepRecords, checks, board, startedAtT) {
   const episodes = [];
   let streak = null;
@@ -735,7 +956,10 @@ function mindMapBuildEpisodes(stepRecords, checks, board, startedAtT) {
 
   for (const s of stepRecords) {
     const atMs = Math.max(0, Math.round(s.t - startedAtT));
-    // Notable slow solvable pattern while easy work existed elsewhere
+    const ageTag = s.ageSteps === 0 ? ' [fresh]' : s.ageSteps >= 1 && s.ageSteps <= 3 ? ' [queued]' : '';
+    const driftTag = s.pathRatio !== null && s.pathRatio >= 1.8 ? `, ${s.pathRatio.toFixed(1)}\u00d7 cursor drift` : '';
+    const detourTag = s.detourMs >= MIND_MAP_DETOUR_MS ? `, ${Math.round(s.detourMs)} ms detour` : '';
+
     if (s.tier && s.tier !== 'counting' && s.tier !== 'guess' && s.gapMs >= MIND_MAP_SLOW_MS && s.easyElsewhere >= 2) {
       flushStreak();
       const tech = MIND_MAP_TECH_BY_ID.get(s.techId);
@@ -743,13 +967,12 @@ function mindMapBuildEpisodes(stepRecords, checks, board, startedAtT) {
         kind: 'slow-bail',
         atMs,
         durMs: Math.round(s.gapMs),
-        label: `Spent ${Math.round(s.gapMs)} ms on ${tech.label} while ${s.easyElsewhere} counting moves sat open elsewhere`,
+        label: `Spent ${Math.round(s.gapMs)} ms on ${tech.label}${ageTag} while ${s.easyElsewhere} counting moves waited elsewhere${driftTag}${detourTag}`,
         techId: s.techId,
         crop: s.crop,
       });
       continue;
     }
-    // Endgame pointless flag
     if (s.endgamePointless) {
       flushStreak();
       episodes.push({
@@ -763,7 +986,6 @@ function mindMapBuildEpisodes(stepRecords, checks, board, startedAtT) {
       });
       continue;
     }
-    // Unproven guess while safe moves existed
     if (s.techId === 'unproven-guess' && s.easyElsewhere >= 1 && s.gapMs >= 350) {
       flushStreak();
       episodes.push({
@@ -775,7 +997,6 @@ function mindMapBuildEpisodes(stepRecords, checks, board, startedAtT) {
       });
       continue;
     }
-    // Fast counting streak
     if (s.tier === 'counting' && s.gapMs !== null && s.gapMs < MIND_MAP_SLOW_MS) {
       if (!streak) streak = { startMs: atMs, count: 0, totalMs: 0 };
       streak.count++;
@@ -786,7 +1007,6 @@ function mindMapBuildEpisodes(stepRecords, checks, board, startedAtT) {
   }
   flushStreak();
 
-  // Merge abandoned visual checks where a move was missed or exhaustive 4+ was passed over
   for (const ch of checks) {
     if (ch.regime === 'no-local-move') continue;
     const atMs = Math.max(0, Math.round(ch.t - startedAtT));
@@ -807,22 +1027,31 @@ function mindMapBuildEpisodes(stepRecords, checks, board, startedAtT) {
   return episodes.slice(0, 40);
 }
 
-// Replay and analyze one traced Standard game across all mind-map dimensions.
+// Replay and analyze one traced Standard game across all mind-map and
+// mentation dimensions.
 function mindMapAnalyzeGame(record, trace, boardSpec, deps, options = {}) {
   const board = { width: boardSpec.width, height: boardSpec.height, mines: boardSpec.mines };
+  const cellCount = board.width * board.height;
   let earlier = undefined;
   let lastRevealedCount = -1;
   const groupCounts = new Map();
 
-  // Track newly visible exhaustive 4 and 5+ numbers (first time they appear with rem === cov.length)
-  const exhSeen = new Map(); // cellIdx -> { val, fresh, appearedStep, flaggedStep, appearedT, flaggedT }
-  let stepCounter = 0;
+  // Per-square deducible-since tracking (exact step first proved / chord-ready)
+  const firstProvenStep = new Int32Array(cellCount).fill(-1);
+  const chordReadyStep = new Int32Array(cellCount).fill(-1);
+  const exhSeen = new Map();
+  let effStepCounter = 0;
+  let prevEffIndex = null;
+  let prevRevealedCount = 0;
 
   const stepSnapshots = [];
   const replay = TrainingCore.replay(trace, record.outcome, board, deps, (event, view) => {
     const remSafe = view.safeCount - view.revealedCount;
     const isBoardAction = (event.kind === 'lup' || event.kind === 'rdown') && Number.isInteger(event.index);
     if (!isBoardAction) return { remSafe };
+
+    const prevOpened = Math.max(0, view.revealedCount - prevRevealedCount);
+    prevRevealedCount = view.revealedCount;
 
     if (view.revealedCount !== lastRevealedCount) {
       const proofView = {
@@ -834,6 +1063,17 @@ function mindMapAnalyzeGame(record, trace, boardSpec, deps, options = {}) {
       };
       earlier = GuardianAngel.proveLevels(proofView, GuardianAngel.rawClues(proofView), earlier, groupCounts);
       lastRevealedCount = view.revealedCount;
+      const stamp = Math.max(0, effStepCounter - 1);
+      for (const [idx] of earlier.facts.entries()) {
+        if (!view.revealed[idx] && firstProvenStep[idx] === -1) firstProvenStep[idx] = stamp;
+      }
+    }
+
+    // Track chord-ready step for open numbers whose flags match count
+    for (let i = 0; i < cellCount; i++) {
+      if (!view.revealed[i] || view.adjacent[i] === 0 || chordReadyStep[i] !== -1) continue;
+      const info = mindMapCellInfo(view, i, board.width);
+      if (info.rem === 0 && info.cov.length > 0) chordReadyStep[i] = Math.max(0, effStepCounter - 1);
     }
 
     // Scan newly ready exhaustive 4/5+ numbers
@@ -845,65 +1085,100 @@ function mindMapAnalyzeGame(record, trace, boardSpec, deps, options = {}) {
           exhSeen.set(i, {
             val: info.val,
             fresh: info.flags === 0,
-            appearedStep: stepCounter,
-            appearedT: event.t,
+            appearedStep: effStepCounter,
             flaggedStep: null,
-            flaggedT: null,
           });
         }
       }
     }
 
     const willFlag = event.kind === 'rdown' && !view.revealed[event.index] && !view.flagged[event.index];
+    const willUnflag = event.kind === 'rdown' && !view.revealed[event.index] && view.flagged[event.index];
     const willReveal = event.kind === 'lup' && !view.revealed[event.index] && !view.flagged[event.index];
+    let willChord = false;
     let classified = null;
     let easyElsewhere = 0;
     let crop = null;
+    let ageSteps = -1;
+    let localSafeCounting = 0;
+    let pickedCountingFork = null;
+    let lightView = null;
 
     if (willFlag || willReveal) {
       classified = mindMapClassifyStep({ kind: willFlag ? 'flag' : 'reveal', index: event.index }, view, board, earlier);
       easyElsewhere = mindMapCountEasyElsewhere(earlier, view, board, event.index);
+      const provenAt = firstProvenStep[event.index];
+      ageSteps = provenAt >= 0 ? Math.max(0, effStepCounter - 1 - provenAt) : -1;
       if (options.captureCrops || (classified && (classified.tier === 'coupled' || classified.tier === 'overlap'))) {
         crop = mindMapCrop(view, board, event.index, willFlag ? 'mine' : 'safe');
       }
       if (willFlag && record.outcome === 'win') {
         for (const n of view.around[event.index]) {
           const entry = exhSeen.get(n);
-          if (entry && entry.flaggedStep === null) {
-            entry.flaggedStep = stepCounter;
-            entry.flaggedT = event.t;
-          }
+          if (entry && entry.flaggedStep === null) entry.flaggedStep = effStepCounter;
         }
       }
     } else if (event.kind === 'lup' && view.revealed[event.index] && view.adjacent[event.index] > 0) {
       const info = mindMapCellInfo(view, event.index, board.width);
       if (info.cov.length > 0 && info.rem === 0) {
+        willChord = true;
         classified = mindMapClassifyStep({ kind: info.cov.length === 1 ? 'chord-single' : 'chord-multi', index: event.index }, view, board, earlier);
+        const readyAt = chordReadyStep[event.index];
+        ageSteps = readyAt >= 0 ? Math.max(0, effStepCounter - 1 - readyAt) : -1;
       }
     }
 
-    // Store lightweight snapshot for pointer hover-check classification on Expert games
-    if (options.scanPointer && (willFlag || willReveal || (classified && classified.techId.startsWith('chord-')))) {
-      stepSnapshots.push({
-        t: event.t,
-        index: event.index,
-        view: {
+    const isEff = willFlag || willUnflag || willReveal || willChord;
+    if (isEff && effStepCounter > 0) {
+      if (options.scanPointer) {
+        localSafeCounting = mindMapCountLocalSafeCounting(earlier, view, board, prevEffIndex);
+        if (prevEffIndex !== null) {
+          const dist = Math.max(
+            Math.abs((prevEffIndex % board.width) - (event.index % board.width)),
+            Math.abs(Math.floor(prevEffIndex / board.width) - Math.floor(event.index / board.width)),
+          );
+          if (dist >= 3) {
+            pickedCountingFork = mindMapCheckCountingFork(earlier, view, board, event.index);
+          }
+        }
+        lightView = {
           revealed: new Uint8Array(view.revealed),
           flagged: new Uint8Array(view.flagged),
           adjacent: view.adjacent,
           around: view.around,
-        },
-        proof: earlier,
-      });
+        };
+        if (willFlag || willReveal || willChord) {
+          stepSnapshots.push({
+            t: event.t,
+            index: event.index,
+            view: lightView,
+            proof: earlier,
+          });
+        }
+      }
     }
 
-    stepCounter++;
-    return { remSafe, classified, easyElsewhere, crop };
+    if (isEff) {
+      prevEffIndex = event.index;
+      effStepCounter++;
+    }
+    return { remSafe, classified, easyElsewhere, crop, ageSteps, localSafeCounting, pickedCountingFork, prevOpened, lightView };
   });
 
   if (replay.status !== 'replayed') return null;
 
   const layouts = mindMapLayoutsOf(trace, board);
+  // Extract exact ldown timestamps for press-to-press & pre-down hover timing
+  const ldowns = Array.isArray(trace.events)
+    ? trace.events.filter((e) => e.kind === 'ldown' && typeof e.t === 'number').map((e) => e.t)
+    : [];
+  const hasLdown = ldowns.length > 0;
+  let ldPtr = 0;
+  const matchLdown = (t) => {
+    while (ldPtr + 1 < ldowns.length && ldowns[ldPtr + 1] <= t) ldPtr++;
+    return ldPtr < ldowns.length && ldowns[ldPtr] <= t && t - ldowns[ldPtr] <= 2000 ? ldowns[ldPtr] : null;
+  };
+
   const moves = [];
   const noops = { habit: 0, physical: 0, byCause: {}, bursts: 0, postNoopGaps: [], normalGaps: [] };
   const endgame = {
@@ -915,18 +1190,70 @@ function mindMapAnalyzeGame(record, trace, boardSpec, deps, options = {}) {
     trailingFlags: 0,
     trailingMs: 0,
   };
+  const mentation = {
+    vel: { hoverMs: 0, driftMs: 0, fastMs: 0, slowOnClueMs: 0, slowOnOtherCovMs: 0, totalMs: 0 },
+    localDriftRatios: [],
+    detour: { n: 0, totalMs: 0, onCountingMs: 0, onCountingN: 0 },
+    chunks: {
+      count: 0,
+      totalMoves: 0,
+      entryGaps: [],
+      followGaps: [],
+      breakers: {
+        noop: { n: 0, ms: 0 },
+        patternWall: { n: 0, ms: 0 },
+        localStall: { n: 0, ms: 0 },
+        dryJump: { n: 0, ms: 0 },
+        jumpPastSafe: { n: 0, ms: 0 },
+        postOpen: { n: 0, ms: 0 },
+      },
+    },
+    jumps: {
+      dryCount: 0,
+      dryGaps: [],
+      dist4DryN: 0,
+      eyesAheadN: 0,
+      countingForkN: 0,
+      countingPickedN: 0,
+    },
+    preDown: { reveal: [], chord: [], flag: [] },
+    leftHolds: [],
+  };
+
+  let curChunk = null;
+  const flushChunk = (reason, breakMs) => {
+    if (!curChunk) return;
+    mentation.chunks.count++;
+    mentation.chunks.totalMoves += curChunk.len;
+    mentation.chunks.entryGaps.push(curChunk.entryMs);
+    for (const fg of curChunk.followMs) mentation.chunks.followGaps.push(fg);
+    if (reason && mentation.chunks.breakers[reason]) {
+      mentation.chunks.breakers[reason].n++;
+      mentation.chunks.breakers[reason].ms += breakMs || 0;
+    }
+    curChunk = null;
+  };
 
   let flagIdx = 0;
   let lastNoopT = -Infinity;
   let inBurst = false;
-  let prevWasNoop = false;
+  let noopsSincePrevEff = 0;
   let startedAtT = null;
+  let prevEffStep = null;
   const stepRecords = [];
 
   for (let i = 0; i < replay.steps.length; i++) {
     const s = replay.steps[i];
+    const isLeftAction = s.kind === 'first-reveal' || s.kind === 'reveal' || s.kind === 'chord-multi' || s.kind === 'chord-single';
+    const isRightAction = s.kind === 'flag' || s.kind === 'unflag';
+    const downT = isLeftAction
+      ? (hasLdown ? matchLdown(s.t) : null)
+      : (isRightAction ? s.t : null);
+
     if (s.kind === 'first-reveal') {
       startedAtT = s.t;
+      prevEffStep = { t: s.t, downT, index: s.index, kind: s.kind };
+      noopsSincePrevEff = 0;
       continue;
     }
     if (startedAtT === null) continue;
@@ -945,15 +1272,27 @@ function mindMapAnalyzeGame(record, trace, boardSpec, deps, options = {}) {
         inBurst = false;
       }
       lastNoopT = s.t;
-      prevWasNoop = true;
+      noopsSincePrevEff++;
       continue;
     }
 
-    if (s.gapMs !== null && s.gapMs >= MIND_MAP_MIN_GAP_MS && s.gapMs <= MIND_MAP_MAX_GAP_MS) {
-      if (prevWasNoop) noops.postNoopGaps.push(s.gapMs);
-      else noops.normalGaps.push(s.gapMs);
+    if (isLeftAction && downT !== null && s.t >= downT) {
+      mentation.leftHolds.push(s.t - downT);
     }
-    prevWasNoop = false;
+
+    // True press-to-press gap when ldown timestamps exist; trigger gap only on
+    // traces without ldown events.
+    const rawGapMs = s.gapMs;
+    const effGapTrig = prevEffStep ? s.t - prevEffStep.t : null;
+    const pressGapMs = hasLdown
+      ? (prevEffStep && prevEffStep.downT !== null && downT !== null ? downT - prevEffStep.downT : null)
+      : effGapTrig;
+    const validGap = pressGapMs !== null && pressGapMs >= MIND_MAP_MIN_GAP_MS && pressGapMs <= MIND_MAP_MAX_GAP_MS;
+
+    if (rawGapMs !== null && rawGapMs >= MIND_MAP_MIN_GAP_MS && rawGapMs <= MIND_MAP_MAX_GAP_MS) {
+      if (noopsSincePrevEff > 0) noops.postNoopGaps.push(rawGapMs);
+      else noops.normalGaps.push(rawGapMs);
+    }
 
     let endgamePointless = false;
     let endgameUnused = false;
@@ -965,39 +1304,150 @@ function mindMapAnalyzeGame(record, trace, boardSpec, deps, options = {}) {
       if (record.outcome === 'win' && remSafe <= 5 && (unused || singleOnly)) {
         if (unused) endgame.end5Unused++;
         else endgame.end5Single++;
-        endgame.end5WasteMs += s.gapMs || 0;
+        endgame.end5WasteMs += pressGapMs || rawGapMs || 0;
         endgamePointless = true;
         endgameUnused = unused;
       }
       if (record.outcome === 'win' && remSafe === 1 && !ep.removed) {
         endgame.last1Flags++;
-        endgame.last1Ms += s.gapMs || 0;
+        endgame.last1Ms += pressGapMs || rawGapMs || 0;
         endgamePointless = true;
       }
     }
 
     const cls = s.before && s.before.classified;
-    if (cls && s.gapMs !== null && s.gapMs >= MIND_MAP_MIN_GAP_MS && s.gapMs <= MIND_MAP_MAX_GAP_MS) {
-      const prevStep = replay.steps[i - 1];
-      const ptr = prevStep ? mindMapPointerTiming(trace, layouts, prevStep.t, s.t, s.index, board) : { hoverMs: null, reactMs: null };
+    const dist = prevEffStep
+      ? Math.max(
+        Math.abs((prevEffStep.index % board.width) - (s.index % board.width)),
+        Math.abs(Math.floor(prevEffStep.index / board.width) - Math.floor(s.index / board.width)),
+      )
+      : 0;
+
+    const dis = prevEffStep && effGapTrig !== null && effGapTrig >= MIND_MAP_MIN_GAP_MS && effGapTrig <= MIND_MAP_MAX_GAP_MS
+      ? mindMapDissectInterval(
+        trace,
+        layouts,
+        prevEffStep.t,
+        s.t,
+        prevEffStep.index,
+        s.index,
+        downT,
+        board,
+        s.before ? s.before.lightView : null,
+        Boolean(options.scanPointer),
+      )
+      : {
+        valid: false,
+        preDownHoverMs: null,
+        departMs: null,
+        hasDetour: false,
+        detourMs: 0,
+        hoverMs: 0,
+        driftMs: 0,
+        fastMs: 0,
+        slowOnClueMs: 0,
+        slowOnOtherCovMs: 0,
+        pathRatio: null,
+      };
+
+    const ageSteps = s.before ? s.before.ageSteps : -1;
+
+    if (cls && validGap) {
+      const regime = noopsSincePrevEff > 0 ? 'post-noop'
+        : dis.hasDetour ? 'detour'
+          : dist >= 3 ? 'jump'
+            : ageSteps === 0 ? 'fresh'
+              : ageSteps >= 1 && ageSteps <= 3 ? 'queued'
+                : 'deferred';
       moves.push({
         techId: cls.techId,
         tier: cls.tier,
         isFlag: s.kind === 'flag',
-        gapMs: s.gapMs,
-        hoverMs: ptr.hoverMs,
-        reactMs: ptr.reactMs,
+        gapMs: pressGapMs,
+        regime,
+        ageSteps,
+        dist,
+        hasDetour: dis.hasDetour,
         easyElsewhere: s.before.easyElsewhere || 0,
         crop: s.before.crop || null,
       });
     }
 
+    // Full Expert mentation aggregation
+    if (options.scanPointer && prevEffStep && validGap && dis.valid) {
+      mentation.vel.hoverMs += dis.hoverMs;
+      mentation.vel.driftMs += dis.driftMs;
+      mentation.vel.fastMs += dis.fastMs;
+      mentation.vel.slowOnClueMs += dis.slowOnClueMs;
+      mentation.vel.slowOnOtherCovMs += dis.slowOnOtherCovMs;
+      mentation.vel.totalMs += effGapTrig;
+
+      if (prevEffStep.index !== s.index && dis.preDownHoverMs !== null && dis.preDownHoverMs <= 2000) {
+        if (s.kind === 'reveal') mentation.preDown.reveal.push(dis.preDownHoverMs);
+        else if (s.kind === 'chord-multi' || s.kind === 'chord-single') mentation.preDown.chord.push(dis.preDownHoverMs);
+        else if (s.kind === 'flag') mentation.preDown.flag.push(dis.preDownHoverMs);
+      }
+
+      if (dis.hasDetour) {
+        mentation.detour.n++;
+        mentation.detour.totalMs += dis.detourMs;
+        if (cls && cls.tier === 'counting') {
+          mentation.detour.onCountingN++;
+          mentation.detour.onCountingMs += dis.detourMs;
+        }
+      }
+
+      if (dist <= 2 && effGapTrig >= MIND_MAP_DRIFT_MIN_GAP_MS && noopsSincePrevEff === 0 && dis.pathRatio !== null) {
+        mentation.localDriftRatios.push(dis.pathRatio);
+      }
+
+      // Cross-board jumps: eyes-ahead pipelining & counting-first selection
+      if (dist >= 3) {
+        if (s.before && s.before.pickedCountingFork !== null) {
+          mentation.jumps.countingForkN++;
+          if (s.before.pickedCountingFork) mentation.jumps.countingPickedN++;
+        }
+        if (s.before && s.before.localSafeCounting === 0) {
+          mentation.jumps.dryCount++;
+          mentation.jumps.dryGaps.push(pressGapMs);
+          if (dist >= 4) {
+            mentation.jumps.dist4DryN++;
+            if (dis.departMs !== null && dis.departMs <= MIND_MAP_EYES_AHEAD_DEPART_MS
+              && (dis.slowOnClueMs + dis.slowOnOtherCovMs) < 80) {
+              mentation.jumps.eyesAheadN++;
+            }
+          }
+        }
+      }
+
+      // Cognitive chunking & chunk-breaker taxonomy
+      const tier = cls ? cls.tier : 'counting';
+      const isFluid = dist <= 2 && noopsSincePrevEff === 0 && pressGapMs <= MIND_MAP_CHUNK_MAX_GAP_MS
+        && tier === 'counting' && (dis.slowOnClueMs + dis.slowOnOtherCovMs) < 120;
+      if (isFluid && curChunk) {
+        curChunk.len++;
+        curChunk.followMs.push(pressGapMs);
+      } else {
+        let reason = 'localStall';
+        if (noopsSincePrevEff > 0) reason = 'noop';
+        else if (tier !== 'counting') reason = 'patternWall';
+        else if (dist >= 3 && s.before && s.before.localSafeCounting === 0) reason = 'dryJump';
+        else if (dist >= 3) reason = 'jumpPastSafe';
+        else if (s.before && s.before.prevOpened >= 6) reason = 'postOpen';
+        flushChunk(reason, effGapTrig);
+        curChunk = { len: 1, entryMs: pressGapMs, followMs: [] };
+      }
+    }
+
     if (options.buildEpisodes) {
       stepRecords.push({
         t: s.t,
-        gapMs: s.gapMs,
+        gapMs: pressGapMs !== null ? pressGapMs : rawGapMs,
         techId: cls ? cls.techId : null,
         tier: cls ? cls.tier : null,
+        ageSteps,
+        pathRatio: dis.pathRatio,
+        detourMs: dis.detourMs,
         easyElsewhere: s.before ? s.before.easyElsewhere || 0 : 0,
         remSafe: s.before ? s.before.remSafe : 99,
         endgamePointless,
@@ -1005,7 +1455,11 @@ function mindMapAnalyzeGame(record, trace, boardSpec, deps, options = {}) {
         crop: s.before ? s.before.crop : null,
       });
     }
+
+    prevEffStep = { t: s.t, downT, index: s.index, kind: s.kind };
+    noopsSincePrevEff = 0;
   }
+  flushChunk(null, 0);
 
   // Trailing pointless flags immediately before a final reveal or 1-cell chord win
   if (record.outcome === 'win' && replay.steps.length >= 2) {
@@ -1053,29 +1507,40 @@ function mindMapAnalyzeGame(record, trace, boardSpec, deps, options = {}) {
     noops,
     endgame,
     exh4Plus,
+    mentation,
     checks: pointer.checks,
     reversals: pointer.reversals,
     episodes,
   };
 }
 
-function mindMapAggregateTechniques(gameList, expertWinsCount) {
+function mindMapAggregateTechniques(gameList, winsCount) {
   const buckets = new Map();
   for (const t of MIND_MAP_TECHNIQUES) {
-    buckets.set(t.id, { gaps: [], hovers: [], easyElsewhere: 0, slow600: 0, fluent: 0, extraBailMs: 0, sampleCrop: null });
+    buckets.set(t.id, {
+      allGaps: [],
+      freshGaps: [],
+      queuedGaps: [],
+      easyElsewhere: 0,
+      slow600: 0,
+      extraBailMs: 0,
+      sampleCrop: null,
+    });
   }
   for (const g of gameList) {
     for (const m of g.moves) {
       const b = buckets.get(m.techId);
       if (!b) continue;
-      b.gaps.push(m.gapMs);
-      if (m.hoverMs !== null && m.hoverMs >= 0 && m.hoverMs <= 5000) b.hovers.push(m.hoverMs);
-      if (m.easyElsewhere >= 2) {
-        b.easyElsewhere++;
-        if (m.gapMs > MIND_MAP_BASELINE_MS) b.extraBailMs += (m.gapMs - MIND_MAP_BASELINE_MS);
+      if (m.regime !== 'post-noop') {
+        b.allGaps.push(m.gapMs);
+        if (m.easyElsewhere >= 2) {
+          b.easyElsewhere++;
+          if (m.gapMs > MIND_MAP_BASELINE_MS) b.extraBailMs += (m.gapMs - MIND_MAP_BASELINE_MS);
+        }
+        if (m.gapMs >= MIND_MAP_SLOW_MS) b.slow600++;
       }
-      if (m.gapMs >= MIND_MAP_SLOW_MS) b.slow600++;
-      if (m.gapMs <= MIND_MAP_FLUENT_MS) b.fluent++;
+      if (m.regime === 'fresh') b.freshGaps.push(m.gapMs);
+      else if (m.regime === 'queued') b.queuedGaps.push(m.gapMs);
       if (!b.sampleCrop && m.crop && (m.gapMs >= MIND_MAP_SLOW_MS || m.tier === 'coupled')) {
         b.sampleCrop = m.crop;
       }
@@ -1084,19 +1549,24 @@ function mindMapAggregateTechniques(gameList, expertWinsCount) {
 
   return MIND_MAP_TECHNIQUES.map((t) => {
     const b = buckets.get(t.id);
-    const n = b.gaps.length;
-    const medMs = n > 0 ? Math.round(mindMapMedian(b.gaps)) : null;
-    const p90Ms = n > 0 ? Math.round(mindMapPercentile(b.gaps, 0.9)) : null;
-    const hoverMs = b.hovers.length >= 5 ? Math.round(mindMapMedian(b.hovers)) : null;
+    const n = b.allGaps.length;
+    const medMs = n > 0 ? Math.round(mindMapMedian(b.allGaps)) : null;
+    const freshN = b.freshGaps.length;
+    const freshMs = freshN > 0 ? Math.round(mindMapMedian(b.freshGaps)) : null;
+    const queuedN = b.queuedGaps.length;
+    const queuedMs = queuedN > 0 ? Math.round(mindMapMedian(b.queuedGaps)) : null;
+    const p90Ms = n > 0 ? Math.round(mindMapPercentile(b.allGaps, 0.9)) : null;
     const slowPct = n > 0 ? Math.round(100 * b.slow600 / n) : null;
-    const easyPct = n > 0 ? Math.round(100 * b.easyElsewhere / n) : null;
-    const bailSecPerWin = expertWinsCount > 0 ? b.extraBailMs / (expertWinsCount * 1000) : 0;
+    const easyPct = n > 0 ? Math.round(100 * b.easyElsewhere / Math.max(1, n)) : null;
+    const bailSecPerWin = winsCount > 0 ? b.extraBailMs / (winsCount * 1000) : 0;
 
+    // Judge advice from true fresh local recognition whenever enough fresh samples exist
+    const judgedMs = freshN >= 5 ? freshMs : medMs;
     let advice = 'low-n';
-    if (n >= 5) {
-      if (t.tier !== 'counting' && medMs >= MIND_MAP_BAIL_MED_MS && easyPct >= MIND_MAP_BAIL_EASY_PCT) {
+    if (n >= 5 && judgedMs !== null) {
+      if (t.tier !== 'counting' && judgedMs >= MIND_MAP_BAIL_MED_MS && easyPct >= MIND_MAP_BAIL_EASY_PCT) {
         advice = 'bail-first';
-      } else if (medMs >= 380 || slowPct >= 25) {
+      } else if (judgedMs >= 380 || slowPct >= 25) {
         advice = 'drill';
       } else {
         advice = 'fast';
@@ -1112,15 +1582,122 @@ function mindMapAggregateTechniques(gameList, expertWinsCount) {
       sampleCrop: b.sampleCrop,
       n,
       medMs,
+      freshMs,
+      freshN,
+      queuedMs,
+      queuedN,
       p90Ms,
-      hoverMs,
       slowPct,
       easyPct,
       bailSecPerWin,
       advice,
+      _sortMs: judgedMs || 0,
     };
   }).filter((row) => row.n > 0)
-    .sort((a, b) => (b.medMs || 0) - (a.medMs || 0));
+    .sort((a, b) => {
+      const aLow = a.advice === 'low-n' ? 1 : 0;
+      const bLow = b.advice === 'low-n' ? 1 : 0;
+      if (aLow !== bLow) return aLow - bLow;
+      return b._sortMs - a._sortMs;
+    })
+    .map(({ _sortMs, ...rest }) => rest);
+}
+
+function mindMapSummarizeMentation(expGames) {
+  const withVel = expGames.filter((g) => g.mentation && g.mentation.vel.totalMs > 0);
+  const n = withVel.length;
+  if (n === 0) return null;
+
+  const sumSec = (fn) => withVel.reduce((s, g) => s + fn(g), 0) / (n * 1000);
+  const totalSec = sumSec((g) => g.mentation.vel.totalMs);
+  const hoverSec = sumSec((g) => g.mentation.vel.hoverMs);
+  const driftSec = sumSec((g) => g.mentation.vel.driftMs);
+  const fastSec = sumSec((g) => g.mentation.vel.fastMs);
+  const slowOnClueSec = sumSec((g) => g.mentation.vel.slowOnClueMs);
+  const slowOnOtherCovSec = sumSec((g) => g.mentation.vel.slowOnOtherCovMs);
+
+  const localDriftRatios = withVel.flatMap((g) => g.mentation.localDriftRatios);
+  const localDriftRatio = localDriftRatios.length >= 5 ? mindMapMedian(localDriftRatios) : null;
+
+  const detoursPerWin = withVel.reduce((s, g) => s + g.mentation.detour.n, 0) / n;
+  const detourSecPerWin = sumSec((g) => g.mentation.detour.totalMs);
+  const detourOnCountingSecPerWin = sumSec((g) => g.mentation.detour.onCountingMs);
+
+  const dist4DryN = withVel.reduce((s, g) => s + g.mentation.jumps.dist4DryN, 0);
+  const eyesAheadN = withVel.reduce((s, g) => s + g.mentation.jumps.eyesAheadN, 0);
+  const eyesAheadPct = dist4DryN > 0 ? Math.round(100 * eyesAheadN / dist4DryN) : null;
+  const dryJumpsPerWin = withVel.reduce((s, g) => s + g.mentation.jumps.dryCount, 0) / n;
+  const dryGaps = withVel.flatMap((g) => g.mentation.jumps.dryGaps);
+  const dryJumpMedMs = dryGaps.length > 0 ? Math.round(mindMapMedian(dryGaps)) : null;
+
+  const countingForkN = withVel.reduce((s, g) => s + g.mentation.jumps.countingForkN, 0);
+  const countingPickedN = withVel.reduce((s, g) => s + g.mentation.jumps.countingPickedN, 0);
+  const countingChoicePct = countingForkN > 0 ? Math.round(100 * countingPickedN / countingForkN) : null;
+
+  const chunkCount = withVel.reduce((s, g) => s + g.mentation.chunks.count, 0);
+  const chunkMoves = withVel.reduce((s, g) => s + g.mentation.chunks.totalMoves, 0);
+  const meanChunkLen = chunkCount > 0 ? chunkMoves / chunkCount : null;
+  const chunkEntryMedMs = mindMapMedian(withVel.flatMap((g) => g.mentation.chunks.entryGaps));
+  const chunkFollowMedMs = mindMapMedian(withVel.flatMap((g) => g.mentation.chunks.followGaps));
+
+  const breakerLabels = [
+    ['noop', 'No-op clicks'],
+    ['patternWall', 'Pattern walls (overlap / multi-clue / guess)'],
+    ['localStall', 'Local counting stalls (380 ms+)'],
+    ['dryJump', 'Cross-board jumps (local area finished)'],
+    ['jumpPastSafe', 'Early jumps past safe local squares'],
+    ['postOpen', 'Reading after large openings'],
+  ];
+  const breakers = breakerLabels.map(([key, label]) => {
+    const cnt = withVel.reduce((s, g) => s + g.mentation.chunks.breakers[key].n, 0);
+    const ms = withVel.reduce((s, g) => s + g.mentation.chunks.breakers[key].ms, 0);
+    return {
+      id: key,
+      label,
+      perWin: cnt / n,
+      secPerWin: ms / (n * 1000),
+    };
+  }).filter((b) => b.perWin > 0)
+    .sort((a, b) => b.secPerWin - a.secPerWin);
+
+  const preDownRev = withVel.flatMap((g) => g.mentation.preDown.reveal);
+  const preDownCh = withVel.flatMap((g) => g.mentation.preDown.chord);
+  const preDownFlg = withVel.flatMap((g) => g.mentation.preDown.flag);
+  const leftHolds = withVel.flatMap((g) => g.mentation.leftHolds);
+
+  return {
+    wins: n,
+    totalSec,
+    hoverSec,
+    driftSec,
+    fastSec,
+    hoverPct: totalSec > 0 ? Math.round(100 * hoverSec / totalSec) : 0,
+    driftPct: totalSec > 0 ? Math.round(100 * driftSec / totalSec) : 0,
+    fastPct: totalSec > 0 ? Math.round(100 * fastSec / totalSec) : 0,
+    slowOnClueSec,
+    slowOnOtherCovSec,
+    localDriftRatio,
+    localDriftN: localDriftRatios.length,
+    detoursPerWin,
+    detourSecPerWin,
+    detourOnCountingSecPerWin,
+    dist4DryN,
+    eyesAheadPct,
+    dryJumpsPerWin,
+    dryJumpMedMs,
+    countingForkN,
+    countingChoicePct,
+    meanChunkLen,
+    chunkEntryMedMs: chunkEntryMedMs !== null ? Math.round(chunkEntryMedMs) : null,
+    chunkFollowMedMs: chunkFollowMedMs !== null ? Math.round(chunkFollowMedMs) : null,
+    breakers,
+    preDownHover: {
+      revealMs: preDownRev.length >= 5 ? Math.round(mindMapMedian(preDownRev)) : null,
+      chordMs: preDownCh.length >= 5 ? Math.round(mindMapMedian(preDownCh)) : null,
+      flagMs: preDownFlg.length >= 5 ? Math.round(mindMapMedian(preDownFlg)) : null,
+      leftHoldMs: leftHolds.length >= 5 ? Math.round(mindMapMedian(leftHolds)) : null,
+    },
+  };
 }
 
 function mindMapSummarize(gameResults, expertRecords = []) {
@@ -1140,7 +1717,8 @@ function mindMapSummarize(gameResults, expertRecords = []) {
     Beginner: mindMapAggregateTechniques(byLevel.Beginner, byLevel.Beginner.length),
   };
 
-  // Endgame pointless flagging summary on Expert (and all levels)
+  const mentation = mindMapSummarizeMentation(exp);
+
   const summarizeEndgame = (list) => {
     const n = list.length;
     if (n === 0) return null;
@@ -1167,7 +1745,6 @@ function mindMapSummarize(gameResults, expertRecords = []) {
     Beginner: summarizeEndgame(byLevel.Beginner),
   };
 
-  // No-op root cause & rhythm disruption on Expert
   const noopHabit = exp.reduce((s, g) => s + g.noops.habit, 0);
   const noopPhysical = exp.reduce((s, g) => s + g.noops.physical, 0);
   const noopTotal = noopHabit + noopPhysical;
@@ -1176,13 +1753,11 @@ function mindMapSummarize(gameResults, expertRecords = []) {
   const normalMedMs = mindMapMedian(exp.flatMap((g) => g.noops.normalGaps));
   const postNoopPenaltyMs = postNoopMedMs !== null && normalMedMs !== null ? Math.round(postNoopMedMs - normalMedMs) : null;
 
-  // Exhaustive 4/5+ summary on Expert
   const exhFreshTotal = exp.reduce((s, g) => s + g.exh4Plus.freshTotal, 0);
   const exhFreshSkipped = exp.reduce((s, g) => s + g.exh4Plus.freshSkipped, 0);
   const exhPartialTotal = exp.reduce((s, g) => s + g.exh4Plus.partialTotal, 0);
   const exhPartialSkipped = exp.reduce((s, g) => s + g.exh4Plus.partialSkipped, 0);
 
-  // Pointer abandoned visual checks & reversals on Expert
   const allChecks = exp.flatMap((g) => g.checks);
   const checkRegimes = { 'no-local-move': 0, 'missed-counting-safe': 0, 'unflagged-exhaustive-4plus': 0, 'unflagged-counting-mine': 0, 'overlap-stumped': 0 };
   let totalCheckMs = 0;
@@ -1194,7 +1769,6 @@ function mindMapSummarize(gameResults, expertRecords = []) {
   const checkSecPerWin = expN > 0 ? totalCheckMs / (expN * 1000) : 0;
   const reversalsPerWin = expN > 0 ? exp.reduce((s, g) => s + g.reversals, 0) / expN : 0;
 
-  // Slow solvable patterns while easy counting moves existed elsewhere (Expert)
   let bailMoves = 0;
   let bailSlow600 = 0;
   let bailExtraMs = 0;
@@ -1209,20 +1783,14 @@ function mindMapSummarize(gameResults, expertRecords = []) {
   }
   const bailSecPerWin = expN > 0 ? bailExtraMs / (expN * 1000) : 0;
 
-  // Left vs right hover asymmetry on Expert
-  const leftHovers = exp.flatMap((g) => g.moves.filter((m) => !m.isFlag && m.hoverMs !== null && m.hoverMs <= 2000).map((m) => m.hoverMs));
-  const rightHovers = exp.flatMap((g) => g.moves.filter((m) => m.isFlag && m.hoverMs !== null && m.hoverMs <= 2000).map((m) => m.hoverMs));
-  const leftHoverMs = leftHovers.length >= 20 ? Math.round(mindMapMedian(leftHovers)) : null;
-  const rightHoverMs = rightHovers.length >= 20 ? Math.round(mindMapMedian(rightHovers)) : null;
-
-  // Expert technique lookups for traits & highlights
   const expTechById = new Map(techniques.Expert.map((t) => [t.id, t]));
   const noflagRev = expTechById.get('reveal-counting-noflag');
   const afterFlagRev = expTechById.get('reveal-counting-after-flag');
-  const noflagPenaltyMs = noflagRev && afterFlagRev && noflagRev.n >= 10 && afterFlagRev.n >= 10
-    ? noflagRev.medMs - afterFlagRev.medMs : null;
+  const useFreshNoflag = noflagRev && afterFlagRev && noflagRev.freshN >= 10 && afterFlagRev.freshN >= 10;
+  const noflagPenaltyMs = useFreshNoflag
+    ? noflagRev.freshMs - afterFlagRev.freshMs
+    : (noflagRev && afterFlagRev && noflagRev.n >= 10 && afterFlagRev.n >= 10 ? noflagRev.medMs - afterFlagRev.medMs : null);
 
-  // Upper-tail 3BV/s breakout from all Expert wins
   const expAllWins = expertRecords.filter((r) => r.outcome === 'win').sort((a, b) => a.endedAt - b.endedAt);
   let peakShareRecent = null;
   let peakShareEarlier = null;
@@ -1234,7 +1802,7 @@ function mindMapSummarize(gameResults, expertRecords = []) {
     peakShareRecent = Math.round(100 * late.filter((r) => r.bv3 / (r.timeMs / 1000) >= 2.0).length / late.length);
   }
 
-  // Ranked performance traits (sorted by impact cost descending so top bottlenecks come first)
+  // Ranked performance traits (sorted by time cost descending)
   const rankedTraits = [];
   const addTrait = (item) => rankedTraits.push(item);
 
@@ -1256,6 +1824,42 @@ function mindMapSummarize(gameResults, expertRecords = []) {
       });
     }
 
+    if (mentation && mentation.slowOnClueSec >= 0.5) {
+      const driftNote = mentation.localDriftRatio !== null
+        ? ` Local slow moves loop at ${mentation.localDriftRatio.toFixed(1)}\u00d7 straight-line distance (pros: 1.0\u20131.1\u00d7).`
+        : '';
+      addTrait({
+        id: 'clue-reading-drift',
+        label: 'Slow cursor reading on open clues',
+        valueNum: mentation.slowOnClueSec.toFixed(1),
+        valueUnit: 's/win',
+        benchmark: '<2.0 s',
+        costSec: Math.max(0, mentation.slowOnClueSec - 1.6),
+        status: mentation.slowOnClueSec >= 5.0 ? 'bottleneck' : mentation.slowOnClueSec >= 2.5 ? 'watch' : 'strong',
+        sample: mentation.wins,
+        sampleUnit: 'wins',
+        help: 'Seconds per win with the cursor drifting slowly over open clue numbers instead of reading ahead with the eyes.' + driftNote,
+      });
+    }
+
+    if (mentation && mentation.dist4DryN >= 10 && mentation.eyesAheadPct !== null) {
+      const dryCost = mentation.dryJumpMedMs !== null
+        ? Math.max(0, ((mentation.dryJumpMedMs - 380) * mentation.dryJumpsPerWin) / 1000)
+        : 0;
+      addTrait({
+        id: 'eyes-ahead',
+        label: 'Eyes-ahead lookahead on cross-board jumps',
+        valueNum: String(mentation.eyesAheadPct),
+        valueUnit: '%',
+        benchmark: '35%+',
+        costSec: dryCost,
+        status: mentation.eyesAheadPct < 15 ? 'bottleneck' : mentation.eyesAheadPct < 30 ? 'watch' : 'strong',
+        sample: mentation.dist4DryN,
+        sampleUnit: 'jumps',
+        help: `Share of 4+ square jumps after finishing a local area where the cursor departs within 45 ms with no mid-flight drift (${mentation.dryJumpsPerWin.toFixed(1)} jumps/win, ${mentation.dryJumpMedMs} ms median).`,
+      });
+    }
+
     if (bailMoves >= 10) {
       addTrait({
         id: 'slow-bail',
@@ -1267,7 +1871,7 @@ function mindMapSummarize(gameResults, expertRecords = []) {
         status: bailSecPerWin >= 2.5 ? 'bottleneck' : bailSecPerWin >= 1.0 ? 'watch' : 'strong',
         sample: bailMoves,
         sampleUnit: 'moves',
-        help: 'Share of overlap and multi-clue moves taking 600 ms+ while at least two counting moves were open elsewhere.',
+        help: 'Share of overlap and multi-clue moves taking 600 ms+ (press-to-press) while at least two counting moves waited elsewhere.',
       });
     }
 
@@ -1301,6 +1905,22 @@ function mindMapSummarize(gameResults, expertRecords = []) {
         sample: noopTotal,
         sampleUnit: 'clicks',
         help: 'Clicks that change nothing, split into habit test-chords/rechecks versus 1-cell misses and button slips.',
+      });
+    }
+
+    if (mentation && mentation.countingForkN >= 15 && mentation.countingChoicePct !== null) {
+      const nonCountingPerWin = ((100 - mentation.countingChoicePct) / 100) * (mentation.countingForkN / mentation.wins);
+      addTrait({
+        id: 'counting-first-forks',
+        label: 'Counting-first choice on cross-board forks',
+        valueNum: String(mentation.countingChoicePct),
+        valueUnit: '%',
+        benchmark: '90%+',
+        costSec: Math.max(0, nonCountingPerWin * 0.35),
+        status: mentation.countingChoicePct < 80 ? 'watch' : 'strong',
+        sample: mentation.countingForkN,
+        sampleUnit: 'forks',
+        help: 'When both counting-easy areas and overlap-only areas are open across the board, share of jumps entering a counting-easy area first (sub-60 pros: 92\u201394%).',
       });
     }
 
@@ -1340,31 +1960,17 @@ function mindMapSummarize(gameResults, expertRecords = []) {
     if (noflagPenaltyMs !== null) {
       addTrait({
         id: 'noflag-hesitation',
-        label: 'No-flag counting hesitation',
+        label: useFreshNoflag ? 'No-flag counting hesitation (fresh local)' : 'No-flag counting hesitation',
         valueNum: (noflagPenaltyMs >= 0 ? '+' : '\u2212') + Math.abs(noflagPenaltyMs),
         valueUnit: 'ms',
-        benchmark: '<40 ms',
+        benchmark: '<60 ms',
         costSec: Math.max(0, (noflagPenaltyMs * (noflagRev.n / expN)) / 1000),
-        status: noflagPenaltyMs >= 80 ? 'bottleneck' : noflagPenaltyMs >= 40 ? 'watch' : 'strong',
-        sample: noflagRev.n,
+        status: noflagPenaltyMs >= 150 ? 'bottleneck' : noflagPenaltyMs >= 60 ? 'watch' : 'strong',
+        sample: useFreshNoflag ? noflagRev.freshN : noflagRev.n,
         sampleUnit: 'moves',
-        help: 'Extra median time on direct counting reveals without flagging first compared with reveals after flagging.',
-      });
-    }
-
-    if (leftHoverMs !== null && rightHoverMs !== null) {
-      const diff = leftHoverMs - rightHoverMs;
-      addTrait({
-        id: 'left-hover',
-        label: 'Left-click hover over right-click',
-        valueNum: (diff >= 0 ? '+' : '\u2212') + Math.abs(diff),
-        valueUnit: 'ms',
-        benchmark: '<30 ms',
-        costSec: Math.max(0, diff * 0.08),
-        status: diff >= 50 ? 'watch' : 'strong',
-        sample: leftHovers.length,
-        sampleUnit: 'clicks',
-        help: `Median dwell inside the target square before left-click release (${leftHoverMs} ms) versus right-click press (${rightHoverMs} ms).`,
+        help: useFreshNoflag
+          ? `Extra fresh local press-to-press time on direct counting reveals without flagging (${noflagRev.freshMs} ms) versus after flagging (${afterFlagRev.freshMs} ms).`
+          : 'Extra median press-to-press time on direct counting reveals without flagging first compared with reveals after flagging.',
       });
     }
 
@@ -1386,7 +1992,7 @@ function mindMapSummarize(gameResults, expertRecords = []) {
 
   rankedTraits.sort((a, b) => b.costSec - a.costSec);
 
-  // Automatic notable highlights (strict thresholds so only genuine findings surface)
+  // Automatic notable highlights (strict thresholds so only real signals surface)
   const highlights = [];
   if (endgame.Expert && endgame.Expert.withEnd5Pct >= 40) {
     highlights.push({
@@ -1397,6 +2003,15 @@ function mindMapSummarize(gameResults, expertRecords = []) {
       detail: `${endgame.Expert.end5FlagsPerWin.toFixed(1)} pointless flags in the final 5 safe squares (${endgame.Expert.end5SecPerWin.toFixed(1)} s/win); ${endgame.Expert.withLast1Pct}% flag when only 1 safe square remains (n=${endgame.Expert.wins}).`,
     });
   }
+  if (mentation && mentation.dist4DryN >= 20 && mentation.eyesAheadPct !== null && mentation.eyesAheadPct < 20) {
+    highlights.push({
+      severity: 'bottleneck',
+      priority: 97,
+      title: 'Cross-board lookahead is low',
+      metric: `${mentation.eyesAheadPct}% eyes-ahead`,
+      detail: `Only ${mentation.eyesAheadPct}% of 4+ square jumps after finishing a local area depart within 45 ms (3.0+ 3BV/s pros hit 35\u201356%); ${mentation.dryJumpsPerWin.toFixed(1)} dry jumps/win at ${mentation.dryJumpMedMs} ms median (n=${mentation.dist4DryN}).`,
+    });
+  }
   const bailTechs = techniques.Expert.filter((t) => t.advice === 'bail-first' && t.n >= 10).slice(0, 3);
   if (bailSecPerWin >= 1.5 && bailTechs.length > 0) {
     highlights.push({
@@ -1404,7 +2019,16 @@ function mindMapSummarize(gameResults, expertRecords = []) {
       priority: 95,
       title: 'Move elsewhere before wrestling slow solvable shapes',
       metric: `${bailSecPerWin.toFixed(1)} s/win extra`,
-      detail: `${bailSlow600} slow moves (600 ms+) happened while 2+ counting moves sat open elsewhere. Top skip-first shapes: ${bailTechs.map((t) => `${t.label} (${t.medMs} ms, n=${t.n})`).join('; ')}.`,
+      detail: `${bailSlow600} slow moves (600 ms+) happened while 2+ counting moves waited elsewhere. Top skip-first shapes: ${bailTechs.map((t) => `${t.label} (${t.freshN >= 5 ? t.freshMs + ' ms fresh' : t.medMs + ' ms'}, n=${t.n})`).join('; ')}.`,
+    });
+  }
+  if (mentation && mentation.slowOnClueSec >= 4.0 && mentation.localDriftRatio !== null && mentation.localDriftRatio >= 1.5) {
+    highlights.push({
+      severity: 'watch',
+      priority: 90,
+      title: 'Reading with the cursor instead of the eyes',
+      metric: `${mentation.slowOnClueSec.toFixed(1)} s/win on clues`,
+      detail: `Local slow moves trace ${mentation.localDriftRatio.toFixed(1)}\u00d7 straight-line distance over nearby numbers (pros: 1.0\u20131.1\u00d7), spending ${mentation.slowOnClueSec.toFixed(1)} s/win hovering slowly over open clues (n=${mentation.wins} wins).`,
     });
   }
   if (checkRegimes['unflagged-exhaustive-4plus'] >= 5 || (exhPartialTotal >= 20 && (exhPartialSkipped / exhPartialTotal) >= 0.2)) {
@@ -1417,14 +2041,16 @@ function mindMapSummarize(gameResults, expertRecords = []) {
       detail: `Partially-flagged 4/5/6/7s are left unflagged past the next click ${skipPct}% of the time (n=${exhPartialTotal}), with ${checkRegimes['unflagged-exhaustive-4plus']} cursor hovers right next to one before walking away.`,
     });
   }
-  const slowKnown = techniques.Expert.find((t) => (t.id === 'flag-edge-1-2-1' || t.id === 'flag-1-2-interior') && t.n >= 25 && t.medMs >= 420);
+  const slowKnown = techniques.Expert.find((t) => (t.id === 'flag-edge-1-2-1' || t.id === 'flag-1-2-interior') && t.n >= 25 && (t.freshN >= 5 ? t.freshMs : t.medMs) >= 450);
   if (slowKnown) {
+    const dispMs = slowKnown.freshN >= 5 ? slowKnown.freshMs : slowKnown.medMs;
+    const dispLabel = slowKnown.freshN >= 5 ? 'fresh' : 'median';
     highlights.push({
       severity: 'watch',
       priority: 80,
       title: `${slowKnown.label} is not automatic yet`,
-      metric: `${slowKnown.medMs} ms median`,
-      detail: `Takes ${slowKnown.medMs} ms median (${slowKnown.p90Ms} ms 90th, ${slowKnown.slowPct}% at 600 ms+, n=${slowKnown.n}) compared with ~260 ms on memorized counting moves.`,
+      metric: `${dispMs} ms ${dispLabel}`,
+      detail: `Takes ${dispMs} ms ${dispLabel} (${slowKnown.queuedMs !== null ? slowKnown.queuedMs + ' ms queued, ' : ''}${slowKnown.p90Ms} ms 90th, n=${slowKnown.n}) compared with ~210 ms on reflexive chords.`,
     });
   }
   if (peakShareRecent !== null && peakShareEarlier !== null && peakShareRecent - peakShareEarlier >= 5) {
@@ -1452,21 +2078,33 @@ function mindMapSummarize(gameResults, expertRecords = []) {
     .filter((g) => g.episodes !== null)
     .sort((a, b) => b.endedAt - a.endedAt)
     .slice(0, MIND_MAP_RECENT_EXPERT_TRACES)
-    .map((g) => ({
-      endedAt: g.endedAt,
-      timeS: g.timeMs / 1000,
-      bv3: g.bv3,
-      bvs: g.bvs,
-      ioe: g.ioe,
-      moves: g.moves.length,
-      habitNoops: g.noops.habit,
-      physicalNoops: g.noops.physical,
-      end5Flags: g.endgame.end5Unused + g.endgame.end5Single,
-      last1Flags: g.endgame.last1Flags,
-      abandonedChecks: g.checks.length,
-      reversals: g.reversals,
-      episodes: g.episodes,
-    }));
+    .map((g) => {
+      const m = g.mentation;
+      const gEyesAheadPct = m && m.jumps.dist4DryN > 0
+        ? Math.round(100 * m.jumps.eyesAheadN / m.jumps.dist4DryN)
+        : null;
+      const gDrift = m && m.localDriftRatios.length > 0
+        ? mindMapMedian(m.localDriftRatios)
+        : null;
+      return {
+        endedAt: g.endedAt,
+        timeS: g.timeMs / 1000,
+        bv3: g.bv3,
+        bvs: g.bvs,
+        ioe: g.ioe,
+        moves: g.moves.length,
+        habitNoops: g.noops.habit,
+        physicalNoops: g.noops.physical,
+        end5Flags: g.endgame.end5Unused + g.endgame.end5Single,
+        last1Flags: g.endgame.last1Flags,
+        abandonedChecks: g.checks.length,
+        reversals: g.reversals,
+        eyesAheadPct: gEyesAheadPct,
+        localDriftRatio: gDrift,
+        detourSec: m ? m.detour.totalMs / 1000 : 0,
+        episodes: g.episodes,
+      };
+    });
 
   return {
     counts: {
@@ -1478,14 +2116,14 @@ function mindMapSummarize(gameResults, expertRecords = []) {
     highlights: highlights.slice(0, 6),
     rankedTraits,
     techniques,
+    mentation,
     endgame,
     pointer: {
       checksPerWin,
       checkSecPerWin,
       reversalsPerWin,
       checkRegimes,
-      leftHoverMs,
-      rightHoverMs,
+      preDownHover: mentation ? mentation.preDownHover : null,
     },
     noops: {
       total: noopTotal,

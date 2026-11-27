@@ -2,6 +2,15 @@
 
 Research notes and external references. Index: [AGENTS.md](../AGENTS.md).
 
+- `reference/mentation-model-2026-11-26.md` — empirical cognitive-mentation
+  study across `140` Ernest Expert wins, `111` late Expert losses, `240`
+  Beg/Int/Exp wins, and `175` stratified pro replays (`1.6` to `5.99 3BV/s`):
+  press-to-press vs. trigger-to-trigger `±62 ms` bias audit (debunking the
+  left-click hover artifact), exact `deducible-since` information-age pattern
+  attribution, `2.0×` local cursor-reading loops (`8.2 s/win` over open clues),
+  the monotonic `6.8% → 56.3%` eyes-ahead lookahead ladder, cognitive chunking
+  and chunk-breaker budget, pre-death flow breakdown, `+340 ms` board-size
+  clutter tax, and the 5-rule sub-board pattern trainer blueprint.
 - `reference/sub60-iteration-program-2026-11-25.md` — master long-term
   research, development, practice, and experiment program consolidating the
   2026-11-25 performance review, mind-map audit, shipped Phase 0 tools, Tracks

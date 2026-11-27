@@ -50,7 +50,7 @@ function userdataReady() {
   };
   worker.postMessage({ database });
 
-  const mindMapWorker = new Worker('mind-map-worker.js?v=20261125-mindmap-1');
+  const mindMapWorker = new Worker('mind-map-worker.js?v=20261126-mentation-1');
   mindMapWorker.onmessage = ({ data }) => {
     mindMapWorker.terminate();
     if (data.error !== undefined) renderTrainingMindMapError('Mind-map failed: ' + data.error);
@@ -709,6 +709,76 @@ function renderTrainingHighlightsAndTraits(data) {
   section.hidden = false;
 }
 
+function renderTrainingMentation(m) {
+  const nodes = [];
+  if (!m) return nodes;
+  nodes.push(trainingElement('h3', 'training-coach-subhead',
+    'How your mind moves through Expert wins (' + m.wins + ' traced wins)'));
+
+  const grid = trainingElement('div', 'training-mentation-grid');
+  const addCard = (label, value, detail) => {
+    const card = trainingElement('div', 'training-card');
+    card.append(
+      trainingElement('span', 'training-card-label', label),
+      trainingElement('span', 'training-card-value', value),
+      trainingElement('span', 'training-card-detail', detail),
+    );
+    grid.appendChild(card);
+  };
+
+  addCard(
+    'Eyes-ahead lookahead',
+    m.eyesAheadPct === null ? '\u2013' : m.eyesAheadPct + '%',
+    (m.dryJumpsPerWin.toFixed(1) + ' dry jumps/win'
+      + (m.dryJumpMedMs !== null ? ' \u00b7 ' + m.dryJumpMedMs + ' ms med' : '')
+      + (m.countingChoicePct !== null ? ' \u00b7 ' + m.countingChoicePct + '% counting-first forks' : '')
+      + ' (3.0+ pros: 35%+)'),
+  );
+  addCard(
+    'Slow cursor reading on clues',
+    m.slowOnClueSec.toFixed(1) + ' s/win',
+    m.hoverPct + '% hover \u00b7 ' + m.driftPct + '% slow drift \u00b7 ' + m.fastPct + '% fast flight'
+      + (m.localDriftRatio !== null ? ' \u00b7 ' + m.localDriftRatio.toFixed(1) + '\u00d7 local drift (pros: 1.0\u20131.1\u00d7)' : ''),
+  );
+  addCard(
+    'Fluent chunk size',
+    m.meanChunkLen === null ? '\u2013' : m.meanChunkLen.toFixed(2) + ' moves',
+    'Entry ' + (m.chunkEntryMedMs === null ? '\u2013' : m.chunkEntryMedMs + ' ms')
+      + ' \u00b7 follow-up ' + (m.chunkFollowMedMs === null ? '\u2013' : m.chunkFollowMedMs + ' ms')
+      + ' (press-to-press)',
+  );
+  const pd = m.preDownHover;
+  const pdParts = [];
+  if (pd && pd.revealMs !== null) pdParts.push('reveal ' + pd.revealMs + ' ms');
+  if (pd && pd.chordMs !== null) pdParts.push('chord ' + pd.chordMs + ' ms');
+  if (pd && pd.flagMs !== null) pdParts.push('flag ' + pd.flagMs + ' ms');
+  addCard(
+    'Mid-flight detours',
+    m.detourSecPerWin.toFixed(1) + ' s/win',
+    m.detoursPerWin.toFixed(1) + ' detours/win (' + m.detourOnCountingSecPerWin.toFixed(1) + ' s on counting targets)'
+      + (pdParts.length > 0 ? ' \u00b7 pre-press hover: ' + pdParts.join(', ') : '')
+      + (pd && pd.leftHoldMs !== null ? ' (left hold ' + pd.leftHoldMs + ' ms)' : ''),
+  );
+  nodes.push(grid);
+
+  if (m.breakers && m.breakers.length > 0) {
+    nodes.push(trainingElement('h3', 'training-coach-subhead', 'What breaks your flow (Expert wins)'));
+    nodes.push(trainingTable(
+      [
+        { text: 'cause of chunk break' },
+        { text: 'breaks/win' },
+        { text: 'time (s/win)' },
+      ],
+      m.breakers.map((b) => ({
+        className: b.secPerWin >= 10 ? 'training-waste' : '',
+        cells: [b.label, b.perWin.toFixed(1), b.secPerWin.toFixed(1)],
+      })),
+      [1, 2],
+    ));
+  }
+  return nodes;
+}
+
 function renderTrainingMindMap(data) {
   renderTrainingHighlightsAndTraits(data);
 
@@ -716,9 +786,12 @@ function renderTrainingMindMap(data) {
   const content = document.getElementById('training-mind-map-content');
   const nodes = [];
 
+  // 0) Mentation profile (how thinking, scanning, chunking, and cursor reading unfold)
+  nodes.push(...renderTrainingMentation(data.mentation));
+
   // 1) Technique speed catalog with inline classic visual diagrams + size filter
   nodes.push(trainingElement('h3', 'training-coach-subhead',
-    'Technique speed & skip-first map (pooled across ' + data.counts.all + ' traced Standard wins)'));
+    'Technique speed & skip-first map (press-to-press, pooled across ' + data.counts.all + ' traced Standard wins)'));
 
   const filterRow = trainingElement('div', 'training-filter-row');
   const tableHolder = trainingElement('div', '');
@@ -753,11 +826,13 @@ function renderTrainingMindMap(data) {
       { text: 'shape' },
       { text: 'technique' },
       { text: 'count', num: true },
-      { text: 'median (ms)', num: true },
+      { text: 'fresh (ms)', num: true, help: 'Press-to-press median when the square first became provable from the immediately prior click (local, no detour, no no-op).' },
+      { text: 'queued (ms)', num: true, help: 'Press-to-press median when the square was already provable 1\u20133 clicks earlier in the same local area.' },
+      { text: 'all (ms)', num: true, help: 'Overall press-to-press median across all non-post-no-op moves.' },
       { text: '90th (ms)', num: true },
-      { text: 'slow (%)', num: true, help: 'Share of moves taking 600 ms or longer.' },
+      { text: 'slow (%)', num: true, help: 'Share of moves taking 600 ms or longer press-to-press.' },
       { text: 'easy elsewhere (%)', num: true, help: 'Share of moves where 2+ counting moves sat open at least 3 squares away.' },
-      { text: 'action', help: 'bail first = slow solvable shape (450 ms+) where easy counting moves usually wait elsewhere.' },
+      { text: 'action', help: 'bail first = slow solvable shape (450 ms+ fresh) where easy counting moves usually wait elsewhere.' },
     ].forEach((col) => {
       const th = trainingElement('th', col.num ? 'training-number' : '', col.text);
       th.scope = 'col';
@@ -789,6 +864,10 @@ function renderTrainingMindMap(data) {
       const nameTd = trainingElement('td', '', r.label);
       if (r.help) nameTd.title = r.help;
       const countTd = trainingElement('td', 'training-number', r.n.toLocaleString());
+      const freshTd = trainingElement('td', 'training-number', r.freshMs === null ? '\u2013' : String(r.freshMs));
+      if (r.freshN > 0) freshTd.title = 'n = ' + r.freshN + ' fresh local moves';
+      const queuedTd = trainingElement('td', 'training-number', r.queuedMs === null ? '\u2013' : String(r.queuedMs));
+      if (r.queuedN > 0) queuedTd.title = 'n = ' + r.queuedN + ' queued local moves';
       const medTd = trainingElement('td', 'training-number', r.medMs === null ? '\u2013' : String(r.medMs));
       const p90Td = trainingElement('td', 'training-number', r.p90Ms === null ? '\u2013' : String(r.p90Ms));
       const slowTd = trainingElement('td', 'training-number', r.slowPct === null ? '\u2013' : r.slowPct + '%');
@@ -796,7 +875,7 @@ function renderTrainingMindMap(data) {
       const adviceTd = trainingElement('td', '');
       const adviceLabel = r.advice === 'bail-first' ? 'bail first' : r.advice === 'low-n' ? 'low n' : r.advice;
       adviceTd.appendChild(trainingElement('span', 'training-advice-pill training-advice-' + r.advice, adviceLabel));
-      tr.append(shapeTd, nameTd, countTd, medTd, p90Td, slowTd, easyTd, adviceTd);
+      tr.append(shapeTd, nameTd, countTd, freshTd, queuedTd, medTd, p90Td, slowTd, easyTd, adviceTd);
     }
     tableHolder.replaceChildren(table);
   };
@@ -862,6 +941,9 @@ function renderTrainingMindMap(data) {
       meta.textContent = 'IOE ' + (g.ioe === null ? '\u2013' : g.ioe.toFixed(2))
         + ' \u00b7 no-ops ' + g.habitNoops + ' habit / ' + g.physicalNoops + ' physical'
         + ' \u00b7 endgame flags ' + g.end5Flags
+        + (g.eyesAheadPct !== null ? ' \u00b7 eyes-ahead ' + g.eyesAheadPct + '%' : '')
+        + (g.localDriftRatio !== null ? ' \u00b7 local drift ' + g.localDriftRatio.toFixed(1) + '\u00d7' : '')
+        + ' \u00b7 detours ' + g.detourSec.toFixed(1) + ' s'
         + ' \u00b7 hovers ' + g.abandonedChecks
         + ' \u00b7 reversals ' + g.reversals;
       if (g.episodes.length === 0) {

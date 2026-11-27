@@ -9,7 +9,7 @@
 importScripts('guardian-angel.js?v=20261123-guardian-angel-2', 'rng.js',
   'solver.js?v=20261123-guardian-angel', 'coach.js?v=20261125-coach-m1',
   'game-data.js?v=20261125-rank-r1', 'training-core.js?v=20261125-mindmap-1',
-  'mind-map.js?v=20261125-mindmap-1');
+  'mind-map.js?v=20261126-mentation-1');
 
 const mindMapDeps = {
   randomPlacement: Solver.randomPlacement,

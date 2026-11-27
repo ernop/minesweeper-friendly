@@ -87,26 +87,35 @@ function makeSyntheticWin(endedAt) {
   const mineIdx = new Set([2, 6, 10, 14]);
   const finalBoard = { cells: Array.from({ length: 16 }, (_, i) => ({ mine: mineIdx.has(i) })) };
 
-  // Board rect: left=100, top=200, cell=30px -> width=120, height=120
+  // Board rect: left=100, top=200, cell=30px plus 1/8-cell bevel each side -> width=127.5, height=127.5
   const cellCenter = (idx) => ({
-    x: 100 + (idx % width) * 30 + 15,
-    y: 200 + Math.floor(idx / width) * 30 + 15,
+    x: 100 + ((idx % width) + 0.5 + 1 / 8) * 30,
+    y: 200 + (Math.floor(idx / width) + 0.5 + 1 / 8) * 30,
   });
 
+  // Include explicit ldown events 60 ms before each lup so press-to-press
+  // timing and pre-down target hover separate mechanical hold from dwell.
   const events = [
-    { t: 0, kind: 'layout', left: 100, top: 200, width: 120, height: 120, boardWidth: width, boardHeight: height },
+    { t: 0, kind: 'layout', left: 100, top: 200, width: 127.5, height: 127.5, boardWidth: width, boardHeight: height },
+    { t: 40, kind: 'ldown', index: 0 },
     { t: 100, kind: 'lup', index: 0 },      // opens cols 0..1 (8 safe opened; 4 safe remain: 3,7,11,15)
-    { t: 500, kind: 'lup', index: 3 },      // reveal (3,0) [remSafe 4 -> 3]
-    { t: 800, kind: 'rdown', index: 2 },    // flag mine (2,0) [remSafe 3]
+    { t: 440, kind: 'ldown', index: 3 },
+    { t: 500, kind: 'lup', index: 3 },      // reveal (3,0) [remSafe 4 -> 3], P2P = 400 ms
+    { t: 800, kind: 'rdown', index: 2 },    // flag mine (2,0) [remSafe 3], P2P = 360 ms
+    { t: 940, kind: 'ldown', index: 0 },
     { t: 1000, kind: 'lup', index: 0 },     // noop-blank (habit finished-recheck)
-    { t: 1450, kind: 'lup', index: 7 },     // reveal (3,1) [remSafe 3 -> 2], post-noop gap = 450 ms
+    { t: 1390, kind: 'ldown', index: 7 },
+    { t: 1450, kind: 'lup', index: 7 },     // reveal (3,1) [remSafe 3 -> 2], post-noop
     { t: 1700, kind: 'rdown', index: 0 },   // noop-right-on-open (physical button slip)
-    { t: 2100, kind: 'lup', index: 11 },    // reveal (3,2) [remSafe 2 -> 1], post-noop gap = 400 ms
+    { t: 2040, kind: 'ldown', index: 11 },
+    { t: 2100, kind: 'lup', index: 11 },    // reveal (3,2) [remSafe 2 -> 1], post-noop
     { t: 2500, kind: 'rdown', index: 14 },  // pointless flag when ONLY 1 safe square (15) remains!
-    { t: 2800, kind: 'lup', index: 15 },    // final winning reveal!
+    { t: 2740, kind: 'ldown', index: 15 },
+    { t: 2800, kind: 'lup', index: 15 },    // final winning reveal! P2P = 240 ms (not 300 ms!)
   ];
 
-  // Add pointer samples with longer left-click hover (140 ms) vs right-click hover (50 ms)
+  // Pointer samples: arrive 80 ms before ldown (140 ms before lup) on reveals,
+  // and 80 ms before rdown on flags -> identical ~80 ms pre-down hover, 60 ms left hold!
   const sampleT = [];
   const sampleX = [];
   const sampleY = [];
@@ -125,12 +134,12 @@ function makeSyntheticWin(endedAt) {
   const c14 = cellCenter(14);
   const c15 = cellCenter(15);
   pushSamples(0, 100, c0.x, c0.y);
-  pushSamples(360, 500, c3.x, c3.y);   // 140 ms left hover
-  pushSamples(750, 800, c2.x, c2.y);   // 50 ms right hover
-  pushSamples(1310, 1450, c7.x, c7.y); // 140 ms left hover
+  pushSamples(360, 500, c3.x, c3.y);   // 80 ms pre-down hover + 60 ms hold
+  pushSamples(720, 800, c2.x, c2.y);   // 80 ms pre-down hover (flag)
+  pushSamples(1310, 1450, c7.x, c7.y); // 80 ms pre-down hover + 60 ms hold
   pushSamples(1960, 2100, c11.x, c11.y);
-  pushSamples(2450, 2500, c14.x, c14.y); // 50 ms right hover
-  pushSamples(2660, 2800, c15.x, c15.y); // 140 ms left hover
+  pushSamples(2420, 2500, c14.x, c14.y); // 80 ms pre-down hover (flag)
+  pushSamples(2660, 2800, c15.x, c15.y); // 80 ms pre-down hover + 60 ms hold
 
   const record = {
     endedAt,
@@ -181,7 +190,19 @@ assert(summary.rankedTraits.length >= 3, 'must build ranked traits list');
 for (let i = 1; i < summary.rankedTraits.length; i++) {
   assert(summary.rankedTraits[i - 1].costSec >= summary.rankedTraits[i].costSec, 'ranked traits must sort by descending costSec');
 }
-assert(summary.pointer.leftHoverMs > summary.pointer.rightHoverMs, 'left hover dwell must exceed right hover dwell in synthetic trace');
+assert(summary.mentation !== null, 'must produce Expert mentation profile');
+assert.strictEqual(summary.mentation.preDownHover.leftHoldMs, 60, 'must separate 60 ms mechanical left button hold');
+assert(Math.abs(summary.mentation.preDownHover.revealMs - summary.mentation.preDownHover.flagMs) <= 20,
+  'pre-down hover must match between reveals and flags once mechanical hold is removed');
+assert(!summary.rankedTraits.some((t) => t.id === 'left-hover'), 'debunked left-hover artifact trait must not appear');
+assert(summary.mentation.breakers.length >= 1, 'must compute chunk-breaker breakdown');
+// Press-to-press gap on final reveal (2740 ldown - 2500 rdown = 240 ms, not 300 ms trigger gap)
+const lastMove = analyzed.moves[analyzed.moves.length - 1];
+assert.strictEqual(lastMove.gapMs, 240, 'must time flag->reveal press-to-press without 60 ms button-hold bias');
+for (const row of summary.techniques.all) {
+  assert(row.easyPct >= 0 && row.easyPct <= 100, 'easyPct must be bounded 0..100: ' + row.id + '=' + row.easyPct);
+  assert(row.slowPct >= 0 && row.slowPct <= 100, 'slowPct must be bounded 0..100: ' + row.id + '=' + row.slowPct);
+}
 assert.strictEqual(summary.recentGames.length, 12);
 
 // 3. Verify TrainingCore.weeks computes top3BvPerS only when >= 3 wins in a week
