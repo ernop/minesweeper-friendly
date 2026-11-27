@@ -212,6 +212,12 @@ function evaluateFlagPlacement(view, flagged, index, ga) {
   const lowValueFlag = !wrongFlag && adjacentNumbers.length > 0 && maxChordOpens <= 1;
   const lowValueReason = !lowValueFlag ? null
     : maxChordOpens === 0 ? 'no-chord-target' : 'single-cell-chord';
+  let revealedCount = 0;
+  for (let i = 0; i < view.revealed.length; i++) if (view.revealed[i]) revealedCount++;
+  const remSafe = typeof view.mines === 'number'
+    ? Math.max(0, view.width * view.height - view.mines - revealedCount)
+    : null;
+  const endgamePointless = !wrongFlag && lowValueFlag && remSafe !== null && remSafe <= 5;
 
   return {
     wrongFlag,
@@ -220,6 +226,8 @@ function evaluateFlagPlacement(view, flagged, index, ga) {
     lowValueFlag,
     lowValueReason,
     maxChordOpens,
+    remSafe,
+    endgamePointless,
   };
 }
 
@@ -256,8 +264,10 @@ function analyzeBoardState(view, flagged, anchorCells, ga) {
   }
 
   // Ready chords: revealed numbers with exact flag count, unflagged covered
-  // neighbors, and no flag contradicting counting proof.
+  // neighbors, and no flag contradicting counting proof. Also track ready
+  // exhaustive 4/5/6/7 numbers whose remaining covered neighbors are all mines.
   const readyChords = [];
+  const readyHighNumbers = [];
   const size = view.width * view.height;
   for (let i = 0; i < size; i++) {
     if (!view.revealed[i] || view.adjacent[i] <= 0) continue;
@@ -276,6 +286,9 @@ function analyzeBoardState(view, flagged, anchorCells, ga) {
     }
     if (!badFlag && flaggedCount === view.adjacent[i] && unflaggedCovered > 0) {
       readyChords.push(i);
+    } else if (!badFlag && view.adjacent[i] >= 4 && unflaggedCovered > 0
+      && flaggedCount + unflaggedCovered === view.adjacent[i]) {
+      readyHighNumbers.push(i);
     }
   }
 
@@ -345,6 +358,7 @@ function analyzeBoardState(view, flagged, anchorCells, ga) {
     overlapOnlySafe,
     overlapOnlyMines,
     readyChords,
+    readyHighNumbers,
     localHintCells,
     remoteClusterCells,
     nearestRemoteDistance,

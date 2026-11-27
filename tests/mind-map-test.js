@@ -219,4 +219,14 @@ assert.strictEqual(weeks.length, 2);
 assert(Math.abs(weeks[0].top3BvPerS - 2.2) < 1e-9, 'top-3 average of [2.4, 2.2, 2.0, 1.5] must be 2.2');
 assert.strictEqual(weeks[1].top3BvPerS, null, 'week with 2 wins must report null top3BvPerS');
 
-console.log('mind-map-test: all checks passed (' + MindMap.TECHNIQUES.length + ' visual techniques, synthetic replay, endgame audit, ranked traits, weekly top-3)');
+// 4. Verify MindMap.inspectGame reconstructs full board, cursor trajectory, and claims
+const inspection = MindMap.inspectGame(syn.record, syn.trace, syn.spec, deps);
+assert(inspection !== null, 'inspectGame must replay synthetic win');
+assert.strictEqual(inspection.modelVersion, 'mentation-v1');
+assert.strictEqual(inspection.steps.length, 8);
+assert(inspection.steps.some((st) => st.claims.some((c) => c.claimType === 'endgame-flag')), 'inspectGame must emit endgame-flag claim');
+assert(inspection.steps.some((st) => st.claims.some((c) => c.claimType === 'noop-habit')), 'inspectGame must emit noop-habit claim');
+assert(inspection.steps.some((st) => st.claims.some((c) => c.claimType === 'noop-physical')), 'inspectGame must emit noop-physical claim');
+assert(inspection.steps.some((st) => st.cursor && st.cursor.points.length >= 2), 'inspectGame must attach bevel-calibrated cursor trajectory points');
+
+console.log('mind-map-test: all checks passed (' + MindMap.TECHNIQUES.length + ' visual techniques, synthetic replay, endgame audit, ranked traits, weekly top-3, inspectGame)');

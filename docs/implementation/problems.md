@@ -49,7 +49,14 @@ Spec: [docs/product/problems.md](../product/problems.md).
     clickT, square)` (the same split from any start time),
     `summarizePointing(run, width, height)`, `pointingBySize(runs, width,
     height)` (rendered by the page's `pointingSizeComparison`),
-    `validPointingRun`.
+    `validPointingRun`;
+  - cluttered sub-board & mentation skill drills: `SKILL_DRILL_SET_SIZE` (`8`),
+    `SKILL_DRILL_SPECS`, `SKILL_DRILL_BY_ID`,
+    `buildSkillDrillSet(bank, drillId, random)`, and
+    `summarizeSkillDrillAttempt(bank, problem, attempt)` (rendered by
+    `renderSkillDrillsHome`, `beginSkillDrill`, `finishSkillDrillAttempt`, and
+    `renderSkillDrillResult` in `problems-page.js`, persisted under key
+    `'skillDrills'` in `PREFERENCE_STORE`).
 - `problems-page.js`:
   - opens IndexedDB `minesweeper-problems` version 1 (stores `attempts`, keyPath
     `startedAt`, and `preferences`, key `cellPx`) and fetches

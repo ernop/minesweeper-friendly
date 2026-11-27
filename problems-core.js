@@ -619,3 +619,346 @@ function readProblemAttemptsFile(json, width, height) {
       + json.drillAttempts.length - validDrills.length,
   };
 }
+
+//-------CLUTTERED SUB-BOARD & MENTATION SKILL DRILLS-------
+
+const SKILL_DRILL_SET_SIZE = 8;
+
+const SKILL_DRILL_SPECS = Object.freeze([
+  {
+    id: 'cluttered-counting',
+    title: '1. Cluttered no-flag counting chunks',
+    targetText: 'Entry <= 420 ms, follow-up <= 250 ms, 0 flags, 0 no-ops',
+    description: 'Open every proven-safe counting square in a cluttered frontier by direct left-click reveals without placing flags. Trains overcoming the +269 ms no-flag counting hesitation.',
+    instruction: 'Open all safe squares proven by single-number counting using direct left clicks only (place 0 flags).',
+  },
+  {
+    id: 'bail-shape',
+    title: '2. Cluttered 1-2 / 1-2-1 shapes with bail-first traps',
+    targetText: 'Bail < 450 ms when easy moves wait; solve when alone',
+    description: 'About 30% of rounds have 2 simple counting-safe squares open in another area (marked by a teal box): press Space or click an easy square within 450 ms to bail first. When no easy area exists, solve the overlap shape.',
+    instruction: 'If a teal easy-counting box is open elsewhere, press Space (or click it) within 450 ms to bail first; otherwise solve the orange overlap shape.',
+  },
+  {
+    id: 'ready-high',
+    title: '3. Ready 4, 5, 6, and 7 pop-out scan',
+    targetText: 'First flag <= 550 ms, 0 wrong flags',
+    description: 'Spot a high number (3, 4, 5, or 6) whose remaining covered neighbors are all mines, flag its missing mine(s), and chord open the adjacent safe square(s).',
+    instruction: 'Find the number whose remaining covered neighbors must all be mines, flag its mine, and open the newly proven safe squares.',
+  },
+  {
+    id: 'endgame-finish',
+    title: '4. Endgame direct finishing (no pointless flags)',
+    targetText: '<= 260 ms per safe square, 0 flags placed',
+    description: 'Endgame board with 2\u20134 remaining safe squares that are all provably safe right now. Left-click every remaining safe square directly to finish without placing a single flag.',
+    instruction: 'Endgame: left-click all remaining safe squares directly to win. Do not place any flags.',
+  },
+  {
+    id: 'eyes-ahead',
+    title: '5. Two-area eyes-ahead lookahead transition',
+    targetText: 'Departure <= 60 ms after Area A opens, path ratio <= 1.25x',
+    description: 'Look at the orange target area (Area B) while resting on the blue start ring (Area A). The moment Area A opens, launch your cursor straight to Area B within 60 ms and clear its safe squares.',
+    instruction: 'Fix your eyes on the orange target box now; the instant the ringed square opens, move straight to the orange box and open its safe square(s).',
+  },
+  {
+    id: 'anti-drift',
+    title: '6. Eyes-first anti-drift reading',
+    targetText: 'Cursor path ratio <= 1.25x, slow clue drift <= 60 ms, hover <= 85 ms',
+    description: 'Read the cluttered clue numbers with your eyes first before moving the mouse. Move in a direct line to the safe square(s) without dragging the cursor slowly over open numbers.',
+    instruction: 'Read with your eyes first: keep cursor travel straight (<= 1.25x distance) with no slow drifting over open clue numbers.',
+  },
+]);
+
+const SKILL_DRILL_BY_ID = new Map(SKILL_DRILL_SPECS.map((s) => [s.id, s]));
+
+// Builds a set of SKILL_DRILL_SET_SIZE positions for `drillId` from the real
+// pro-game problem bank so every drill runs on authentic 30x16 board clutter.
+function buildSkillDrillSet(bank, drillId, random = Math.random) {
+  const spec = SKILL_DRILL_BY_ID.get(drillId);
+  if (!spec) throw new Error('unknown skill drill: ' + drillId);
+
+  const shuffle = (arr) => {
+    const out = arr.slice();
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(random() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
+  };
+
+  if (drillId === 'cluttered-counting') {
+    const pool = shuffle(bank.problems.filter((p) => p.classId === 'one' && p.freshSafe.length >= 2));
+    const fallback = shuffle(bank.problems.filter((p) => p.classId === 'one'));
+    const chosen = [...pool, ...fallback].slice(0, SKILL_DRILL_SET_SIZE);
+    return chosen.map((p, idx) => ({
+      ...p,
+      id: `cc-${idx}-${p.id}`,
+      drillId,
+      forbidFlags: true,
+      isTrapBail: false,
+      easyElsewhereCells: [],
+    }));
+  }
+
+  if (drillId === 'bail-shape') {
+    const overlapPool = shuffle(bank.problems.filter((p) => p.classId !== 'one'));
+    const countingPool = shuffle(bank.problems.filter((p) => p.classId === 'one'));
+    const picked = overlapPool.slice(0, SKILL_DRILL_SET_SIZE);
+    return picked.map((p, idx) => {
+      // Make ~30% of rounds (e.g. 2 or 3 of 8) bail-first trap rounds by finding
+      // 2 covered non-mine squares at distance >= 5 from p.start and opening a
+      // safe neighbor around them so they are visibly easy counting targets.
+      const isTrap = idx % 3 === 1 && countingPool.length > 0;
+      const opened = p.opened.slice();
+      const flags = p.flags.slice();
+      const easyCells = [];
+      if (isTrap) {
+        const sx = p.start % bank.width;
+        const sy = Math.floor(p.start / bank.width);
+        for (let c = 0; c < bank.width * bank.height; c++) {
+          if (opened[c] || flags[c] || p.mine[c] || p.freshSafe.includes(c) || c === p.start) continue;
+          const dist = Math.max(Math.abs((c % bank.width) - sx), Math.abs(Math.floor(c / bank.width) - sy));
+          if (dist < 5 || dist > 11) continue;
+          const adjOpen = bank.neighbors[c].some((n) => opened[n] && p.adjacent[n] > 0);
+          if (adjOpen) {
+            easyCells.push(c);
+            if (easyCells.length === 2) break;
+          }
+        }
+      }
+      return {
+        ...p,
+        id: `bs-${idx}-${p.id}`,
+        drillId,
+        opened,
+        flags,
+        isTrapBail: easyCells.length >= 2,
+        easyElsewhereCells: easyCells,
+        freshSafe: easyCells.length >= 2 ? [...p.freshSafe, ...easyCells] : p.freshSafe.slice(),
+        primaryOverlapSafe: p.freshSafe.slice(),
+      };
+    });
+  }
+
+  if (drillId === 'ready-high') {
+    // Use lastFlag positions preferring numbers >= 3, or problems with freshMines
+    const highLastFlag = shuffle(bank.lastFlag.filter((pos) => pos.adjacent[pos.number] >= 3));
+    const otherLastFlag = shuffle(bank.lastFlag.filter((pos) => pos.adjacent[pos.number] < 3));
+    const chosen = [...highLastFlag, ...otherLastFlag].slice(0, SKILL_DRILL_SET_SIZE);
+    return chosen.map((pos, idx) => ({
+      ...pos,
+      id: `rh-${idx}-${pos.id}`,
+      drillId,
+      isLastFlagStyle: true,
+      isTrapBail: false,
+      easyElsewhereCells: [],
+    }));
+  }
+
+  if (drillId === 'endgame-finish') {
+    const pool = shuffle(bank.problems);
+    return pool.slice(0, SKILL_DRILL_SET_SIZE).map((p, idx) => {
+      // Reveal every safe square on the board EXCEPT p.start and p.freshSafe (2-4 safe squares left!)
+      const targetSafe = p.freshSafe.slice(0, 3);
+      const keepCoveredSafe = new Set([p.start, ...targetSafe]);
+      const opened = p.opened.map((_, i) => !p.mine[i] && !keepCoveredSafe.has(i));
+      // Keep only a subset of existing flags so the player isn't given all 99 flags
+      const flags = p.flags.slice();
+      return {
+        ...p,
+        id: `ef-${idx}-${p.id}`,
+        drillId,
+        opened,
+        flags,
+        freshSafe: targetSafe,
+        freshMines: [],
+        forbidFlags: true,
+        isTrapBail: false,
+        easyElsewhereCells: [],
+      };
+    });
+  }
+
+  if (drillId === 'eyes-ahead') {
+    // Pick problems where start and freshSafe are separated or plant a start ring 5-7 squares away
+    const pool = shuffle(bank.problems.filter((p) => p.classId === 'one'));
+    return pool.slice(0, SKILL_DRILL_SET_SIZE).map((p, idx) => {
+      const tx = p.freshSafe[0] % bank.width;
+      const ty = Math.floor(p.freshSafe[0] / bank.width);
+      // Open p.start immediately in `opened` so the local clues around freshSafe are already visible!
+      const opened = p.opened.slice();
+      opened[p.start] = true;
+      // Pick a distant safe square 5-8 squares away as Area A's trigger ring
+      let remoteStart = p.start;
+      for (let c = 0; c < bank.width * bank.height; c++) {
+        if (opened[c] || p.flags[c] || p.mine[c] || p.freshSafe.includes(c)) continue;
+        const d = Math.max(Math.abs((c % bank.width) - tx), Math.abs(Math.floor(c / bank.width) - ty));
+        if (d >= 5 && d <= 8 && bank.neighbors[c].some((n) => opened[n])) {
+          remoteStart = c;
+          break;
+        }
+      }
+      return {
+        ...p,
+        id: `ea-${idx}-${p.id}`,
+        drillId,
+        opened,
+        start: remoteStart,
+        startAt: [0.5, 0.5],
+        isEyesAhead: true,
+        isTrapBail: false,
+        easyElsewhereCells: [],
+      };
+    });
+  }
+
+  // 'anti-drift': cluttered counting + overlap positions scored strictly on cursor path ratio & clue drift
+  const pool = shuffle(bank.problems);
+  return pool.slice(0, SKILL_DRILL_SET_SIZE).map((p, idx) => ({
+    ...p,
+    id: `ad-${idx}-${p.id}`,
+    drillId,
+    isAntiDrift: true,
+    isTrapBail: false,
+    easyElsewhereCells: [],
+  }));
+}
+
+// Evaluates cursor kinematics & action discipline on a completed skill-drill round.
+function summarizeSkillDrillAttempt(bank, problem, attempt) {
+  const board = problemBoard(bank, problem);
+  if (!problem.isLastFlagStyle) {
+    applyProblemAction(board, 'reveal', problem.start);
+  }
+  let firstMs = null;
+  let doneMs = null;
+  let flagsPlaced = 0;
+  let idleClicks = 0;
+  let bailedFast = false;
+  const followGaps = [];
+  let prevActionT = null;
+
+  if (attempt.bailedWithSpace === true) {
+    firstMs = attempt.endT - attempt.startT;
+    doneMs = firstMs;
+    bailedFast = problem.isTrapBail === true && firstMs <= 550;
+  }
+
+  for (const action of attempt.actions) {
+    const effect = applyProblemAction(board, action.kind, action.cell);
+    const changed = effect.opened.length > 0 || effect.flagChanged;
+    if (!changed) idleClicks++;
+    if (action.kind === 'flag' && effect.flagChanged) flagsPlaced++;
+    if (firstMs === null && changed) firstMs = action.t;
+    else if (changed && prevActionT !== null) followGaps.push(action.t - prevActionT);
+    if (changed) prevActionT = action.t;
+
+    if (problem.isTrapBail && problem.easyElsewhereCells.includes(action.cell) && effect.opened.length > 0) {
+      bailedFast = action.t <= 650;
+      doneMs = action.t;
+    }
+    const targetList = problem.isTrapBail ? problem.primaryOverlapSafe : problem.freshSafe;
+    if (doneMs === null && targetList.every((c) => board.revealed[c])) {
+      doneMs = action.t;
+    }
+  }
+
+  // Cursor kinematics over [0, firstActionT or doneMs]
+  const s = attempt.samples || { t: [], x: [], y: [] };
+  let departMs = null;
+  let pathRatio = null;
+  let slowOnClueMs = 0;
+  let hoverMs = null;
+
+  const endWindowT = firstMs !== null ? firstMs : (doneMs !== null ? doneMs : 1000);
+  const startIdx = s.t.findIndex((t) => t >= 0);
+  if (startIdx !== -1 && s.t.length - startIdx >= 2) {
+    const x0 = s.x[startIdx];
+    const y0 = s.y[startIdx];
+    let pathCells = 0;
+    let lastEndIdx = startIdx;
+    for (let i = startIdx + 1; i < s.t.length && s.t[i] <= endWindowT; i++) {
+      lastEndIdx = i;
+      const dt = s.t[i] - s.t[i - 1];
+      const seg = Math.hypot(s.x[i] - s.x[i - 1], s.y[i] - s.y[i - 1]);
+      pathCells += seg;
+      if (departMs === null && Math.hypot(s.x[i] - x0, s.y[i] - y0) >= 0.3) {
+        departMs = Math.max(0, Math.round(s.t[i]));
+      }
+      if (dt > 0) {
+        const spd = seg / (dt / 1000);
+        if (spd < 3.0 && Math.hypot(s.x[i] - x0, s.y[i] - y0) > 0.7) {
+          const cx = Math.floor(s.x[i]);
+          const cy = Math.floor(s.y[i]);
+          if (cx >= 0 && cx < bank.width && cy >= 0 && cy < bank.height) {
+            const ci = cy * bank.width + cx;
+            if (problem.opened[ci] && problem.adjacent[ci] > 0) slowOnClueMs += dt;
+          }
+        }
+      }
+    }
+    const chord = Math.hypot(s.x[lastEndIdx] - x0, s.y[lastEndIdx] - y0);
+    if (chord >= 0.8) pathRatio = pathCells / chord;
+    if (attempt.actions.length > 0) {
+      const a0 = attempt.actions[0];
+      const split = problemMovementSplit(s, a0.t, { x: a0.cell % bank.width, y: Math.floor(a0.cell / bank.width) });
+      if (split) hoverMs = Math.round(split.hover);
+    }
+  }
+
+  const followMedMs = problemMedian(followGaps);
+  let passedRule = attempt.outcome === 'solved';
+  let feedbackNote = 'Clean execution.';
+
+  if (problem.drillId === 'cluttered-counting') {
+    if (flagsPlaced > 0) {
+      passedRule = false;
+      feedbackNote = 'Placed ' + flagsPlaced + ' flag(s) \u2014 solve by direct left-click reveals only.';
+    } else if (idleClicks > 0) {
+      passedRule = false;
+      feedbackNote = 'Made ' + idleClicks + ' no-op click(s).';
+    }
+  } else if (problem.drillId === 'bail-shape') {
+    if (problem.isTrapBail) {
+      passedRule = bailedFast;
+      feedbackNote = bailedFast
+        ? 'Fast bail (' + Math.round(firstMs || 0) + ' ms) to easy counting!'
+        : 'Trap round: 2 easy counting moves waited in the teal box, so bailing within 550 ms was faster.';
+    } else if (attempt.bailedWithSpace) {
+      passedRule = false;
+      feedbackNote = 'Bailed with Space when no easy counting moves existed elsewhere.';
+    }
+  } else if (problem.drillId === 'endgame-finish') {
+    if (flagsPlaced > 0) {
+      passedRule = false;
+      feedbackNote = 'Placed ' + flagsPlaced + ' pointless endgame flag(s) instead of clicking safe squares directly.';
+    }
+  } else if (problem.drillId === 'eyes-ahead') {
+    if (departMs !== null && departMs > 120) {
+      feedbackNote = 'Cursor departed after ' + departMs + ' ms (target <= 60 ms: shift eyes to the orange box before Area A opens).';
+    } else if (departMs !== null) {
+      feedbackNote = 'Eyes-ahead departure in ' + departMs + ' ms!';
+    }
+  } else if (problem.drillId === 'anti-drift') {
+    if (pathRatio !== null && pathRatio > 1.35) {
+      feedbackNote = 'Cursor path ratio ' + pathRatio.toFixed(2) + '\u00d7 (target <= 1.25\u00d7: read with eyes before moving mouse).';
+    } else if (pathRatio !== null) {
+      feedbackNote = 'Straight eyes-first path (' + pathRatio.toFixed(2) + '\u00d7)!';
+    }
+  }
+
+  return {
+    outcome: attempt.outcome,
+    passedRule,
+    feedbackNote,
+    firstMs: firstMs !== null ? Math.round(firstMs) : null,
+    followMedMs: followMedMs !== null ? Math.round(followMedMs) : null,
+    doneMs: doneMs !== null ? Math.round(doneMs) : null,
+    departMs,
+    pathRatio,
+    slowOnClueMs: Math.round(slowOnClueMs),
+    hoverMs,
+    flagsPlaced,
+    idleClicks,
+  };
+}

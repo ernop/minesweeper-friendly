@@ -32,6 +32,17 @@ Practices replacing the common wasted `chord-short-of-flags → flag → chord` 
 - **Run:** `10` least-practiced positions per drill. Resting cursor on the start ring shows the board on the next frame (time zero) with a focus box around the number; opening its safe squares via any method finishes (`10 s` timeout; mine ends the position).
 - **Result:** reports completion time, clicks, whether a both-button chord (`1.5` click, `gesture: true`) was used, and the original player's time.
 
+## Cluttered sub-board & mentation skill drills (`#mentation-drills`)
+
+Six 8-round iterated, monitored, scored drills built on real `30x16` board clutter from the pro-game bank (`SKILL_DRILL_SPECS` in `problems-core.js`), each linked directly from its corresponding bottleneck on `training.html` (`problems.html?drill=<id>#mentation-drills`) and persisting progress in `minesweeper-problems` IndexedDB `preferences['skillDrills']`:
+
+1. **`cluttered-counting` (Cluttered no-flag counting chunks):** open all proven-safe single-number counting squares in a cluttered frontier by direct left-click reveals without placing flags (`0` flags, `0` no-ops; target entry `<= 420 ms`, follow-up `<= 250 ms`).
+2. **`bail-shape` (Cluttered `1-2` / `1-2-1` shapes with bail-first traps):** on `~30%` of rounds, `2` simple counting-safe squares sit open in a second frontier marked by a dashed teal box (`#problems-bail-box`) — press `Space` or click an easy square within `450 ms` to bail first; when no easy box exists, solve and open the orange overlap shape.
+3. **`ready-high` (Ready `4`, `5`, `6`, and `7` pop-out scan):** spot an exhaustively complete high number whose remaining covered neighbors are all mines, flag its missing mine, and chord open the adjacent safe squares (`<= 550 ms` first action).
+4. **`endgame-finish` (Endgame direct finishing, no pointless flags):** endgame board with `2–4` remaining provably safe squares — left-click every remaining safe square directly to win without placing a single flag (`<= 260 ms` per safe square).
+5. **`eyes-ahead` (Two-area eyes-ahead lookahead transition):** fix gaze on the orange target box (Area B) while resting on the blue start ring (Area A); when Area A opens, depart toward Area B within `<= 60 ms` with path ratio `<= 1.25x` and clear Area B.
+6. **`anti-drift` (Eyes-first anti-drift reading):** read cluttered clue numbers with the eyes before moving the mouse, keeping cursor path ratio `<= 1.25x` straight-line distance, slow clue drift `<= 60 ms`, and pre-press hover `<= 85 ms`.
+
 ## Pointing test (`pointing-v1`)
 
 Measures hand speed and click accuracy without deduction.

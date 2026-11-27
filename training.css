@@ -547,14 +547,238 @@ body.training-page .return-to-game {
 
 .training-mentation-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
   gap: 10px;
   margin-bottom: 12px;
+}
+
+.training-mentation-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #dbe3e8;
+  border-radius: 6px;
+  background: #f7f9fb;
 }
 
 .training-mentation-grid .training-card-value {
   font-size: 22px;
   font-weight: 700;
+}
+
+.training-mentation-def {
+  margin: 6px 0 0;
+  padding-top: 6px;
+  border-top: 1px solid #dbe3e8;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.training-mentation-foot {
+  margin-top: auto;
+  padding-top: 6px;
+}
+
+.training-nav-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.training-inline-def {
+  margin: 0 0 10px;
+  padding: 8px 11px;
+  border: 1px solid #dbe3e8;
+  border-radius: 6px;
+  background: #f7f9fb;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.training-trait-title {
+  font-weight: 700;
+  font-size: 13.5px;
+}
+
+.training-trait-def {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.38;
+}
+
+.training-drill-link {
+  display: inline-block;
+  padding: 3px 8px;
+  border: 1px solid #417ca4;
+  border-radius: 4px;
+  background: #eef5fb;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* Interactive Mentation Replay Inspector & Ground-Truth Calibration */
+
+.training-inspector-scoreboard {
+  padding: 12px 14px;
+  border: 1px solid #b9c8d2;
+  border-radius: 6px;
+  background: #f7f9fb;
+  margin-bottom: 14px;
+}
+
+.training-inspector-score-summary {
+  margin: 6px 0 10px;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.training-inspector-topbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.training-inspector-transport {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.training-inspector-slider {
+  width: 180px;
+}
+
+.training-inspector-stage {
+  display: grid;
+  grid-template-columns: max-content minmax(300px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.training-inspector-board-col {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.training-inspector-board-wrap {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+}
+
+.training-inspector-board {
+  --mini-w: var(--insp-w, 30);
+  --mini-h: var(--insp-h, 16);
+  --mini-tile: var(--insp-tile, 22px);
+}
+
+.training-inspector-canvas {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  pointer-events: none;
+}
+
+.training-insp-opened {
+  background: #cdeccd !important;
+}
+
+.training-insp-easy-safe::before {
+  content: '';
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #6e22a8;
+  pointer-events: none;
+}
+
+.training-insp-overlap-safe::before {
+  content: '';
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #b45f06;
+  pointer-events: none;
+}
+
+.training-inspector-claim-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.training-inspector-kinematics {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid #dbe3e8;
+  border-radius: 6px;
+  background: #f7f9fb;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.45;
+}
+
+.training-inspector-claim-card {
+  padding: 10px 12px;
+  border: 1px solid #b9c8d2;
+  border-left: 4px solid #417ca4;
+  border-radius: 6px;
+  background: #eef5fb;
+}
+
+.training-inspector-claim-detail {
+  margin: 4px 0 4px;
+  font-size: 13px;
+  line-height: 1.42;
+}
+
+.training-inspector-feedback-box {
+  padding: 12px 14px;
+  border: 1px solid #b9c8d2;
+  border-radius: 6px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.training-inspector-reasons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 4px 10px;
+  font-size: 12.5px;
+}
+
+.training-inspector-reason-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.training-inspector-note {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid #b9c8d2;
+  border-radius: 4px;
+  color: #000000;
+  font: inherit;
+  font-size: 13px;
+}
+
+@media (max-width: 1120px) {
+  .training-inspector-stage {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 760px) {

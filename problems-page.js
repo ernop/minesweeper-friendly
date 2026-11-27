@@ -40,6 +40,7 @@ let squareElements = [];
 let boardGrid = null;
 let pointingRuns = [];
 let drillAttempts = [];
+let skillDrillStats = {};
 // The pointing test on screen. phase: ready (waiting for the start square's
 // press), showing (a target is drawn), between (pressed; next target not yet
 // drawn), done.
@@ -126,6 +127,10 @@ async function startProblemsPage() {
       if (!PROBLEM_CELL_SIZES.includes(size)) throw new Error('stored square size ' + size + ' is not offered');
       cellPx = size;
     }
+    const storedSkills = await requestResult(db.transaction(PREFERENCE_STORE).objectStore(PREFERENCE_STORE).get('skillDrills'), 'skill drills failed to load');
+    if (storedSkills && typeof storedSkills === 'object') {
+      skillDrillStats = storedSkills;
+    }
   } catch (error) {
     showFailure(error.message);
   }
@@ -147,11 +152,12 @@ function renderHome() {
   renderCellSizes();
   renderProfile();
   renderDrillHome();
+  renderSkillDrillsHome();
   renderPointingHome();
   renderHistory();
 }
 
-const HOME_SECTIONS = ['problems-start', 'problems-profile', 'problems-drill', 'problems-pointing', 'problems-history', 'problems-backup'];
+const HOME_SECTIONS = ['problems-start', 'problems-profile', 'problems-drill', 'mentation-drills', 'problems-pointing', 'problems-history', 'problems-backup'];
 
 function hideHome() {
   for (const id of [...HOME_SECTIONS, 'problems-summary']) byId(id).hidden = true;
@@ -423,6 +429,24 @@ function beginDrill() {
   showProblem();
 }
 
+function beginSkillDrill(drillId) {
+  const spec = SKILL_DRILL_BY_ID.get(drillId);
+  if (!spec) return;
+  run = {
+    mode: 'skill-drill',
+    drillId,
+    spec,
+    problems: buildSkillDrillSet(bank, drillId, cryptoRandom),
+    index: 0,
+    setStartedAt: Date.now(),
+    results: [],
+  };
+  hideHome();
+  byId('problems-play').hidden = false;
+  document.body.classList.add('problems-running');
+  showProblem();
+}
+
 function buildBoard() {
   const boardElement = byId('board');
   boardElement.style.setProperty('--cell-size', cellPx + 'px');
@@ -479,19 +503,35 @@ function showProblem() {
     samples: { t: [], x: [], y: [] },
     leftDown: false,
     chordGesture: false,
+    bailedWithSpace: false,
     previewTimer: null,
     timeoutTimer: null,
   };
   byId('problems-result').hidden = true;
-  byId('problems-play-count').textContent = (run.mode === 'drill' ? 'Last-flag drill ' : 'Problem ')
-    + (run.index + 1) + ' of ' + run.problems.length;
+  byId('problems-bail-box').hidden = true;
+  const titlePrefix = run.mode === 'drill'
+    ? 'Last-flag drill '
+    : run.mode === 'skill-drill'
+      ? run.spec.title + ' \u2014 Round '
+      : 'Problem ';
+  byId('problems-play-count').textContent = titlePrefix + (run.index + 1) + ' of ' + run.problems.length;
   setInstruction('Rest the cursor on the ringed square.');
   buildBoard();
   paintBoard(false);
   measureGrid();
   placeRing(problem);
   // A drill's box surrounds the number whose last flag is missing.
-  placeFocusBox(run.mode === 'drill' ? { ...problem, start: problem.number } : problem);
+  const boxProblem = (run.mode === 'drill' || problem.isLastFlagStyle)
+    ? { ...problem, start: problem.number }
+    : problem.isTrapBail
+      ? { ...problem, freshSafe: problem.primaryOverlapSafe }
+      : problem.isEyesAhead
+        ? { ...problem, start: problem.freshSafe[0] }
+        : problem;
+  placeFocusBox(boxProblem);
+  if (problem.isTrapBail && problem.easyElsewhereCells && problem.easyElsewhereCells.length > 0) {
+    placeBailBox(problem.easyElsewhereCells);
+  }
 }
 
 // The grid is measured once per problem or pointing run, after layout, in page
@@ -550,6 +590,24 @@ function placeFocusBox(problem) {
   element.hidden = false;
 }
 
+function placeBailBox(cells) {
+  const cols = cells.map((c) => c % bank.width);
+  const rows = cells.map((c) => Math.floor(c / bank.width));
+  const col0 = Math.max(0, Math.min(...cols) - 1);
+  const row0 = Math.max(0, Math.min(...rows) - 1);
+  const col1 = Math.min(bank.width - 1, Math.max(...cols) + 1);
+  const row1 = Math.min(bank.height - 1, Math.max(...rows) + 1);
+  const first = squareInArea(row0 * bank.width + col0);
+  const last = squareInArea(row1 * bank.width + col1);
+  const element = byId('problems-bail-box');
+  const pad = 3;
+  element.style.left = (first.left - pad) + 'px';
+  element.style.top = (first.top - pad) + 'px';
+  element.style.width = (last.right - first.left + 2 * pad) + 'px';
+  element.style.height = (last.bottom - first.top + 2 * pad) + 'px';
+  element.hidden = false;
+}
+
 function gridPosition(event) {
   return {
     x: (event.pageX - boardGrid.left) / boardGrid.cellW,
@@ -574,8 +632,11 @@ function onPointerMove(event) {
   const square = squareAt(position);
   if (live.phase === 'waiting') {
     if (square !== live.problem.start) return;
-    if (live.mode === 'drill') startDrillPosition(event.timeStamp, position);
-    else beginPreview(event.timeStamp, position);
+    if (live.mode === 'drill' || (live.mode === 'skill-drill' && live.problem.isLastFlagStyle)) {
+      startDrillPosition(event.timeStamp, position);
+    } else {
+      beginPreview(event.timeStamp, position);
+    }
     return;
   }
   live.samples.t.push(event.timeStamp);
@@ -595,13 +656,16 @@ function startDrillPosition(t, position) {
     byId('problems-start-ring').hidden = true;
     live.startT = frameT;
     live.phase = 'running';
-    setInstruction('Open the boxed number\'s squares: flag its missing mine and chord in one motion.');
-    live.timeoutTimer = setTimeout(() => finishDrillAttempt('timeout', performance.now()), LAST_FLAG_TIMEOUT_MS);
+    setInstruction(live.mode === 'skill-drill'
+      ? run.spec.instruction
+      : 'Open the boxed number\'s squares: flag its missing mine and chord in one motion.');
+    live.timeoutTimer = setTimeout(() => finishCurrent('timeout', performance.now()), LAST_FLAG_TIMEOUT_MS);
   });
 }
 
 function finishCurrent(outcome, t) {
   if (live.mode === 'drill') finishDrillAttempt(outcome, t);
+  else if (live.mode === 'skill-drill') finishSkillDrillAttempt(outcome, t);
   else finishAttempt(outcome, t);
 }
 
@@ -636,8 +700,10 @@ function openStartSquare() {
     byId('problems-start-ring').hidden = true;
     live.startT = frameT;
     live.phase = 'running';
-    setInstruction('Open every square the new number proves safe.');
-    live.timeoutTimer = setTimeout(() => finishAttempt('timeout', performance.now()), PROBLEM_TIMEOUT_MS);
+    setInstruction(live.mode === 'skill-drill'
+      ? run.spec.instruction
+      : 'Open every square the new number proves safe.');
+    live.timeoutTimer = setTimeout(() => finishCurrent('timeout', performance.now()), PROBLEM_TIMEOUT_MS);
   });
 }
 
@@ -647,8 +713,19 @@ function act(kind, cell, t, gesture) {
   live.actions.push({ t: t - live.startT, kind, cell, ...(gesture ? { gesture: true } : {}) });
   for (const opened of effect.opened) paintSquare(opened, true);
   if (effect.flagChanged) paintSquare(cell, true);
-  if (effect.mineHit !== null) finishCurrent('mine', t);
-  else if (problemSolved(live.board, live.problem)) finishCurrent('solved', t);
+  if (effect.mineHit !== null) {
+    finishCurrent('mine', t);
+    return;
+  }
+  if (live.mode === 'skill-drill' && live.problem.isTrapBail) {
+    const clickedEasy = live.problem.easyElsewhereCells.includes(cell) && effect.opened.length > 0;
+    const solvedOverlap = live.problem.primaryOverlapSafe.every((c) => live.board.revealed[c]);
+    if (clickedEasy || solvedOverlap) {
+      finishCurrent('solved', t);
+      return;
+    }
+  }
+  if (problemSolved(live.board, live.problem)) finishCurrent('solved', t);
 }
 
 // Buttons as in the game: a right press flags at once; once both buttons are
@@ -819,6 +896,19 @@ function renderSummary() {
       cellText(tr, String(summary.clicks), 'problems-number');
       cellText(tr, summary.usedGesture ? 'yes' : 'no', 'problems-text');
     });
+  } else if (run.mode === 'skill-drill') {
+    const body = headerRow(byId('problems-summary-table'),
+      ['#', 'Rule check', 'First action', 'Total', 'Path ratio', 'Feedback'], [1, 5]);
+    run.results.forEach((item, i) => {
+      const { summary } = item;
+      const tr = body.insertRow();
+      cellText(tr, String(i + 1));
+      cellText(tr, summary.passedRule ? 'Passed' : 'Missed rule', 'problems-text');
+      cellText(tr, seconds(summary.firstMs), 'problems-number');
+      cellText(tr, seconds(summary.doneMs), 'problems-number');
+      cellText(tr, summary.pathRatio !== null ? summary.pathRatio.toFixed(2) + '\u00d7' : '\u2013', 'problems-number');
+      cellText(tr, summary.feedbackNote, 'problems-text');
+    });
   } else {
     const body = headerRow(byId('problems-summary-table'), ['#', 'Rule', 'Result', 'Thinking', 'Total'], [1, 2]);
     run.results.forEach((attempt, i) => {
@@ -832,6 +922,122 @@ function renderSummary() {
     });
   }
   byId('problems-summary-done').focus();
+}
+
+//-------CLUTTERED SUB-BOARD & MENTATION SKILL DRILLS-------
+
+function saveSkillDrillStats() {
+  const tx = problemDb.transaction(PREFERENCE_STORE, 'readwrite');
+  tx.objectStore(PREFERENCE_STORE).put(skillDrillStats, 'skillDrills');
+  tx.onerror = () => showFailure('skill drill progress not saved: ' + tx.error);
+}
+
+function finishSkillDrillAttempt(outcome, endT) {
+  clearTimeout(live.timeoutTimer);
+  live.phase = 'done';
+  const attempt = {
+    startedAt: Math.round(performance.timeOrigin + live.startT),
+    drillId: live.problem.drillId,
+    problemId: live.problem.id,
+    startT: live.startT,
+    endT,
+    outcome,
+    bailedWithSpace: live.bailedWithSpace,
+    actions: live.actions,
+    samples: { t: live.samples.t.map((t) => t - live.startT), x: live.samples.x, y: live.samples.y },
+  };
+  const summary = summarizeSkillDrillAttempt(bank, live.problem, attempt);
+  if (outcome !== 'abandoned' && outcome !== 'interrupted') {
+    const id = live.problem.drillId;
+    const prev = skillDrillStats[id] || { attempts: 0, solved: 0, firstTimes: [] };
+    prev.attempts = (prev.attempts || 0) + 1;
+    if (summary.passedRule) {
+      prev.solved = (prev.solved || 0) + 1;
+      if (summary.firstMs !== null) {
+        prev.firstTimes = [...(prev.firstTimes || []).slice(-39), summary.firstMs];
+      }
+    }
+    prev.medianMs = problemMedian(prev.firstTimes || []);
+    prev.lastPlayedAt = Date.now();
+    skillDrillStats[id] = prev;
+    saveSkillDrillStats();
+  }
+  run.results.push({ attempt, summary });
+  reportPlayStatistics('skill-drill-' + live.problem.drillId, outcome, attempt.startT, endT);
+  if (outcome === 'abandoned' && !live.bailedWithSpace) renderSummary();
+  else renderSkillDrillResult(attempt, summary);
+}
+
+function renderSkillDrillResult(attempt, summary) {
+  const problem = live.problem;
+  paintBoard(true);
+  for (const cell of problem.freshSafe) squareElements[cell].classList.add('problems-answer-safe');
+  for (const cell of problem.freshMines || []) squareElements[cell].classList.add('problems-answer-mine');
+  squareElements[problem.start].classList.add('problems-start-square');
+  setInstruction((summary.passedRule ? 'Rule passed \u2014 ' : 'Rule missed \u2014 ') + summary.feedbackNote);
+
+  const vals = [
+    valueBlock(seconds(summary.firstMs), 'first action'),
+    valueBlock(seconds(summary.doneMs), 'total'),
+  ];
+  if (summary.followMedMs !== null) vals.push(valueBlock(Math.round(summary.followMedMs) + ' ms', 'follow-up'));
+  if (summary.departMs !== null) vals.push(valueBlock(summary.departMs + ' ms', 'departure'));
+  if (summary.pathRatio !== null) vals.push(valueBlock(summary.pathRatio.toFixed(2) + '\u00d7', 'path ratio'));
+  if (summary.hoverMs !== null) vals.push(valueBlock(summary.hoverMs + ' ms', 'pre-press hover'));
+  byId('problems-result-values').replaceChildren(...vals);
+
+  const ladder = byId('problems-result-ladder');
+  const note = document.createElement('p');
+  note.textContent = run.spec.title + ' target: ' + run.spec.targetText + '. ' + summary.feedbackNote;
+  ladder.replaceChildren(note);
+
+  byId('problems-answer-key').hidden = false;
+  byId('problems-stop').hidden = false;
+  const last = run.index === run.problems.length - 1;
+  byId('problems-next').textContent = last ? 'Finish the drill (Enter)' : 'Next round (Enter)';
+  byId('problems-result').hidden = false;
+  byId('problems-next').focus();
+}
+
+function renderSkillDrillsHome() {
+  const list = byId('mentation-drills-list');
+  if (!list) return;
+  const requestedDrill = new URLSearchParams(location.search).get('drill');
+  list.replaceChildren(...SKILL_DRILL_SPECS.map((spec) => {
+    const card = document.createElement('div');
+    card.className = 'problems-skill-card' + (requestedDrill === spec.id ? ' problems-skill-card-focus' : '');
+    card.id = 'skill-drill-' + spec.id;
+    const h3 = document.createElement('h3');
+    h3.textContent = spec.title;
+    const targetP = document.createElement('p');
+    targetP.className = 'problems-skill-target';
+    targetP.textContent = 'Target: ' + spec.targetText;
+    const descP = document.createElement('p');
+    descP.textContent = spec.description;
+
+    const st = skillDrillStats[spec.id];
+    const statP = document.createElement('p');
+    statP.className = 'problems-skill-stat';
+    if (!st || !st.attempts) {
+      statP.textContent = 'Monitored status: not tried yet.';
+    } else {
+      const pct = Math.round(100 * (st.solved || 0) / st.attempts);
+      const med = st.medianMs !== null && st.medianMs !== undefined ? ' \u00b7 median first action ' + Math.round(st.medianMs) + ' ms' : '';
+      statP.textContent = 'Monitored status: ' + (st.solved || 0) + ' of ' + st.attempts + ' rounds passed (' + pct + '%)' + med + '.';
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'problems-actions';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.dataset.skillDrill = spec.id;
+    btn.textContent = 'Start 8-round drill';
+    btn.addEventListener('click', () => beginSkillDrill(spec.id));
+    actions.appendChild(btn);
+
+    card.append(h3, targetP, descP, statP, actions);
+    return card;
+  }));
 }
 
 //-------LAST-FLAG DRILL-------
@@ -1144,6 +1350,13 @@ document.addEventListener('keydown', (event) => {
     return;
   }
   if (run === null) return;
+  if (event.key === ' ' && live !== null && live.phase === 'running'
+      && live.mode === 'skill-drill' && live.problem.drillId === 'bail-shape') {
+    event.preventDefault();
+    live.bailedWithSpace = true;
+    finishSkillDrillAttempt(live.problem.isTrapBail ? 'solved' : 'abandoned', performance.now());
+    return;
+  }
   if (event.key === 'Escape') {
     event.preventDefault();
     if (live === null) renderHome();

@@ -459,3 +459,53 @@ body.problems-running #problems-header { display: none; }
   font-size: 15px;
   font-weight: bold;
 }
+
+#problems-bail-box {
+  position: absolute;
+  box-sizing: border-box;
+  border: 3px dashed #007a7a;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.problems-skill-drills-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.problems-skill-card {
+  padding: 14px 16px;
+  border: 1px solid #d9e2e8;
+  border-radius: 8px;
+  background: #f7f9fb;
+  display: flex;
+  flex-direction: column;
+}
+
+.problems-skill-card-focus {
+  border: 2px solid #417ca4;
+  background: #eef5fb;
+}
+
+.problems-skill-card h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+}
+
+.problems-skill-card p {
+  font-size: 13.5px;
+  line-height: 1.45;
+  margin: 0 0 8px;
+}
+
+.problems-skill-target {
+  font-weight: bold;
+}
+
+.problems-skill-stat {
+  font-weight: 600;
+  margin-top: auto !important;
+}

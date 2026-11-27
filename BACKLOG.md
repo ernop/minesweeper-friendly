@@ -12,41 +12,22 @@ discovered bug or gap awaiting action.
 
 ## Training, coaching, and mind-map
 
-- **creator** — **Mentation replay inspector & ground-truth calibration loop:**
-  interactive full-board + cursor-path replay overlaid with the mentation
-  model's per-move/per-episode claims (fresh/queued, detours, abandoned hovers,
-  clue-reading drift, eyes-ahead jumps, chunk breaks, no-ops, endgame flags),
-  letting the player mark each claim `Accurate` / `Partly right` / `Wrong` with
-  a quick reason/note, track model accuracy over time and across model versions
-  (`mentation-v1`, `v2`, …), and export labeled episodes to refine `mind-map.js`
-  against real ground truth.
-- **creator** — **Training page full review & inline userspace definitions:**
-  replace remaining Sept 26 static copy in `training.html` (`The plan` future
-  tense, retired `"unused mark share"` wording, unaligned `Where the time goes`
-  release-vs-press timing), add visible inline plain-English definitions
-  wherever mentation/analytics terms appear in userspace (not hover-only
-  tooltips), make `training.html` the clear starting hub linking each skill
-  gap to its live drill/Coach mode, and decide whether `training.html` needs a
-  more visible link from `index.html` beyond the footer.
+- **creator** — **Calibrate `mentation-v2` from ground-truth replay inspector
+  feedback:** once the player labels `20–40` episodes across real games in
+  `#training-inspector` and exports `mentation-feedback.json`, audit every
+  `Partly right` and `Wrong` case, refine `mind-map.js` thresholds and claim
+  rules under `MODEL_VERSION = 'mentation-v2'`, and verify accuracy gains on the
+  labeled ground-truth set.
 - **creator** — **Deeper mind-map shape mining & decision-order refinement:**
   automatically cluster recurring multi-clue shapes beyond the 24-technique
   catalog, reconstruct full board area-visitation order, and track pooled
   `Beg + Int + Exp` technique latencies longitudinally over time.
-- **creator** — **Sub-board focused pattern trainer + 100-game Intermediate
-  transfer test:** design governed by
-  [reference/mentation-model-2026-11-26.md](reference/mentation-model-2026-11-26.md):
-  cluttered `9×9`–`12×12` multi-orientation sub-boards (never sterile `5×5`
-  cutouts, since fresh overlap flags slow `+340 ms` in clutter vs Beginner),
-  whole `2–4`-click chunk execution scored on press-to-press chunk entry RT +
-  follow-up tempo + zero no-ops, `~25%` bail-vs-solve trap boards (`Space` to
-  bail or jump to easy counting), eyes-first anti-drift cursor ratio (`<= 1.25×`
-  vs `2.0×` clue-looping) and pre-down hover (`<= 80 ms`), using blocked-to-
-  interleaved ARTS response-time sequencing paired with automated before/after
-  `Fresh Local P2P` latency & skip checks across `100` Intermediate games via
-  `mind-map.js`. Priority packs: (1) cluttered no-flag counting reveals (`641 ms`
-  fresh P2P), (2) cluttered `interior 1-2` / `edge 1-2-1` / `1-2-2-1` chunk
-  entry (`705–936 ms`), (3) ready partial `4/5/6/7` pop-out, (4) endgame direct
-  finishing, (5) two-pocket eyes-ahead transition (`< 50 ms` departure).
+- **creator** — **Sub-board skill drill ARTS adaptive sequencing + 100-game
+  Intermediate transfer tracking:** extend the 6 cluttered sub-board and
+  mentation drills on `problems.html` ([reference/mentation-model-2026-11-26.md](reference/mentation-model-2026-11-26.md))
+  with blocked-to-interleaved ARTS response-time scheduling, multi-orientation
+  board symmetries, and automated before/after `Fresh Local P2P` latency & skip
+  checks across `100` Intermediate games in `mind-map.js`.
 - **creator** — **Shield mode `+20 s` discipline penalty & exhaustive `4/5/6/7`
   rule:** keep death protection in `Coach: Scan shield`, add a configurable
   time penalty (default `+20 s`) when skipping a ready `4/5/6/7`, jumping past

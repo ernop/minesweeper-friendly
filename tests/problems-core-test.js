@@ -405,4 +405,23 @@ check('a malformed bank fails loudly', () => {
   assert.throws(() => readProblemBank({ ...bankJson, travelByLevel: {} }), /no travel times/);
 });
 
+check('cluttered sub-board & mentation skill drills build and score cleanly', () => {
+  assert.equal(SKILL_DRILL_SPECS.length, 6);
+  for (const spec of SKILL_DRILL_SPECS) {
+    const set = buildSkillDrillSet(bank, spec.id, () => 0.42);
+    assert.equal(set.length, SKILL_DRILL_SET_SIZE, spec.id + ' builds 8 rounds');
+    const p0 = set[0];
+    const evalSolved = summarizeSkillDrillAttempt(bank, p0, {
+      startT: 1000,
+      endT: 1450,
+      outcome: 'solved',
+      bailedWithSpace: p0.isTrapBail === true,
+      actions: p0.isTrapBail ? [] : p0.freshSafe.map((cell, idx) => ({ t: 220 + idx * 140, kind: 'reveal', cell })),
+      samples: { t: [0, 40, 120, 220], x: [2.5, 3.0, 4.0, 5.5], y: [2.5, 2.5, 2.5, 2.5] },
+    });
+    assert.equal(typeof evalSolved.passedRule, 'boolean');
+    assert.equal(typeof evalSolved.feedbackNote, 'string');
+  }
+});
+
 console.log('problems core: ' + checks + ' checks passed');

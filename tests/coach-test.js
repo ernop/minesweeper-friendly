@@ -428,4 +428,15 @@ check('rejects unknown pattern family', !Coach.validCoachRecord({
     && states.byPace.length === 2);
 }
 
+{
+  // Endgame pointless flag & readyHighNumbers detection
+  const { view, flagged } = buildBoard(
+    ['*..', '...', '...'],
+    ['Foo', 'ooo', 'oo.'],
+  );
+  const res = Coach.evaluateFlagPlacement(view, flagged, 0);
+  check('endgame pointless flag detected when <= 5 safe squares remain',
+    res.endgamePointless === true && res.remSafe === 1);
+}
+
 console.log(`coach: all ${checks} checks passed`);
