@@ -223,7 +223,7 @@ assert.strictEqual(weeks[1].top3BvPerS, null, 'week with 2 wins must report null
 const inspection = MindMap.inspectGame(syn.record, syn.trace, syn.spec, deps);
 assert(inspection !== null, 'inspectGame must replay synthetic win');
 assert.strictEqual(inspection.modelVersion, 'mentation-v1');
-assert.strictEqual(inspection.steps.length, 8);
+assert.strictEqual(inspection.steps.length, 9);
 assert(inspection.steps.some((st) => st.claims.some((c) => c.claimType === 'endgame-flag')), 'inspectGame must emit endgame-flag claim');
 assert(inspection.steps.some((st) => st.claims.some((c) => c.claimType === 'noop-habit')), 'inspectGame must emit noop-habit claim');
 assert(inspection.steps.some((st) => st.claims.some((c) => c.claimType === 'noop-physical')), 'inspectGame must emit noop-physical claim');
