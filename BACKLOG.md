@@ -12,6 +12,22 @@ discovered bug or gap awaiting action.
 
 ## Training, coaching, and mind-map
 
+- **creator** — **Mentation replay inspector & ground-truth calibration loop:**
+  interactive full-board + cursor-path replay overlaid with the mentation
+  model's per-move/per-episode claims (fresh/queued, detours, abandoned hovers,
+  clue-reading drift, eyes-ahead jumps, chunk breaks, no-ops, endgame flags),
+  letting the player mark each claim `Accurate` / `Partly right` / `Wrong` with
+  a quick reason/note, track model accuracy over time and across model versions
+  (`mentation-v1`, `v2`, …), and export labeled episodes to refine `mind-map.js`
+  against real ground truth.
+- **creator** — **Training page full review & inline userspace definitions:**
+  replace remaining Sept 26 static copy in `training.html` (`The plan` future
+  tense, retired `"unused mark share"` wording, unaligned `Where the time goes`
+  release-vs-press timing), add visible inline plain-English definitions
+  wherever mentation/analytics terms appear in userspace (not hover-only
+  tooltips), make `training.html` the clear starting hub linking each skill
+  gap to its live drill/Coach mode, and decide whether `training.html` needs a
+  more visible link from `index.html` beyond the footer.
 - **creator** — **Deeper mind-map shape mining & decision-order refinement:**
   automatically cluster recurring multi-clue shapes beyond the 24-technique
   catalog, reconstruct full board area-visitation order, and track pooled
