@@ -7,7 +7,7 @@
 
 importScripts('guardian-angel.js?v=20261123-guardian-angel-2', 'coach.js?v=20261125-coach-m1',
   'solver.js?v=20261123-guardian-angel', 'rng.js',
-  'game/evaluation.js?v=20261127-mentation-nav', 'game-data.js?v=20261125-rank-r1',
+  'game/evaluation.js?v=20261127-tom-replay', 'game-data.js?v=20261125-rank-r1',
   'training-core.js?v=20261125-mindmap-1');
 
 function requestResult(request) {

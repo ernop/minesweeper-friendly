@@ -827,3 +827,549 @@ function replayMentationExplanation(step, count, evaluation, solver) {
     witnessClues: [],
   };
 }
+
+//-------THEORY-OF-MIND MENTATION MODEL (mentation-v2)-------
+
+const REPLAY_MENTATION_VERSION = 'mentation-v2';
+
+const REPLAY_MENTATION_REASONS = Object.freeze([
+  { id: 'misclick-aim', label: 'Actually a misclick / aim slip' },
+  { id: 'misclick-button', label: 'Button-order / left-right slip' },
+  { id: 'miscounted-number', label: 'Miscounted a number / thought it was satisfied' },
+  { id: 'guessed-without-proof', label: 'Actually guessed (did not see the proof)' },
+  { id: 'eyes-elsewhere', label: 'Was looking at a different part of the board' },
+  { id: 'different-clue', label: 'Knew it from a different clue or deduction' },
+  { id: 'planned-order', label: 'Planned click order / intentionally deferred' },
+  { id: 'distracted', label: 'Checking mine count or momentary distraction' },
+]);
+
+function replayFrontierRegions(view, flaggedSet, solver) {
+  const w = view.width;
+  const h = view.height;
+  const n = w * h;
+  const inFrontier = new Uint8Array(n);
+  const aroundOf = (idx) => {
+    const x = idx % w;
+    const y = Math.floor(idx / w);
+    const out = [];
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if ((dx || dy) && x + dx >= 0 && x + dx < w && y + dy >= 0 && y + dy < h) {
+          out.push((y + dy) * w + (x + dx));
+        }
+      }
+    }
+    return out;
+  };
+  for (let i = 0; i < n; i++) {
+    if (!view.revealed[i] || view.adjacent[i] <= 0) continue;
+    const cov = aroundOf(i).filter((nb) => !view.revealed[nb] && !flaggedSet.has(nb));
+    if (cov.length > 0) {
+      inFrontier[i] = 1;
+      for (const c of cov) inFrontier[c] = 1;
+    }
+  }
+  const regionOf = new Int32Array(n).fill(-1);
+  const regions = [];
+  for (let i = 0; i < n; i++) {
+    if (!inFrontier[i] || regionOf[i] !== -1) continue;
+    const id = regions.length;
+    const cells = [];
+    const clues = [];
+    const queue = [i];
+    regionOf[i] = id;
+    while (queue.length > 0) {
+      const cur = queue.pop();
+      cells.push(cur);
+      if (view.revealed[cur] && view.adjacent[cur] > 0) clues.push(cur);
+      for (const nb of aroundOf(cur)) {
+        if (inFrontier[nb] && regionOf[nb] === -1) {
+          regionOf[nb] = id;
+          queue.push(nb);
+        }
+      }
+    }
+    let sx = 0;
+    let sy = 0;
+    for (const c of cells) {
+      sx += (c % w) + 0.5;
+      sy += Math.floor(c / w) + 0.5;
+    }
+    const safeCells = solver
+      ? cells.filter((c) => !view.revealed[c] && !flaggedSet.has(c) && solver.facts.get(c) === 2)
+      : [];
+    regions.push({
+      id,
+      cells,
+      clues,
+      safeCells,
+      centerX: sx / cells.length,
+      centerY: sy / cells.length,
+    });
+  }
+  return { regions, regionOf };
+}
+
+function replayCursorInBoardCells(trace, width, height, fromT, toT, prevCell, targetCell) {
+  const empty = {
+    valid: false,
+    clickFracX: null,
+    clickFracY: null,
+    departMs: null,
+    preClickHoverMs: null,
+    pathRatio: null,
+    slowOnClueMs: 0,
+    clueDriftCells: [],
+    abandonedFocus: null,
+  };
+  if (!trace || !Array.isArray(trace.events) || !Array.isArray(trace.t) || trace.t.length < 2) return empty;
+  const layouts = trace.events.filter((e) => e.kind === 'layout' && Number.isFinite(e.width) && e.width > 0);
+  if (layouts.length === 0) return empty;
+  const layoutAt = (t) => {
+    let best = layouts[0];
+    for (let i = 1; i < layouts.length; i++) {
+      if (layouts[i].t <= t) best = layouts[i];
+      else break;
+    }
+    return best;
+  };
+  // Board border bevel is 1/8 cell on each side (style.css --bevel-size)
+  const toCell = (layout, px, py) => {
+    const cellW = layout.width / (width + 0.25);
+    const cellH = layout.height / (height + 0.25);
+    return [
+      (px - layout.left) / cellW - 0.125,
+      (py - layout.top) / cellH - 0.125,
+    ];
+  };
+
+  const tArr = trace.t;
+  const xArr = trace.x;
+  const yArr = trace.y;
+  const pts = [];
+  for (let i = 0; i < tArr.length; i++) {
+    if (tArr[i] < fromT) continue;
+    if (tArr[i] > toT) break;
+    const lay = layoutAt(tArr[i]);
+    const [cx, cy] = toCell(lay, xArr[i], yArr[i]);
+    pts.push({ t: tArr[i], x: cx, y: cy });
+  }
+  if (pts.length < 2) return empty;
+
+  const endPt = pts[pts.length - 1];
+  const clickFracX = endPt.x - Math.floor(endPt.x);
+  const clickFracY = endPt.y - Math.floor(endPt.y);
+
+  const ox = prevCell !== null ? (prevCell % width) + 0.5 : pts[0].x;
+  const oy = prevCell !== null ? Math.floor(prevCell / width) + 0.5 : pts[0].y;
+  const tx = targetCell !== null ? (targetCell % width) : Math.floor(endPt.x);
+  const ty = targetCell !== null ? Math.floor(targetCell / width) : Math.floor(endPt.y);
+  const tcx = tx + 0.5;
+  const tcy = ty + 0.5;
+
+  let departMs = null;
+  if (prevCell !== null) {
+    for (const p of pts) {
+      if (Math.hypot(p.x - ox, p.y - oy) > 0.7) {
+        departMs = Math.max(0, Math.round(p.t - fromT));
+        break;
+      }
+    }
+  }
+
+  let preClickHoverMs = 0;
+  for (let i = pts.length - 1; i >= 0; i--) {
+    if (pts[i].x >= tx && pts[i].x < tx + 1 && pts[i].y >= ty && pts[i].y < ty + 1) {
+      preClickHoverMs = Math.max(0, Math.round(toT - pts[i].t));
+    } else {
+      break;
+    }
+  }
+
+  let pathLen = 0;
+  let slowOnClueMs = 0;
+  const driftSet = new Set();
+  // Detect abandoned frontier check: dwell >= 180 ms within 1.15-cell radius,
+  // >= 2.2 cells away from both prev and target.
+  let dwellStart = pts[0].t;
+  let anchorX = pts[0].x;
+  let anchorY = pts[0].y;
+  let abandonedFocus = null;
+
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i];
+    const p1 = pts[i + 1];
+    const dt = p1.t - p0.t;
+    const seg = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+    pathLen += seg;
+    if (dt > 0 && dt < 300) {
+      const spd = seg * 1000 / dt;
+      if (spd < 3.0) {
+        const mx = 0.5 * (p0.x + p1.x);
+        const my = 0.5 * (p0.y + p1.y);
+        const inTarget = mx >= tx && mx < tx + 1 && my >= ty && my < ty + 1;
+        const nearOrigin = Math.hypot(mx - ox, my - oy) <= 0.75;
+        if (!inTarget && !nearOrigin) {
+          const cx = Math.floor(mx);
+          const cy = Math.floor(my);
+          if (cx >= 0 && cx < width && cy >= 0 && cy < height) {
+            slowOnClueMs += dt;
+            driftSet.add(cy * width + cx);
+          }
+        }
+      }
+    }
+    if (Math.hypot(p1.x - anchorX, p1.y - anchorY) > 1.15) {
+      const dur = p1.t - dwellStart;
+      if (dur >= 180
+          && Math.hypot(anchorX - ox, anchorY - oy) >= 2.2
+          && Math.hypot(anchorX - tcx, anchorY - tcy) >= 2.2) {
+        if (!abandonedFocus || dur > abandonedFocus.durMs) {
+          abandonedFocus = { x: anchorX, y: anchorY, durMs: Math.round(dur) };
+        }
+      }
+      dwellStart = p1.t;
+      anchorX = p1.x;
+      anchorY = p1.y;
+    }
+  }
+
+  const chord = Math.hypot(tcx - ox, tcy - oy);
+  const pathRatio = chord >= 0.8 ? pathLen / chord : null;
+
+  return {
+    valid: true,
+    clickFracX,
+    clickFracY,
+    departMs,
+    preClickHoverMs,
+    pathRatio,
+    slowOnClueMs: Math.round(slowOnClueMs),
+    clueDriftCells: [...driftSet],
+    abandonedFocus,
+  };
+}
+
+// Simulates the player's visual attention, working memory, intent vs. execution
+// (misclick / button slip / counting misread / false belief / deliberate move),
+// and exact logical deduction proof for one decision frame in Replay.
+function replayTheoryOfMind(step, decisions, trace, solver) {
+  const curDecision = decisions[step];
+  const prevDecision = step > 0 ? decisions[step - 1] : null;
+  const nextDecision = step + 1 < decisions.length ? decisions[step + 1] : null;
+  const evaluation = curDecision.evaluation;
+  const position = evaluation.position;
+  const view = positionView(position);
+  const flaggedSet = positionFlags(position);
+  const w = position.width;
+  const h = position.height;
+  const shortCoord = (idx) => '(' + ((idx % w) + 1) + ', ' + (Math.floor(idx / w) + 1) + ')';
+  const clueName = (idx) => 'the ' + view.adjacent[idx] + ' at ' + shortCoord(idx);
+  const aroundOf = (idx) => {
+    const x = idx % w;
+    const y = Math.floor(idx / w);
+    const out = [];
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if ((dx || dy) && x + dx >= 0 && x + dx < w && y + dy >= 0 && y + dy < h) {
+          out.push((y + dy) * w + (x + dx));
+        }
+      }
+    }
+    return out;
+  };
+
+  const deduction = replayMentationExplanation(step, decisions.length, evaluation, solver);
+  const trigger = replayTriggerCell(evaluation);
+  const prevTrigger = prevDecision ? replayTriggerCell(prevDecision.evaluation) : null;
+  const nextTrigger = nextDecision ? replayTriggerCell(nextDecision.evaluation) : null;
+  const gapMs = prevDecision ? Math.round(curDecision.t - prevDecision.t) : null;
+  const distCells = trigger !== null && prevTrigger !== null
+    ? Math.max(Math.abs((trigger % w) - (prevTrigger % w)), Math.abs(Math.floor(trigger / w) - Math.floor(prevTrigger / w)))
+    : 0;
+
+  const cursor = prevDecision
+    ? replayCursorInBoardCells(trace, w, h, prevDecision.t, curDecision.t, prevTrigger, trigger)
+    : replayCursorInBoardCells(trace, w, h, 0, curDecision.t, null, trigger);
+
+  // Use decision's exact click x, y if cursor trace lacked samples
+  if (cursor.clickFracX === null && Number.isFinite(curDecision.x) && Number.isFinite(curDecision.y) && trace && Array.isArray(trace.events)) {
+    const layouts = trace.events.filter((e) => e.kind === 'layout' && Number.isFinite(e.width) && e.width > 0);
+    if (layouts.length > 0) {
+      let lay = layouts[0];
+      for (const l of layouts) if (l.t <= curDecision.t) lay = l;
+      const cellW = lay.width / (w + 0.25);
+      const cellH = lay.height / (h + 0.25);
+      const cx = (curDecision.x - lay.left) / cellW - 0.125;
+      const cy = (curDecision.y - lay.top) / cellH - 0.125;
+      cursor.clickFracX = cx - Math.floor(cx);
+      cursor.clickFracY = cy - Math.floor(cy);
+    }
+  }
+
+  const { regions, regionOf } = replayFrontierRegions(view, flaggedSet, solver);
+  const targetRegionId = trigger !== null ? regionOf[trigger] : -1;
+  const prevRegionId = prevTrigger !== null ? regionOf[prevTrigger] : -1;
+
+  // --- LAYER 1: INTENT VS EXECUTION (MISCLICK / SLIP / MISREAD / FALSE BELIEF) ---
+  const fact = trigger !== null && solver ? solver.facts.get(trigger) : undefined;
+  const isErrorLike = evaluation.action === 'no-op'
+    || (evaluation.action === 'reveal' && fact === 1)
+    || (evaluation.action === 'flag' && fact === 2)
+    || ((evaluation.action === 'reveal' || evaluation.action === 'flag') && fact === undefined && solver && solver.provenSafe.length > 0);
+
+  let intent = {
+    kind: 'deliberate',
+    headline: 'Deliberate move',
+    detail: 'Cursor approach and board state are consistent with an intentional ' + evaluation.action + '.',
+    intendedCell: null,
+    falseBeliefFlags: [],
+  };
+
+  // Detect any provably wrong flags within distance <= 2 of trigger
+  if (trigger !== null && solver) {
+    const tx = trigger % w;
+    const ty = Math.floor(trigger / w);
+    const wrongNearby = [];
+    for (const fIdx of flaggedSet) {
+      if (solver.facts.get(fIdx) === 2) {
+        const d = Math.max(Math.abs((fIdx % w) - tx), Math.abs(Math.floor(fIdx / w) - ty));
+        if (d <= 2) wrongNearby.push(fIdx);
+      }
+    }
+    intent.falseBeliefFlags = wrongNearby;
+  }
+
+  if (trigger !== null && isErrorLike) {
+    // Hypothesis A: Spatial aim slip (edge click pointing to an adjacent valid move, or immediate adjacent correction)
+    let aimCandidate = null;
+    let aimReason = '';
+    if (cursor.clickFracX !== null && cursor.clickFracY !== null) {
+      const dxEdge = cursor.clickFracX - 0.5;
+      const dyEdge = cursor.clickFracY - 0.5;
+      if (Math.abs(dxEdge) >= 0.22 || Math.abs(dyEdge) >= 0.22) {
+        const stepX = Math.abs(dxEdge) >= 0.22 ? (dxEdge > 0 ? 1 : -1) : 0;
+        const stepY = Math.abs(dyEdge) >= 0.22 ? (dyEdge > 0 ? 1 : -1) : 0;
+        const nx = (trigger % w) + stepX;
+        const ny = Math.floor(trigger / w) + stepY;
+        if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+          const cand = ny * w + nx;
+          const candIsSafe = solver && !view.revealed[cand] && !flaggedSet.has(cand) && solver.facts.get(cand) === 2;
+          const candIsMine = solver && !view.revealed[cand] && !flaggedSet.has(cand) && solver.facts.get(cand) === 1;
+          const candIsChord = solver && solver.chords.some((ch) => ch.cell === cand && ch.safe);
+          if ((evaluation.action === 'reveal' && (candIsSafe || candIsChord))
+              || (evaluation.action === 'flag' && candIsMine)
+              || (evaluation.action === 'no-op' && (candIsSafe || candIsChord || candIsMine))) {
+            aimCandidate = cand;
+            const side = [dyEdge < -0.22 ? 'top' : dyEdge > 0.22 ? 'bottom' : '', dxEdge < -0.22 ? 'left' : dxEdge > 0.22 ? 'right' : ''].filter(Boolean).join('-');
+            const what = candIsChord ? 'ready chord' : candIsSafe ? 'proven-safe square' : 'proven mine';
+            aimReason = 'Click landed near the ' + side + ' edge of ' + shortCoord(trigger)
+              + ' (' + Math.round(Math.min(cursor.clickFracX, 1 - cursor.clickFracX, cursor.clickFracY, 1 - cursor.clickFracY) * 100)
+              + '% from the border), directly beside the ' + what + ' at ' + shortCoord(cand) + '.';
+          }
+        }
+      }
+    }
+    if (aimCandidate === null && evaluation.action === 'no-op' && nextDecision && nextTrigger !== null) {
+      const nextGap = Math.round(nextDecision.t - curDecision.t);
+      const nextDist = Math.max(Math.abs((trigger % w) - (nextTrigger % w)), Math.abs(Math.floor(trigger / w) - Math.floor(nextTrigger / w)));
+      if (nextGap <= 450 && nextDist === 1 && nextDecision.evaluation.action !== 'no-op') {
+        aimCandidate = nextTrigger;
+        aimReason = 'Immediately corrected ' + nextGap + ' ms later with a clean ' + nextDecision.evaluation.action
+          + ' on the adjacent square ' + shortCoord(nextTrigger) + '.';
+      }
+    }
+
+    if (aimCandidate !== null) {
+      intent = {
+        ...intent,
+        kind: 'spatial-aim-slip',
+        headline: 'Likely MISCLICK (spatial aim slip toward ' + shortCoord(aimCandidate) + ')',
+        detail: aimReason,
+        intendedCell: aimCandidate,
+      };
+    } else if (evaluation.action === 'reveal' && fact === 1) {
+      // Hypothesis B: Button-order / 1.5-click slip on a proven mine beside a 1-flag-short number
+      const oneShortClue = aroundOf(trigger).find((c) => {
+        if (!view.revealed[c] || view.adjacent[c] <= 0) return false;
+        const flg = aroundOf(c).filter((n) => !view.revealed[n] && flaggedSet.has(n)).length;
+        return flg === view.adjacent[c] - 1;
+      });
+      if (oneShortClue !== undefined) {
+        intent = {
+          ...intent,
+          kind: 'button-order-slip',
+          headline: 'Likely MISCLICK (left/right or 1.5-click slip on a mine)',
+          detail: 'You left-clicked the proven mine at ' + shortCoord(trigger) + ' beside ' + clueName(oneShortClue)
+            + ' (which was 1 flag short) — likely intended to right-click flag it or released left before right on a 1.5-click.',
+          intendedCell: trigger,
+        };
+      }
+    } else if (evaluation.action === 'reveal' && fact === undefined) {
+      // Hypothesis C: Counting misread (hallucinated flag around a 1-flag-short clue) vs. Speculative ocean click
+      const adjClues = aroundOf(trigger).filter((c) => view.revealed[c] && view.adjacent[c] > 0);
+      if (adjClues.length === 0) {
+        intent = {
+          ...intent,
+          kind: 'speculative-ocean-click',
+          headline: 'Deliberate speculative ocean click (opening hunt)',
+          detail: shortCoord(trigger) + ' touches zero revealed clue numbers — you clicked into unexplored territory trying to pop a new zero opening.',
+          intendedCell: null,
+        };
+      } else {
+        // Check if an adjacent clue is 1 flag short and has a distractor flag at Chebyshev distance 2
+        let misreadClue = null;
+        let distractorFlag = null;
+        for (const c of adjClues) {
+          const nbs = aroundOf(c);
+          const flg = nbs.filter((n) => !view.revealed[n] && flaggedSet.has(n));
+          if (flg.length === view.adjacent[c] - 1) {
+            const cx = c % w;
+            const cy = Math.floor(c / w);
+            for (const fIdx of flaggedSet) {
+              const d = Math.max(Math.abs((fIdx % w) - cx), Math.abs(Math.floor(fIdx / w) - cy));
+              if (d === 2) {
+                misreadClue = c;
+                distractorFlag = fIdx;
+                break;
+              }
+            }
+          }
+          if (misreadClue !== null) break;
+        }
+        if (misreadClue !== null && cursor.preClickHoverMs !== null && cursor.preClickHoverMs < 220) {
+          intent = {
+            ...intent,
+            kind: 'counting-misread',
+            headline: 'Likely COUNTING MISREAD around ' + clueName(misreadClue),
+            detail: clueName(misreadClue) + ' had only ' + (view.adjacent[misreadClue] - 1) + ' of its ' + view.adjacent[misreadClue]
+              + ' mines flagged, with a nearby distractor flag just outside its ring at ' + shortCoord(distractorFlag)
+              + ' — fast scan likely miscounted it as satisfied.',
+            intendedCell: null,
+          };
+        }
+      }
+    }
+  }
+
+  if (intent.falseBeliefFlags.length > 0) {
+    intent.detail += ' False belief on board: your flag at ' + intent.falseBeliefFlags.map(shortCoord).join(', ')
+      + ' is provably WRONG (that square is safe), which corrupts nearby counting.';
+  }
+
+  // --- LAYER 2: SIMULATED VISUAL ATTENTION & WORKING MEMORY ---
+  const focusSet = new Set();
+  if (trigger !== null) focusSet.add(trigger);
+  for (const wIdx of deduction.witnessClues || []) focusSet.add(wIdx);
+  for (const dIdx of cursor.clueDriftCells) {
+    if (view.revealed[dIdx] && view.adjacent[dIdx] > 0) focusSet.add(dIdx);
+  }
+
+  // Find if another frontier region had >= 2 easy safe squares while player stayed slow/guessing here
+  let otherEasyRegion = null;
+  if (solver) {
+    for (const r of regions) {
+      if (r.id === targetRegionId) continue;
+      if (r.safeCells.length >= 2) {
+        if (!otherEasyRegion || r.safeCells.length > otherEasyRegion.safeCells.length) otherEasyRegion = r;
+      }
+    }
+  }
+
+  let attention = {
+    mode: 'local-read',
+    headline: 'Reading local frontier around ' + (trigger !== null ? shortCoord(trigger) : 'board'),
+    narrative: 'Working inside the local frontier around ' + (trigger !== null ? shortCoord(trigger) : 'the board') + '.',
+    focusCells: [...focusSet],
+    abandonedFocus: cursor.abandonedFocus,
+  };
+
+  if (step === 0) {
+    attention = {
+      ...attention,
+      mode: 'opening',
+      headline: 'Opening start',
+      narrative: 'Initial opening click before any frontier exists.',
+    };
+  } else if (cursor.abandonedFocus !== null) {
+    const abX = Math.floor(cursor.abandonedFocus.x) + 1;
+    const abY = Math.floor(cursor.abandonedFocus.y) + 1;
+    attention = {
+      ...attention,
+      mode: 'abandoned-hypothesis',
+      headline: 'Checked (' + abX + ', ' + abY + ') for ' + cursor.abandonedFocus.durMs + ' ms, then shifted to ' + shortCoord(trigger),
+      narrative: 'Your gaze/cursor first paused over the frontier near (' + abX + ', ' + abY + ') for '
+        + cursor.abandonedFocus.durMs + ' ms, rejected or left it without clicking, and redirected to ' + shortCoord(trigger) + '.',
+    };
+  } else if (distCells >= 3.5 && cursor.departMs !== null && cursor.departMs <= 55 && (cursor.pathRatio === null || cursor.pathRatio <= 1.28)) {
+    attention = {
+      ...attention,
+      mode: 'eyes-ahead-transition',
+      headline: 'Eyes-ahead jump (' + distCells + ' sq, departed in ' + cursor.departMs + ' ms)',
+      narrative: 'Your eyes had already shifted to the frontier around ' + shortCoord(trigger)
+        + ' before your hand finished clicking ' + shortCoord(prevTrigger) + ' — you executed ' + shortCoord(prevTrigger)
+        + ' from motor memory while already reading this new region.',
+    };
+  } else if (otherEasyRegion !== null && ((gapMs !== null && gapMs >= 600) || (fact === undefined && evaluation.action === 'reveal'))) {
+    const oCol = Math.round(otherEasyRegion.centerX);
+    const oRow = Math.round(otherEasyRegion.centerY);
+    attention = {
+      ...attention,
+      mode: 'attention-tunnel',
+      headline: 'Attention tunnel at ' + shortCoord(trigger) + ' (' + otherEasyRegion.safeCells.length + ' safe squares open near (' + oCol + ', ' + oRow + '))',
+      narrative: 'Your focus stayed locked on the cluster at ' + shortCoord(trigger)
+        + (gapMs !== null ? ' for ' + gapMs + ' ms' : '') + ' instead of scanning out to the open frontier near ('
+        + oCol + ', ' + oRow + ') where ' + otherEasyRegion.safeCells.length + ' proven-safe squares were waiting.',
+    };
+  } else if (cursor.slowOnClueMs >= 140 || (cursor.pathRatio !== null && cursor.pathRatio >= 1.65 && distCells <= 2.5)) {
+    const drifted = cursor.clueDriftCells.filter((c) => view.revealed[c] && view.adjacent[c] > 0).slice(0, 4);
+    attention = {
+      ...attention,
+      mode: 'cursor-assisted-reading',
+      headline: 'Cursor-assisted clue reading (' + cursor.slowOnClueMs + ' ms on clues'
+        + (cursor.pathRatio !== null ? ', ' + cursor.pathRatio.toFixed(1) + '\u00d7 path' : '') + ')',
+      narrative: 'Your pointer drifted slowly across ' + (drifted.length > 0 ? drifted.map(clueName).join(', ') : 'open clue numbers')
+        + ' while reading this cluster, rather than keeping the hand parked until your eyes solved it.',
+    };
+  } else if (distCells <= 2 && gapMs !== null && gapMs <= 360 && targetRegionId === prevRegionId && targetRegionId !== -1) {
+    attention = {
+      ...attention,
+      mode: 'working-memory-queue',
+      headline: 'Working-memory chunk execution (' + gapMs + ' ms)',
+      narrative: 'Fast local follow-up inside the same frontier cluster (' + gapMs
+        + ' ms): continuing an already-read local sequence without shifting gaze.',
+    };
+  } else if (distCells >= 3) {
+    attention = {
+      ...attention,
+      mode: 'area-switch',
+      headline: 'Shifted focus ' + distCells + ' sq to ' + shortCoord(trigger)
+        + (cursor.departMs !== null ? ' (departed after ' + cursor.departMs + ' ms)' : ''),
+      narrative: 'Left the previous area around ' + shortCoord(prevTrigger) + ' and moved ' + distCells
+        + ' squares to start working the frontier around ' + shortCoord(trigger) + '.',
+    };
+  }
+
+  const isNotable = intent.kind !== 'deliberate'
+    || intent.falseBeliefFlags.length > 0
+    || attention.mode === 'abandoned-hypothesis'
+    || attention.mode === 'attention-tunnel'
+    || attention.mode === 'cursor-assisted-reading'
+    || attention.mode === 'eyes-ahead-transition'
+    || evaluation.action === 'no-op'
+    || (fact === undefined && step > 0)
+    || (gapMs !== null && gapMs >= 600);
+
+  return {
+    modelVersion: REPLAY_MENTATION_VERSION,
+    step,
+    gapMs,
+    distCells,
+    trigger,
+    cursor,
+    deduction,
+    attention,
+    intent,
+    isNotable,
+  };
+}

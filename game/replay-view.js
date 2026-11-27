@@ -50,6 +50,56 @@ const replayOverlayControl = document.getElementById('replay-overlay-control');
 const replayOverlayButtons =
   [...replayOverlayControl.querySelectorAll('[data-replay-overlay]')];
 const replayMentation = document.getElementById('replay-mentation');
+const replayMentationPanel = document.getElementById('replay-mentation-panel');
+let lastReplayToM = null;
+let replayFeedbackCache = null;
+let replayFeedbackLoading = false;
+
+function ensureReplayFeedbackLoaded(onReady) {
+  if (replayFeedbackCache !== null) {
+    if (onReady) onReady();
+    return;
+  }
+  if (replayFeedbackLoading || typeof db === 'undefined' || db === null) return;
+  replayFeedbackLoading = true;
+  try {
+    const req = db.transaction(USERDATA_STORE).objectStore(USERDATA_STORE).get('mentationFeedback');
+    req.onsuccess = () => {
+      replayFeedbackLoading = false;
+      const val = req.result;
+      replayFeedbackCache = (val && typeof val === 'object' && val.entries && typeof val.entries === 'object')
+        ? val
+        : { version: 1, entries: {} };
+      if (onReady) onReady();
+    };
+    req.onerror = () => {
+      replayFeedbackLoading = false;
+      replayFeedbackCache = { version: 1, entries: {} };
+    };
+  } catch (_err) {
+    replayFeedbackLoading = false;
+    replayFeedbackCache = { version: 1, entries: {} };
+  }
+}
+
+function jumpNotableReplayStep(direction) {
+  if (!pathViewAvailable()) return;
+  const decisions = pathDecisionEvents(trace.events);
+  if (decisions.length === 0) return;
+  const start = direction > 0
+    ? (replayStep >= decisions.length ? 0 : replayStep + 1)
+    : (replayStep >= decisions.length ? decisions.length - 1 : replayStep - 1);
+  for (let i = start; i >= 0 && i < decisions.length; i += direction) {
+    const ev = decisions[i].evaluation;
+    const solver = replaySolverAt(i, ev.position);
+    const tom = replayTheoryOfMind(i, decisions, trace, solver);
+    if (tom.isNotable) {
+      setReplayStep(i);
+      return;
+    }
+  }
+  setReplayStep(direction > 0 ? decisions.length - 1 : 0);
+}
 
 function pathViewAvailable() {
   return (gameState === 'won' || gameState === 'lost')
@@ -430,40 +480,216 @@ function renderReplayStatus(parts) {
 
 function renderReplayEndStatus(parts) {
   replayStatus.textContent = parts.done + ' / ' + parts.count + ' actions · Finished board';
+  lastReplayToM = null;
+  if (replayMentationPanel) {
+    replayMentationPanel.hidden = true;
+    replayMentationPanel.replaceChildren();
+  }
   if (replayMentation) {
     const heading = document.createElement('span');
     heading.className = 'path-view-heading';
     heading.textContent = 'Mentation';
     const copy = document.createElement('span');
     copy.className = 'replay-mentation-copy';
-    copy.textContent = 'Step back (<) or drag the slider to see what was known, how it was known, or whether each click was a guess · ';
-    const link = document.createElement('a');
-    link.className = 'ui-button';
-    link.href = 'training.html' + (trace && trace.endedAt ? '?game=' + trace.endedAt : '') + '#training-inspector';
-    link.textContent = 'Open in Mentation Replay Inspector \u2192';
-    replayMentation.replaceChildren(heading, copy, link);
+    copy.textContent = 'Step back (<) to inspect simulated attention, misclick/misread analysis, and deduction proof ';
+    const jumpBtn = document.createElement('button');
+    jumpBtn.type = 'button';
+    jumpBtn.textContent = 'First notable move >>';
+    jumpBtn.addEventListener('click', () => jumpNotableReplayStep(1));
+    replayMentation.replaceChildren(heading, copy, jumpBtn);
   }
 }
 
-function renderReplayMentation(step, count, evaluation, solver) {
-  if (!replayMentation) return;
-  const info = replayMentationExplanation(step, count, evaluation, solver);
-  for (const wIdx of info.witnessClues || []) {
+function renderReplayMentation(step, decisions, evaluation, solver) {
+  const tom = replayTheoryOfMind(step, decisions, trace, solver);
+  lastReplayToM = tom;
+  for (const wIdx of tom.deduction.witnessClues || []) {
     if (cellElements[wIdx]) cellElements[wIdx].classList.add('replay-witness');
   }
-  const heading = document.createElement('span');
-  heading.className = 'path-view-heading';
-  heading.textContent = 'Mentation';
-  const body = document.createElement('span');
-  body.className = 'replay-mentation-copy';
-  const strong = document.createElement('strong');
-  strong.textContent = 'Move ' + (step + 1) + ' of ' + count + ': ' + info.statusLabel;
-  body.append(strong, ' \u2014 ' + info.howKnown + ' (' + info.boardSummary + ') ');
-  const link = document.createElement('a');
-  link.className = 'ui-button';
-  link.href = 'training.html' + (trace && trace.endedAt ? '?game=' + trace.endedAt + '&step=' + step : '') + '#training-inspector';
-  link.textContent = 'Calibrate in Mentation Inspector \u2192';
-  replayMentation.replaceChildren(heading, body, link);
+
+  if (replayMentation) {
+    const heading = document.createElement('span');
+    heading.className = 'path-view-heading';
+    heading.textContent = 'Mentation';
+    const summary = document.createElement('span');
+    summary.className = 'replay-mentation-copy';
+    const primaryHeadline = tom.intent.kind !== 'deliberate' ? tom.intent.headline : tom.deduction.statusLabel;
+    const strong = document.createElement('strong');
+    strong.textContent = 'Move ' + (step + 1) + '/' + decisions.length + ': ' + primaryHeadline;
+    summary.append(strong, ' \u00b7 ' + tom.attention.headline);
+    const prevNotable = document.createElement('button');
+    prevNotable.type = 'button';
+    prevNotable.textContent = '<< Prev notable';
+    prevNotable.title = 'Jump to previous misclick, guess, detour, attention tunnel, or slow move';
+    prevNotable.addEventListener('click', () => jumpNotableReplayStep(-1));
+    const nextNotable = document.createElement('button');
+    nextNotable.type = 'button';
+    nextNotable.textContent = 'Next notable >>';
+    nextNotable.title = 'Jump to next misclick, guess, detour, attention tunnel, or slow move';
+    nextNotable.addEventListener('click', () => jumpNotableReplayStep(1));
+    replayMentation.replaceChildren(heading, summary, prevNotable, nextNotable);
+  }
+
+  if (!replayMentationPanel) return;
+  const buildCard = () => {
+    const box = document.createElement('div');
+    box.className = 'replay-tom-card';
+
+    const title = document.createElement('div');
+    title.className = 'replay-tom-head';
+    title.textContent = 'Mentation (Theory of Mind \u00b7 ' + tom.modelVersion + ') \u2014 Move '
+      + (step + 1) + ' of ' + decisions.length
+      + (tom.gapMs !== null ? ' (' + tom.gapMs + ' ms)' : '');
+    box.appendChild(title);
+
+    const addSection = (cls, label, headline, detail) => {
+      const sec = document.createElement('div');
+      sec.className = 'replay-tom-section ' + cls;
+      const h = document.createElement('div');
+      h.className = 'replay-tom-label';
+      h.textContent = label + ': ' + headline;
+      const p = document.createElement('p');
+      p.className = 'replay-tom-detail';
+      p.textContent = detail;
+      sec.append(h, p);
+      box.appendChild(sec);
+    };
+
+    addSection('replay-tom-attention', '1. Where you were looking & thinking', tom.attention.headline, tom.attention.narrative);
+    addSection(
+      tom.intent.kind !== 'deliberate' ? 'replay-tom-intent-alert' : 'replay-tom-intent',
+      '2. Intent vs. execution',
+      tom.intent.headline,
+      tom.intent.detail,
+    );
+    addSection(
+      'replay-tom-deduction',
+      '3. What was known & how it was known',
+      tom.deduction.statusLabel,
+      tom.deduction.howKnown + ' ' + tom.deduction.boardSummary + '.',
+    );
+
+    // Inline ground-truth calibration persisted to userdata['mentationFeedback']
+    const endedAt = (renderedResult && renderedResult.record && renderedResult.record.endedAt)
+      || (trace && trace.endedAt) || 0;
+    const fbKey = endedAt + ':' + step;
+    const existing = replayFeedbackCache && replayFeedbackCache.entries ? replayFeedbackCache.entries[fbKey] || null : null;
+    let currentVerdict = existing ? existing.verdict : null;
+    const selectedReasons = new Set(existing && Array.isArray(existing.reasons) ? existing.reasons : []);
+
+    const fbWrap = document.createElement('div');
+    fbWrap.className = 'replay-tom-calibrate';
+    const fbTitle = document.createElement('div');
+    fbTitle.className = 'replay-tom-label';
+    fbTitle.textContent = '4. Calibrate: did the model simulate your thinking accurately?';
+    const verdictRow = document.createElement('div');
+    verdictRow.className = 'replay-tom-verdict-row';
+    const badge = document.createElement('span');
+    badge.className = 'replay-tom-badge';
+    badge.textContent = existing ? 'Saved: ' + existing.verdict.toUpperCase() : 'Not rated yet';
+
+    let noteInput = null;
+    const persistFeedback = () => {
+      if (!currentVerdict || !endedAt) return;
+      if (replayFeedbackCache === null) replayFeedbackCache = { version: 1, entries: {} };
+      const claimType = tom.intent.kind !== 'deliberate' ? tom.intent.kind : tom.attention.mode;
+      const claimHeadline = tom.intent.kind !== 'deliberate' ? tom.intent.headline : tom.attention.headline;
+      replayFeedbackCache.entries[fbKey] = {
+        endedAt,
+        level: config.width === 30 ? 'Expert' : config.width === 16 ? 'Intermediate' : 'Beginner',
+        outcome: gameState === 'won' ? 'win' : 'loss',
+        stepIndex: step,
+        atMs: Number.isFinite(evaluation.atMs) ? Math.round(evaluation.atMs) : 0,
+        kind: evaluation.action,
+        col: tom.trigger !== null ? (tom.trigger % config.width) + 1 : 0,
+        row: tom.trigger !== null ? Math.floor(tom.trigger / config.width) + 1 : 0,
+        pressGapMs: tom.gapMs,
+        dist: tom.distCells,
+        modelVersion: tom.modelVersion,
+        claimType,
+        claimHeadline,
+        deductionStatus: tom.deduction.statusLabel,
+        verdict: currentVerdict,
+        reasons: [...selectedReasons],
+        note: noteInput ? noteInput.value.trim() : '',
+        updatedAt: Date.now(),
+      };
+      if (typeof persistUserdata === 'function') persistUserdata('mentationFeedback', replayFeedbackCache);
+      badge.textContent = 'Saved: ' + currentVerdict.toUpperCase();
+    };
+
+    const buttons = [
+      ['accurate', 'Accurate'],
+      ['partly', 'Partly right'],
+      ['wrong', 'Wrong'],
+    ].map(([id, text]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'ui-button';
+      b.dataset.verdict = id;
+      b.textContent = text;
+      b.setAttribute('aria-pressed', currentVerdict === id ? 'true' : 'false');
+      b.addEventListener('click', () => {
+        currentVerdict = id;
+        for (const other of buttons) other.setAttribute('aria-pressed', other.dataset.verdict === id ? 'true' : 'false');
+        persistFeedback();
+      });
+      return b;
+    });
+    verdictRow.append(...buttons, badge);
+
+    const reasonsGrid = document.createElement('div');
+    reasonsGrid.className = 'replay-tom-reasons';
+    for (const r of REPLAY_MENTATION_REASONS) {
+      const lbl = document.createElement('label');
+      lbl.className = 'replay-tom-reason';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = selectedReasons.has(r.id);
+      cb.addEventListener('change', () => {
+        if (cb.checked) selectedReasons.add(r.id);
+        else selectedReasons.delete(r.id);
+        if (!currentVerdict) {
+          currentVerdict = 'partly';
+          for (const other of buttons) other.setAttribute('aria-pressed', other.dataset.verdict === 'partly' ? 'true' : 'false');
+        }
+        persistFeedback();
+      });
+      lbl.append(cb, ' ' + r.label);
+      reasonsGrid.appendChild(lbl);
+    }
+
+    noteInput = document.createElement('input');
+    noteInput.type = 'text';
+    noteInput.className = 'replay-tom-note';
+    noteInput.placeholder = 'Optional note: what were you actually looking at or thinking?';
+    noteInput.value = existing && existing.note ? existing.note : '';
+    noteInput.addEventListener('change', () => {
+      if (!currentVerdict && noteInput.value.trim() !== '') {
+        currentVerdict = 'partly';
+        for (const other of buttons) other.setAttribute('aria-pressed', other.dataset.verdict === 'partly' ? 'true' : 'false');
+      }
+      persistFeedback();
+    });
+
+    const footLink = document.createElement('a');
+    footLink.className = 'replay-tom-foot-link';
+    footLink.href = 'training.html#training-inspector';
+    footLink.textContent = 'View calibration accuracy scoreboard & export feedback on Training & Mentation \u2192';
+
+    fbWrap.append(fbTitle, verdictRow, reasonsGrid, noteInput, footLink);
+    box.appendChild(fbWrap);
+
+    replayMentationPanel.replaceChildren(box);
+    replayMentationPanel.hidden = false;
+  };
+
+  if (replayFeedbackCache === null) {
+    ensureReplayFeedbackLoaded(() => {
+      if (replayEnabled && lastReplayToM === tom) buildCard();
+    });
+  }
+  buildCard();
 }
 
 function renderReplayFrame() {
@@ -484,7 +710,7 @@ function renderReplayFrame() {
   paintReplayFrame(model);
   renderReplayChoiceAreas(evaluation);
   renderReplayStatus(replayStatusParts(replayStep, decisions.length, evaluation));
-  renderReplayMentation(replayStep, decisions.length, evaluation, solver);
+  renderReplayMentation(replayStep, decisions, evaluation, solver);
   renderPathOverlay();
 }
 
@@ -961,6 +1187,87 @@ function paintPathCanvas() {
       ctx.textBaseline = 'middle';
       ctx.fillText(text, pillX + 4, pillY + pillH / 2 + 0.5);
       ctx.textBaseline = 'alphabetic';
+    }
+    // Theory-of-Mind board overlays: simulated visual attention focus halo,
+    // abandoned frontier check ring, and misclick intended-aim arrow.
+    if (lastReplayToM !== null && config.width > 0 && config.height > 0) {
+      const cellW = state.width / (config.width + 0.25);
+      const cellH = state.height / (config.height + 0.25);
+      const cellToPx = (cx, cy) => [(cx + 0.125) * cellW, (cy + 0.125) * cellH];
+
+      const focus = lastReplayToM.attention.focusCells || [];
+      if (focus.length > 0) {
+        let minC = config.width;
+        let maxC = -1;
+        let minR = config.height;
+        let maxR = -1;
+        for (const cIdx of focus) {
+          const c = cIdx % config.width;
+          const r = Math.floor(cIdx / config.width);
+          if (c < minC) minC = c;
+          if (c > maxC) maxC = c;
+          if (r < minR) minR = r;
+          if (r > maxR) maxR = r;
+        }
+        const [fx0, fy0] = cellToPx(minC - 0.15, minR - 0.15);
+        const [fx1, fy1] = cellToPx(maxC + 1.15, maxR + 1.15);
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(fx0, fy0, fx1 - fx0, fy1 - fy0, 6);
+        ctx.fillStyle = 'rgba(0, 87, 217, 0.06)';
+        ctx.fill();
+        ctx.setLineDash([5, 4]);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(0, 87, 217, 0.58)';
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      const ab = lastReplayToM.attention.abandonedFocus;
+      if (ab !== null) {
+        const [ax, ay] = cellToPx(ab.x, ab.y);
+        ctx.save();
+        ctx.beginPath();
+        ctx.setLineDash([4, 3]);
+        ctx.arc(ax, ay, cellW * 0.9, 0, Math.PI * 2);
+        ctx.lineWidth = 2.2;
+        ctx.strokeStyle = '#6e22a8';
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.font = 'bold 10px Arial, sans-serif';
+        const lbl = 'checked ' + ab.durMs + 'ms';
+        const lw = ctx.measureText(lbl).width + 8;
+        const lx = Math.max(2, Math.min(state.width - lw - 2, ax - lw / 2));
+        const ly = Math.max(2, ay - cellW * 0.9 - 16);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.94)';
+        ctx.fillRect(lx, ly, lw, 14);
+        ctx.strokeStyle = '#6e22a8';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(lx, ly, lw, 14);
+        ctx.fillStyle = '#5a189a';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(lbl, lx + 4, ly + 7.5);
+        ctx.restore();
+      }
+
+      if (lastReplayToM.intent.kind === 'spatial-aim-slip' && lastReplayToM.intent.intendedCell !== null && current !== undefined) {
+        const ic = lastReplayToM.intent.intendedCell;
+        const [ix, iy] = cellToPx((ic % config.width) + 0.5, Math.floor(ic / config.width) + 0.5);
+        ctx.save();
+        ctx.beginPath();
+        ctx.setLineDash([4, 3]);
+        ctx.moveTo(current.px, current.py);
+        ctx.lineTo(ix, iy);
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = '#d95f02';
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.arc(ix, iy, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#d95f02';
+        ctx.fill();
+        ctx.restore();
+      }
     }
   }
 }

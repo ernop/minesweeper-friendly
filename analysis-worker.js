@@ -1,14 +1,14 @@
 "use strict";
 
 importScripts('trend-fit.js?v=20260925-worker-analysis',
-  'game/trace-metrics.js?v=20261127-mentation-nav',
-  'game/evaluation.js?v=20261127-mentation-nav',
-  'game-data.js?v=20261125-rank-r1', 'game/metric-definitions.js?v=20261127-mentation-nav',
+  'game/trace-metrics.js?v=20261127-tom-replay',
+  'game/evaluation.js?v=20261127-tom-replay',
+  'game-data.js?v=20261125-rank-r1', 'game/metric-definitions.js?v=20261127-tom-replay',
   'board-shape.js?v=20261020-no-left-panel', 'zini.js?v=20261020-no-left-panel', 'board-metrics.js?v=20261020-no-left-panel',
-  'game/rankings.js?v=20261127-mentation-nav',
-  'game/charts.js?v=20261127-mentation-nav', 'game/game-data-chart.js?v=20261127-mentation-nav',
+  'game/rankings.js?v=20261127-tom-replay',
+  'game/charts.js?v=20261127-tom-replay', 'game/game-data-chart.js?v=20261127-tom-replay',
   'guardian-angel.js?v=20261123-guardian-angel-2', 'odds.js?v=20261123-guardian-angel-2', 'board-icons.js?v=20261105-glyph-sizes',
-  'game/replay-model.js?v=20261127-mentation-nav',
+  'game/replay-model.js?v=20261127-tom-replay',
   'during-game.js?v=20261124-switch-cost-w1');
 
 let config;

@@ -165,7 +165,7 @@ function userdataReady() {
     });
   });
 
-  const worker = new Worker('training-worker.js?v=20261127-mentation-nav');
+  const worker = new Worker('training-worker.js?v=20261127-tom-replay');
   worker.onmessage = ({ data }) => {
     worker.terminate();
     if (data.error !== undefined) showTrainingStatus('Training summary failed: ' + data.error, true);
@@ -1322,14 +1322,9 @@ function renderTrainingMindMap(data) {
         );
         if (ep.crop) row.appendChild(renderTrainingMiniBoard(ep.crop, true));
         if (typeof ep.stepIndex === 'number') {
-          const jumpBtn = trainingElement('button', 'training-crop-toggle', 'Inspect on full board \u2193');
-          jumpBtn.type = 'button';
-          jumpBtn.addEventListener('click', () => {
-            if (typeof inspectorJumpHandler === 'function') {
-              inspectorJumpHandler(g.endedAt, ep.stepIndex);
-            }
-          });
-          row.appendChild(jumpBtn);
+          const jumpLink = trainingElement('a', 'training-drill-link', 'Open in Replay \u2192');
+          jumpLink.href = 'index.html?replay=' + g.endedAt + '&step=' + ep.stepIndex;
+          row.appendChild(jumpLink);
         }
         return row;
       }));
@@ -1349,18 +1344,34 @@ function renderTrainingMindMap(data) {
 //-------INTERACTIVE MENTATION REPLAY INSPECTOR & GROUND-TRUTH CALIBRATION-------
 
 const INSPECTOR_FEEDBACK_REASONS = [
-  { id: 'guessed-without-proof', label: 'Actually guessed here (did not see the proof)' },
+  { id: 'misclick-aim', label: 'Actually a misclick / aim slip' },
+  { id: 'misclick-button', label: 'Button-order / left-right slip' },
+  { id: 'miscounted-number', label: 'Miscounted a number / thought it was satisfied' },
+  { id: 'guessed-without-proof', label: 'Actually guessed (did not see the proof)' },
+  { id: 'eyes-elsewhere', label: 'Was looking at a different part of the board' },
+  { id: 'different-clue', label: 'Knew it from a different clue or deduction' },
   { id: 'saw-different-proof', label: 'Knew it from a different clue or deduction' },
-  { id: 'eyes-elsewhere', label: 'Eyes were looking elsewhere on the board' },
+  { id: 'planned-order', label: 'Planned click order / intentionally deferred' },
+  { id: 'distracted', label: 'Checking mine count or momentary distraction' },
   { id: 'hand-slip', label: 'Already knew the move \u2014 hand or mouse slip' },
   { id: 'checking-counter', label: 'Checking mine count or top bar' },
   { id: 'genuinely-calculating', label: 'Genuinely calculating this pattern' },
-  { id: 'planned-order', label: 'Intentionally deferred / planned click order' },
   { id: 'missed-easier-area', label: 'Did not notice the easier counting area' },
   { id: 'outside-distraction', label: 'Momentary pause or distraction outside the board' },
 ];
 
 const INSPECTOR_CLAIM_LABELS = {
+  'spatial-aim-slip': 'Likely misclick (spatial aim slip)',
+  'button-order-slip': 'Likely misclick (button-order / 1.5-click slip)',
+  'counting-misread': 'Likely counting misread (hallucinated flag)',
+  'speculative-ocean-click': 'Deliberate speculative ocean click',
+  'abandoned-hypothesis': 'Checked another area and shifted focus',
+  'attention-tunnel': 'Attention tunnel (missed open safe frontier)',
+  'cursor-assisted-reading': 'Cursor-assisted clue reading',
+  'eyes-ahead-transition': 'Eyes-ahead lookahead jump',
+  'working-memory-queue': 'Working-memory chunk execution',
+  'area-switch': 'Shifted focus to a new frontier',
+  'local-read': 'Local frontier read',
   'eyes-ahead': 'Eyes-ahead lookahead jump',
   'dry-jump-search': 'Post-click search on dry jump',
   'slow-bail': 'Bail-first on slow shape while easy moves waited',
@@ -1389,11 +1400,11 @@ function renderInspectorScoreboard(container) {
   const box = trainingElement('div', 'training-inspector-scoreboard');
   const head = trainingElement('div', 'training-inspector-score-head');
   const title = trainingElement('h3', 'training-coach-subhead',
-    'Model accuracy & ground-truth calibration scoreboard (model: mentation-v1)');
+    'Model accuracy & ground-truth calibration scoreboard (mentation-v2)');
   head.appendChild(title);
 
   const summaryText = total === 0
-    ? 'Base-case calibration status: 0 moves reviewed so far. Step through any game below (or click "Next flagged episode") and mark whether the model\u2019s interpretation is Accurate, Partly right, or Wrong. Once you label 20\u201340 episodes across 3\u20135 games, click "Export feedback JSON" or "Copy feedback summary for chat" to share the data so we can calibrate mentation-v2.'
+    ? 'Base-case calibration status: 0 moves reviewed so far. Rewind any game in the Play Game Replay (step back < or click "First notable move >>") to see the Theory-of-Mind simulation on the full board and rate moves Accurate, Partly right, or Wrong. Once you label 20\u201340 episodes across 3\u20135 games, click "Export feedback JSON" or "Copy feedback summary for chat" to share the data.'
     : 'Reviewed ' + total + (total === 1 ? ' move' : ' moves') + ' across ' + gamesSet.size
       + (gamesSet.size === 1 ? ' game' : ' games') + ' \u00b7 '
       + Math.round(100 * accurate / total) + '% Accurate (' + accurate + ') \u00b7 '
@@ -1540,16 +1551,15 @@ function renderTrainingInspector(data) {
   }
 
   const lead = trainingElement('p', 'training-inline-def',
-    'Step through any traced win or late loss below to see the exact board state before each click, the bevel-calibrated cursor path (red-orange = hover < 2 squares/s, blue = slow drift 2\u201310 squares/s, green = fast flight 10+ squares/s), and what the mentation model claims you were thinking. Mark each claim Accurate, Partly right, or Wrong to track model accuracy over time and generate calibration data.');
+    'Mentation analysis (simulated visual attention focus, misclick/misread detection, exact witness-clue deduction proof, and Accurate / Partly right / Wrong calibration) is integrated directly into the Play Game Replay. Pick any recent traced game below to open it directly on the main Play Game board in Replay mode.');
 
   const scoreboardSlot = trainingElement('div', '');
   renderInspectorScoreboard(scoreboardSlot);
 
-  // Game selector & transport bar
-  const topBar = trainingElement('div', 'training-inspector-topbar');
+  const launcher = trainingElement('div', 'training-filter-row');
   const gameSelect = trainingElement('select', 'training-game-picker');
   gameSelect.id = 'inspector-game-select';
-  gameSelect.setAttribute('aria-label', 'Choose a traced game to inspect on the full board');
+  gameSelect.setAttribute('aria-label', 'Choose a traced game to open in Play Game Replay');
   games.forEach((g, idx) => {
     const opt = document.createElement('option');
     opt.value = String(idx);
@@ -1559,536 +1569,18 @@ function renderTrainingInspector(data) {
     gameSelect.appendChild(opt);
   });
 
-  const transport = trainingElement('div', 'training-inspector-transport');
-  const mkBtn = (text, title) => {
-    const b = trainingElement('button', 'training-filter-btn', text);
-    b.type = 'button';
-    if (title) b.title = title;
-    return b;
+  const openLink = trainingElement('a', 'training-drill-link', 'Open selected game in Play Game Replay \u2192');
+  const syncOpenLink = () => {
+    const g = games[Number(gameSelect.value)] || games[0];
+    openLink.href = 'index.html?replay=' + g.endedAt + '&step=0';
   };
-  const firstBtn = mkBtn('|<< First', 'First move');
-  const prevFlagBtn = mkBtn('<< Prev flagged', 'Previous notable mentation episode');
-  const prevBtn = mkBtn('< Prev', 'Previous move');
-  const playBtn = mkBtn('Play', 'Play move by move');
-  const nextBtn = mkBtn('Next >', 'Next move');
-  const nextFlagBtn = mkBtn('Next flagged >>', 'Next notable mentation episode');
-  const lastBtn = mkBtn('Last >>|', 'Final move');
+  gameSelect.addEventListener('change', syncOpenLink);
+  syncOpenLink();
+  launcher.append(gameSelect, openLink);
 
-  const slider = document.createElement('input');
-  slider.type = 'range';
-  slider.className = 'training-inspector-slider';
-  slider.min = '0';
-  slider.max = '0';
-  slider.value = '0';
-  slider.setAttribute('aria-label', 'Move index in inspected game');
-
-  const INSPECTOR_TILE_CHOICES = [16, 20, 22, 24, 28, 32, 36, 40, 48, 56, 64];
-  let tilePx = Number.isInteger(mentationFeedbackState.tilePx) && INSPECTOR_TILE_CHOICES.includes(mentationFeedbackState.tilePx)
-    ? mentationFeedbackState.tilePx
-    : (INSPECTOR_TILE_CHOICES.includes(playerGameCellSize) ? playerGameCellSize : 28);
-
-  const sizeWrap = trainingElement('label', 'training-game-meta', 'Square size ');
-  const sizeSelect = document.createElement('select');
-  sizeSelect.className = 'training-game-select';
-  sizeSelect.setAttribute('aria-label', 'Inspector board square size');
-  for (const sz of INSPECTOR_TILE_CHOICES) {
-    const opt = document.createElement('option');
-    opt.value = String(sz);
-    opt.textContent = sz + ' px' + (sz === playerGameCellSize ? ' (game)' : '');
-    opt.selected = sz === tilePx;
-    sizeSelect.appendChild(opt);
-  }
-  sizeWrap.appendChild(sizeSelect);
-
-  const stepReadout = trainingElement('span', 'training-game-meta', 'Loading trace\u2026');
-  transport.append(firstBtn, prevFlagBtn, prevBtn, playBtn, nextBtn, nextFlagBtn, lastBtn, slider, sizeWrap, stepReadout);
-  topBar.append(gameSelect, transport);
-
-  // Main 2-column stage: Left = Full board + cursor canvas + legend; Right = Claim & Ground-Truth Verdict Card
-  const stage = trainingElement('div', 'training-inspector-stage');
-  const boardCol = trainingElement('div', 'training-inspector-board-col');
-  const boardWrap = trainingElement('div', 'training-inspector-board-wrap');
-  const boardEl = trainingElement('div', 'training-mini-board training-inspector-board');
-  const canvasEl = document.createElement('canvas');
-  canvasEl.className = 'training-inspector-canvas';
-  boardWrap.append(boardEl, canvasEl);
-
-  const legend = trainingElement('p', 'training-key-line');
-  legend.innerHTML = '<strong>Board &amp; cursor key:</strong> '
-    + '<span class="training-key-chip training-key-safe"></span>target / newly opened '
-    + '<span class="training-key-chip training-key-witness"></span>witness clue number (proved the move) '
-    + '<span class="training-key-chip training-key-mine"></span>flag / mine '
-    + '<span class="training-key-chip training-key-chord"></span>chord / counting-safe open elsewhere '
-    + '<span class="training-key-chip training-key-guess"></span>detour / abandoned hover '
-    + ' \u00b7 <strong>Cursor trail:</strong> red-orange = hover (&lt;2 sq/s), blue = slow drift (2\u201310 sq/s), green = fast flight (10+ sq/s), O = start, X = click';
-  boardCol.append(boardWrap);
-
-  const claimCol = trainingElement('div', 'training-inspector-claim-col');
-  stage.append(boardCol, claimCol);
-
-  content.replaceChildren(lead, scoreboardSlot, topBar, legend, stage);
+  content.replaceChildren(lead, scoreboardSlot, launcher);
   section.dataset.status = 'ready';
   section.hidden = false;
-
-  let currentInspection = null;
-  let currentStepIdx = 0;
-  let playTimer = null;
-  let tileEls = [];
-
-  sizeSelect.addEventListener('change', () => {
-    const nextSz = Number(sizeSelect.value);
-    if (!INSPECTOR_TILE_CHOICES.includes(nextSz)) return;
-    tilePx = nextSz;
-    mentationFeedbackState.tilePx = tilePx;
-    saveMentationFeedback();
-    boardEl.style.setProperty('--insp-tile', tilePx + 'px');
-    drawStep(currentStepIdx);
-  });
-
-  const stopPlay = () => {
-    if (playTimer !== null) {
-      clearTimeout(playTimer);
-      playTimer = null;
-      playBtn.textContent = 'Play';
-    }
-  };
-
-  const drawStep = (idx) => {
-    if (!currentInspection || currentInspection.steps.length === 0) return;
-    currentStepIdx = Math.max(0, Math.min(currentInspection.steps.length - 1, idx));
-    slider.value = String(currentStepIdx);
-    const step = currentInspection.steps[currentStepIdx];
-    const { width, height } = currentInspection.board;
-    const flagMarkup = typeof flagSvg === 'function' ? flagSvg('classic', 100) : 'F';
-
-    stepReadout.textContent = 'Move ' + (currentStepIdx + 1) + ' of ' + currentInspection.steps.length
-      + ' \u00b7 ' + (step.atMs / 1000).toFixed(2) + ' s'
-      + ' \u00b7 ' + step.remSafe + ' safe left'
-      + (step.isFlaggedEpisode ? ' \u00b7 [flagged episode]' : '');
-
-    // Rebuild board grid if dimensions changed
-    boardEl.style.setProperty('--insp-tile', tilePx + 'px');
-    if (tileEls.length !== width * height) {
-      boardEl.style.setProperty('--insp-w', String(width));
-      boardEl.style.setProperty('--insp-h', String(height));
-      tileEls = [];
-      boardEl.replaceChildren();
-      for (let i = 0; i < width * height; i++) {
-        const cell = trainingElement('span', 'training-mini-tile');
-        cell.addEventListener('click', () => {
-          // Clicking a square jumps to the first step that acted on that square
-          if (!currentInspection) return;
-          const hit = currentInspection.steps.findIndex((st, sIdx) => sIdx > currentStepIdx && st.index === i);
-          const anyHit = hit !== -1 ? hit : currentInspection.steps.findIndex((st) => st.index === i);
-          if (anyHit !== -1) {
-            stopPlay();
-            drawStep(anyHit);
-          }
-        });
-        boardEl.appendChild(cell);
-        tileEls.push(cell);
-      }
-    }
-
-    const openedSet = new Set(step.openedCells || []);
-    const countingSafeSet = new Set(step.countingSafeCells || []);
-    const overlapSafeSet = new Set(step.overlapSafeCells || []);
-    const witnessSet = new Set(step.deduction && Array.isArray(step.deduction.witnessClues) ? step.deduction.witnessClues : []);
-
-    for (let i = 0; i < width * height; i++) {
-      const tile = tileEls[i];
-      tile.className = 'training-mini-tile';
-      tile.textContent = '';
-      tile.innerHTML = '';
-      if (step.revealedBefore[i]) {
-        tile.classList.add('training-mini-open');
-        const num = step.adjacent[i] || 0;
-        if (num > 0) {
-          tile.classList.add('training-mini-n' + num);
-          tile.textContent = String(num);
-        }
-        if (witnessSet.has(i)) {
-          tile.classList.add('training-insp-witness');
-        }
-      } else if (step.flaggedBefore[i]) {
-        tile.classList.add('training-mini-covered');
-        tile.innerHTML = flagMarkup;
-      } else {
-        tile.classList.add('training-mini-covered');
-        if (openedSet.has(i) && i !== step.index) {
-          tile.classList.add('training-insp-opened');
-        } else if (countingSafeSet.has(i) && i !== step.index) {
-          tile.classList.add('training-insp-easy-safe');
-        } else if (overlapSafeSet.has(i) && i !== step.index) {
-          tile.classList.add('training-insp-overlap-safe');
-        }
-      }
-      if (i === step.index) {
-        const markKind = step.kind === 'flag' || step.kind === 'unflag' ? 'mine'
-          : (step.kind === 'chord-multi' || step.kind === 'chord-single') ? 'chord'
-            : step.kind.startsWith('noop-') ? 'guess' : 'safe';
-        tile.classList.add('training-mini-mark', 'training-mini-mark-' + markKind);
-      }
-    }
-
-    // Draw cursor trajectory on overlay canvas
-    const dpr = window.devicePixelRatio || 1;
-    const cw = width * tilePx;
-    const ch = height * tilePx;
-    canvasEl.width = cw * dpr;
-    canvasEl.height = ch * dpr;
-    canvasEl.style.width = cw + 'px';
-    canvasEl.style.height = ch + 'px';
-    const ctx = canvasEl.getContext('2d');
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, cw, ch);
-
-    const pts = step.cursor && step.cursor.points ? step.cursor.points : [];
-    if (pts.length >= 2) {
-      for (let i = 0; i < pts.length - 1; i++) {
-        const p0 = pts[i];
-        const p1 = pts[i + 1];
-        ctx.beginPath();
-        ctx.moveTo(p0.x * tilePx, p0.y * tilePx);
-        ctx.lineTo(p1.x * tilePx, p1.y * tilePx);
-        ctx.lineWidth = p1.band === 'hover' ? 3.2 : p1.band === 'drift' ? 2.4 : 1.8;
-        ctx.strokeStyle = p1.band === 'hover'
-          ? 'rgba(210, 45, 25, 0.92)'
-          : p1.band === 'drift'
-            ? 'rgba(25, 105, 210, 0.88)'
-            : 'rgba(20, 150, 60, 0.78)';
-        ctx.stroke();
-      }
-      // Start point 'O'
-      const s0 = pts[0];
-      ctx.beginPath();
-      ctx.arc(s0.x * tilePx, s0.y * tilePx, 4, 0, Math.PI * 2);
-      ctx.fillStyle = '#ffffff';
-      ctx.fill();
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = '#000000';
-      ctx.stroke();
-
-      // End click point 'X'
-      const sEnd = pts[pts.length - 1];
-      const ex = sEnd.x * tilePx;
-      const ey = sEnd.y * tilePx;
-      ctx.beginPath();
-      ctx.moveTo(ex - 4, ey - 4);
-      ctx.lineTo(ex + 4, ey + 4);
-      ctx.moveTo(ex + 4, ey - 4);
-      ctx.lineTo(ex - 4, ey + 4);
-      ctx.lineWidth = 2.2;
-      ctx.strokeStyle = '#000000';
-      ctx.stroke();
-    }
-
-    if (step.cursor && step.cursor.detourSpot) {
-      const ds = step.cursor.detourSpot;
-      ctx.beginPath();
-      ctx.setLineDash([4, 3]);
-      ctx.arc(ds.x * tilePx, ds.y * tilePx, tilePx * 0.85, 0, Math.PI * 2);
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = '#b45f06';
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-
-    if (step.cursor && step.cursor.abandonedHover) {
-      const ah = step.cursor.abandonedHover;
-      const ax = ((ah.anchorCell % width) + 0.5) * tilePx;
-      const ay = (Math.floor(ah.anchorCell / width) + 0.5) * tilePx;
-      ctx.beginPath();
-      ctx.setLineDash([3, 3]);
-      ctx.arc(ax, ay, tilePx * 0.95, 0, Math.PI * 2);
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = '#6e22a8';
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-
-    // Render Right Column:
-    //   1. Logical Deduction & Board Knowledge ("What was known, how it was known, or why it was a guess")
-    //   2. Cursor & Thinking Mentation ("How you found & executed it")
-    //   3. Ground-Truth Verdict & Calibration Form
-    const claimNodes = [];
-    if (step.deduction) {
-      const ded = step.deduction;
-      const dedCard = trainingElement('div', 'training-inspector-deduction-card training-ded-' + ded.category);
-      dedCard.append(
-        trainingElement('div', 'training-trait-title',
-          '1. What was known vs. guess (col ' + step.col + ', row ' + step.row + '): ' + ded.statusLabel),
-        trainingElement('p', 'training-inspector-claim-detail',
-          'How it was known / why it was a guess: ' + ded.howKnown),
-      );
-      if (ded.boardKnowledge) {
-        dedCard.appendChild(trainingElement('p', 'training-trait-def', ded.boardKnowledge));
-      }
-      claimNodes.push(dedCard);
-    }
-
-    const ageText = step.ageSteps === 0 ? 'fresh (0 steps old)'
-      : step.ageSteps > 0 ? 'queued (' + step.ageSteps + (step.ageSteps === 1 ? ' step' : ' steps') + ' old)'
-        : 'n/a';
-    const kinText = [
-      'Action: ' + step.kind + ' at col ' + step.col + ', row ' + step.row,
-      'Press-to-press: ' + (step.pressGapMs !== null ? step.pressGapMs + ' ms' : 'start'),
-      step.cursor.departMs !== null ? 'Departure: ' + step.cursor.departMs + ' ms' : '',
-      step.cursor.preDownHoverMs !== null ? 'Pre-press hover: ' + step.cursor.preDownHoverMs + ' ms' : '',
-      step.holdMs !== null ? 'Button hold: ' + step.holdMs + ' ms' : '',
-      'Move distance: ' + step.dist + ' sq',
-      step.cursor.pathRatio !== null ? 'Path ratio: ' + step.cursor.pathRatio.toFixed(2) + '\u00d7' : '',
-      'Info age: ' + ageText,
-      'Easy counting elsewhere: ' + step.easyElsewhere,
-    ].filter(Boolean).join(' \u00b7 ');
-    claimNodes.push(trainingElement('p', 'training-inspector-kinematics', kinText));
-
-    for (const c of step.claims) {
-      const cBox = trainingElement('div', 'training-inspector-claim-card');
-      cBox.append(
-        trainingElement('div', 'training-trait-title', '2. Cognitive & cursor mentation (' + c.modelVersion + ' \u00b7 ' + c.typeLabel + '): ' + c.headline),
-        trainingElement('p', 'training-inspector-claim-detail', c.detail),
-      );
-      if (c.typeDefinition) {
-        cBox.appendChild(trainingElement('p', 'training-trait-def', 'Term definition: ' + c.typeDefinition));
-      }
-      claimNodes.push(cBox);
-    }
-
-    // Ground-Truth Verdict & Correction Form
-    const fbKey = currentInspection.endedAt + ':' + step.stepIndex;
-    const existing = mentationFeedbackState.entries[fbKey] || null;
-    const primary = step.primaryClaim || {
-      modelVersion: 'mentation-v1',
-      claimType: step.tier || 'other',
-      headline: step.techLabel + ' (' + (step.pressGapMs ?? 0) + ' ms)',
-    };
-
-    const fbBox = trainingElement('div', 'training-inspector-feedback-box');
-    fbBox.appendChild(trainingElement('div', 'training-trait-title',
-      'Check & calibrate: did the model understand what you were thinking on this move?'));
-
-    const verdictRow = trainingElement('div', 'training-filter-row');
-    const savedBadge = trainingElement('span', 'training-game-meta',
-      existing ? 'Saved verdict: ' + existing.verdict.toUpperCase() : 'Not reviewed yet');
-
-    let currentVerdict = existing ? existing.verdict : null;
-    const selectedReasons = new Set(existing && Array.isArray(existing.reasons) ? existing.reasons : []);
-    let noteInput = null;
-
-    const persistCurrentFeedback = () => {
-      if (!currentVerdict) return;
-      mentationFeedbackState.entries[fbKey] = {
-        endedAt: currentInspection.endedAt,
-        level: currentInspection.level,
-        outcome: currentInspection.outcome,
-        stepIndex: step.stepIndex,
-        atMs: step.atMs,
-        kind: step.kind,
-        col: step.col,
-        row: step.row,
-        pressGapMs: step.pressGapMs,
-        dist: step.dist,
-        ageSteps: step.ageSteps,
-        easyElsewhere: step.easyElsewhere,
-        pathRatio: step.cursor.pathRatio !== null ? Number(step.cursor.pathRatio.toFixed(2)) : null,
-        detourMs: step.cursor.detourMs,
-        slowOnClueMs: step.cursor.slowOnClueMs,
-        departMs: step.cursor.departMs,
-        preDownHoverMs: step.cursor.preDownHoverMs,
-        modelVersion: primary.modelVersion || 'mentation-v1',
-        claimType: primary.claimType,
-        claimHeadline: primary.headline,
-        verdict: currentVerdict,
-        reasons: [...selectedReasons],
-        note: noteInput ? noteInput.value.trim() : '',
-        updatedAt: Date.now(),
-      };
-      saveMentationFeedback();
-      savedBadge.textContent = 'Saved verdict: ' + currentVerdict.toUpperCase();
-      renderInspectorScoreboard(scoreboardSlot);
-    };
-
-    const verdictButtons = [
-      ['accurate', 'Accurate (model is right)'],
-      ['partly', 'Partly right'],
-      ['wrong', 'Wrong (misread my thinking)'],
-    ].map(([vId, vLabel]) => {
-      const btn = trainingElement('button', 'training-filter-btn', vLabel);
-      btn.type = 'button';
-      btn.dataset.verdict = vId;
-      btn.setAttribute('aria-pressed', currentVerdict === vId ? 'true' : 'false');
-      btn.addEventListener('click', () => {
-        currentVerdict = vId;
-        for (const b of verdictButtons) {
-          b.setAttribute('aria-pressed', b.dataset.verdict === currentVerdict ? 'true' : 'false');
-        }
-        persistCurrentFeedback();
-      });
-      return btn;
-    });
-    verdictRow.append(...verdictButtons, savedBadge);
-
-    const reasonsGrid = trainingElement('div', 'training-inspector-reasons');
-    for (const r of INSPECTOR_FEEDBACK_REASONS) {
-      const lbl = trainingElement('label', 'training-inspector-reason-label');
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.checked = selectedReasons.has(r.id);
-      cb.addEventListener('change', () => {
-        if (cb.checked) selectedReasons.add(r.id);
-        else selectedReasons.delete(r.id);
-        if (!currentVerdict) {
-          currentVerdict = 'partly';
-          for (const b of verdictButtons) {
-            b.setAttribute('aria-pressed', b.dataset.verdict === currentVerdict ? 'true' : 'false');
-          }
-        }
-        persistCurrentFeedback();
-      });
-      lbl.append(cb, ' ' + r.label);
-      reasonsGrid.appendChild(lbl);
-    }
-
-    noteInput = document.createElement('input');
-    noteInput.type = 'text';
-    noteInput.className = 'training-inspector-note';
-    noteInput.placeholder = 'Optional note: what were you actually thinking or looking at on this move?';
-    noteInput.value = existing && existing.note ? existing.note : '';
-    noteInput.addEventListener('change', () => {
-      if (!currentVerdict && noteInput.value.trim() !== '') {
-        currentVerdict = 'partly';
-        for (const b of verdictButtons) {
-          b.setAttribute('aria-pressed', b.dataset.verdict === currentVerdict ? 'true' : 'false');
-        }
-      }
-      persistCurrentFeedback();
-    });
-
-    fbBox.append(verdictRow, reasonsGrid, noteInput);
-    claimNodes.push(fbBox);
-    claimCol.replaceChildren(...claimNodes);
-  };
-
-  firstBtn.addEventListener('click', () => { stopPlay(); drawStep(0); });
-  prevBtn.addEventListener('click', () => { stopPlay(); drawStep(currentStepIdx - 1); });
-  nextBtn.addEventListener('click', () => { stopPlay(); drawStep(currentStepIdx + 1); });
-  lastBtn.addEventListener('click', () => {
-    stopPlay();
-    if (currentInspection) drawStep(currentInspection.steps.length - 1);
-  });
-  prevFlagBtn.addEventListener('click', () => {
-    stopPlay();
-    if (!currentInspection) return;
-    for (let i = currentStepIdx - 1; i >= 0; i--) {
-      if (currentInspection.steps[i].isFlaggedEpisode) {
-        drawStep(i);
-        return;
-      }
-    }
-    drawStep(0);
-  });
-  nextFlagBtn.addEventListener('click', () => {
-    stopPlay();
-    if (!currentInspection) return;
-    for (let i = currentStepIdx + 1; i < currentInspection.steps.length; i++) {
-      if (currentInspection.steps[i].isFlaggedEpisode) {
-        drawStep(i);
-        return;
-      }
-    }
-    drawStep(currentInspection.steps.length - 1);
-  });
-  slider.addEventListener('input', () => {
-    stopPlay();
-    drawStep(Number(slider.value));
-  });
-  playBtn.addEventListener('click', () => {
-    if (playTimer !== null) {
-      stopPlay();
-      return;
-    }
-    if (!currentInspection) return;
-    if (currentStepIdx >= currentInspection.steps.length - 1) drawStep(0);
-    playBtn.textContent = 'Pause';
-    const tick = () => {
-      if (!currentInspection || currentStepIdx >= currentInspection.steps.length - 1) {
-        stopPlay();
-        return;
-      }
-      drawStep(currentStepIdx + 1);
-      const nextStep = currentInspection.steps[currentStepIdx + 1];
-      const delay = nextStep && nextStep.pressGapMs ? Math.min(1200, Math.max(120, nextStep.pressGapMs)) : 300;
-      playTimer = setTimeout(tick, delay);
-    };
-    playTimer = setTimeout(tick, 250);
-  });
-
-  const requestGameInspection = (gameIdx, targetStepIdx = null) => {
-    stopPlay();
-    const g = games[gameIdx];
-    if (!g || !activeMindMapWorker || !activeDatabaseInfo) return;
-    const reqId = ++inspectorRequestCounter;
-    stepReadout.textContent = 'Reconstructing board & cursor trace\u2026';
-    window._onMindMapInspectReply = (reply) => {
-      if (reply.requestId !== reqId) return;
-      if (reply.error) {
-        stepReadout.textContent = reply.error;
-        return;
-      }
-      currentInspection = reply.inspection;
-      slider.max = String(Math.max(0, currentInspection.steps.length - 1));
-      if (targetStepIdx !== null) {
-        drawStep(targetStepIdx);
-      } else {
-        const firstFlagged = currentInspection.steps.findIndex((st) => st.isFlaggedEpisode);
-        drawStep(firstFlagged !== -1 ? firstFlagged : 0);
-      }
-    };
-    activeMindMapWorker.postMessage({
-      action: 'inspect',
-      requestId: reqId,
-      database: activeDatabaseInfo,
-      record: g,
-      spec: g.spec,
-    });
-  };
-
-  gameSelect.addEventListener('change', () => {
-    requestGameInspection(Number(gameSelect.value), null);
-  });
-
-  inspectorJumpHandler = (endedAt, stepIndex) => {
-    const idx = games.findIndex((g) => g.endedAt === endedAt);
-    if (idx === -1) return;
-    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    if (Number(gameSelect.value) === idx && currentInspection && currentInspection.endedAt === endedAt) {
-      stopPlay();
-      drawStep(stepIndex);
-    } else {
-      gameSelect.value = String(idx);
-      requestGameInspection(idx, stepIndex);
-    }
-  };
-
-  let initialGameIdx = 0;
-  let initialStepIdx = null;
-  if (typeof URLSearchParams !== 'undefined') {
-    const params = new URLSearchParams(location.search);
-    const wantedGame = Number(params.get('game'));
-    if (Number.isFinite(wantedGame) && wantedGame > 0) {
-      const foundIdx = games.findIndex((g) => g.endedAt === wantedGame);
-      if (foundIdx !== -1) {
-        initialGameIdx = foundIdx;
-        gameSelect.value = String(foundIdx);
-      }
-    }
-    if (params.has('step')) {
-      const wantedStep = Number(params.get('step'));
-      if (Number.isInteger(wantedStep) && wantedStep >= 0) initialStepIdx = wantedStep;
-    }
-  }
-  requestGameInspection(initialGameIdx, initialStepIdx);
 }
 
 function renderTraining(summary) {

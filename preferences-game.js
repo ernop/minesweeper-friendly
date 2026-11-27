@@ -101,9 +101,39 @@ function rememberReplayPosition() {
   rememberPreference('replayPosition', { endedAt: renderedResult.record.endedAt, step: replayStep });
 }
 
-// The finished game a reload shows again: the one the saved view names, when
-// this history holds it. Its board takes the place of a newly dealt one.
+let urlReplayRequest = null;
+
+// The finished game a reload shows again: either an explicit ?replay=<endedAt>
+// link from Training & Mentation, or the saved view's replayPosition when this
+// history holds it. Its board takes the place of a newly dealt one.
 function savedResultToShow() {
+  urlReplayRequest = null;
+  if (typeof URLSearchParams !== 'undefined') {
+    const params = new URLSearchParams(location.search);
+    const wantedReplay = params.has('replay') ? Number(params.get('replay')) : NaN;
+    if (Number.isFinite(wantedReplay) && wantedReplay > 0) {
+      for (const [key, list] of Object.entries(history)) {
+        if (!Array.isArray(list)) continue;
+        const found = list.find((r) => r && r.endedAt === wantedReplay);
+        if (found) {
+          const m = key.match(/^(\d+)x(\d+)\/(\d+)@(.+)$/);
+          if (m) {
+            const w = Number(m[1]);
+            const h = Number(m[2]);
+            const mines = Number(m[3]);
+            config = { width: w, height: h, mines };
+            const diff = Object.entries(DIFFICULTIES).find(([, d]) => d.width === w && d.height === h && d.mines === mines);
+            settings.difficulty = diff ? diff[0] : 'custom';
+            if (!diff) settings.customBoard = { width: w, height: h, mines };
+            syncGameChoice();
+          }
+          const wantedStep = params.has('step') ? Number(params.get('step')) : 0;
+          urlReplayRequest = { key, step: Number.isInteger(wantedStep) && wantedStep >= 0 ? wantedStep : 0 };
+          return found;
+        }
+      }
+    }
+  }
   const endedAt = settings.replayPosition.endedAt;
   if (settings.resultView === 'scores' || endedAt === null || trialIsActive() || boardLabActive()) return null;
   // Before the first board froze its generator, the chosen mode's history.
@@ -118,7 +148,7 @@ function savedResultToShow() {
 
 // `record` is savedResultToShow's; init dealt no board when it is a game.
 async function restorePreferredResult(record) {
-  if (settings.resultView === 'scores') {
+  if (urlReplayRequest === null && settings.resultView === 'scores') {
     restoredAnalysisReady = Promise.resolve(showScoresForCurrentMode());
     return;
   }
@@ -129,8 +159,10 @@ async function restorePreferredResult(record) {
     newGame();
     return;
   }
-  restoredAnalysisReady = showSavedGame(record, history[modeKey()], stored, settings.replayPosition.step,
-    settings.resultView === 'review' ? settings.reviewList : undefined);
+  const listKey = urlReplayRequest !== null ? urlReplayRequest.key : modeKey();
+  const initialStep = urlReplayRequest !== null ? urlReplayRequest.step : settings.replayPosition.step;
+  restoredAnalysisReady = showSavedGame(record, history[listKey] || [], stored, initialStep,
+    urlReplayRequest === null && settings.resultView === 'review' ? settings.reviewList : undefined);
 }
 
 // Shows a finished game of this history from its stored trace on the

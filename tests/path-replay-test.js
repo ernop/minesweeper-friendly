@@ -354,6 +354,32 @@ check('only the cell\'s own glyph dims on a proven mine, not the mark-mine hint'
     ment.statusLabel.includes('KNOWN SAFE CHORD')
       && ment.howKnown.includes('the 1 at (1, 1)')
       && ment.witnessClues.includes(0));
+  // Theory-of-Mind spatial aim slip detection: click near left edge of proven mine (5)
+  // directly beside proven-safe square (4) -> detects spatial-aim-slip toward cell 4.
+  const slipEval = {
+    action: 'reveal',
+    atMs: 2100,
+    triggerCell: 5,
+    selected: [5],
+    choices: [{ kind: 'guaranteed-safe-reveal', risk: 0, cells: '4' }],
+    position: { width: 3, height: 2, mines: 2, cells: '121F..' },
+  };
+  const slipDecisions = [
+    { t: 1700, x: 20, y: 20, evaluation },
+    { t: 2100, x: 88, y: 65, evaluation: slipEval },
+  ];
+  const slipTrace = {
+    t: [1700, 1900, 2100],
+    x: [20, 60, 88],
+    y: [20, 40, 65],
+    events: [{ kind: 'layout', t: 0, left: 0, top: 0, width: 130, height: 90 }],
+  };
+  const tom = replayTheoryOfMind(1, slipDecisions, slipTrace, solver);
+  check('theory of mind detects spatial aim slip toward adjacent proven-safe square',
+    tom.modelVersion === 'mentation-v2'
+      && tom.intent.kind === 'spatial-aim-slip'
+      && tom.intent.intendedCell === 4
+      && tom.isNotable === true);
 }
 
 {
