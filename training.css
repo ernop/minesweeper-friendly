@@ -690,6 +690,42 @@ body.training-page .return-to-game {
   background: #cdeccd !important;
 }
 
+.training-insp-witness {
+  box-shadow: inset 0 0 0 2.5px #0057d9 !important;
+  background: #dceeff !important;
+}
+
+.training-key-witness {
+  background: #dceeff;
+  border: 2px solid #0057d9;
+}
+
+.training-inspector-deduction-card {
+  padding: 10px 12px;
+  border: 1px solid #b9c8d2;
+  border-left: 4px solid #1b8a3f;
+  border-radius: 6px;
+  background: #f0f9f2;
+}
+
+.training-ded-known-mine {
+  border-left-color: #0057d9;
+  background: #f0f6fc;
+}
+
+.training-ded-unforced-guess,
+.training-ded-blunder-mine,
+.training-ded-wrong-flag {
+  border-left-color: #c62828;
+  background: #fff4f4;
+}
+
+.training-ded-forced-guess,
+.training-ded-noop {
+  border-left-color: #b45f06;
+  background: #fff9ef;
+}
+
 .training-insp-easy-safe::before {
   content: '';
   position: absolute;

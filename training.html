@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="pages-redirect.js?v=20260926-pages-redirect-2"></script>
 <title>Minesweeper - Training</title>
-<link rel="stylesheet" href="style.css?v=20261125-coach-m1">
-<link rel="stylesheet" href="training.css?v=20261127-cell-size">
+<link rel="stylesheet" href="style.css?v=20261127-mentation-nav">
+<link rel="stylesheet" href="training.css?v=20261127-mentation-nav">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 </head>
 <body class="training-page">
@@ -15,13 +15,28 @@
 </div>
 <main id="training-layout">
   <header id="training-page-header">
-    <div class="training-nav-row">
-      <a class="return-to-game" href="index.html">&larr; return to game</a>
-      <a class="return-to-game" href="problems.html">problems &amp; skill drills &rarr;</a>
-      <a class="return-to-game" href="self-check.html">30s self-check &rarr;</a>
-    </div>
-    <h1>Training: Expert under 60 seconds</h1>
+    <nav class="training-nav-row" aria-label="Site pages">
+      <a class="return-to-game" href="index.html">&larr; Play Game</a>
+      <a class="return-to-game" href="training.html" aria-current="page">Training &amp; Mentation</a>
+      <a class="return-to-game" href="#training-inspector">Mentation Inspector</a>
+      <a class="return-to-game" href="problems.html">Problems &amp; Drills</a>
+      <a class="return-to-game" href="self-check.html">30s Self-Check</a>
+      <a class="return-to-game" href="settings.html">Settings</a>
+    </nav>
+    <h1>Training &amp; Mentation: Expert under 60 seconds</h1>
+    <nav id="training-section-nav" class="training-filter-row" aria-label="Jump to section on this page">
+      <span class="training-game-meta"><strong>Sections on this page:</strong></span>
+      <a class="return-to-game" href="#training-inspector">Mentation Replay Inspector</a>
+      <a class="return-to-game" href="#training-now">Now &amp; Bottleneck</a>
+      <a class="return-to-game" href="#training-mind-map">Technique &amp; Thinking Mind-Map</a>
+      <a class="return-to-game" href="#training-traits">Ranked Traits</a>
+      <a class="return-to-game" href="#training-stages">Stages</a>
+      <a class="return-to-game" href="#training-coach">Coaching Transfer</a>
+      <a class="return-to-game" href="#training-budget">Time Budget &amp; Switch Cost</a>
+      <a class="return-to-game" href="#training-plan">The Plan</a>
+    </nav>
     <div id="training-launch-bar" class="training-filter-row" aria-label="Launch practice modes">
+      <span class="training-game-meta"><strong>Launch practice:</strong></span>
       <button type="button" class="training-filter-btn" data-launch-mode="standard" data-launch-diff="expert">Play Standard Expert</button>
       <button type="button" class="training-filter-btn" data-launch-mode="coach-no-waste">Coach: No-waste</button>
       <button type="button" class="training-filter-btn" data-launch-mode="coach-early-bail">Coach: Early bail</button>
@@ -38,6 +53,16 @@
     <div id="training-now-cards"></div>
   </section>
 
+  <section class="training-section" id="training-inspector" hidden aria-labelledby="training-inspector-heading">
+    <h2 id="training-inspector-heading">Mentation replay inspector &amp; ground-truth calibration</h2>
+    <div id="training-inspector-content"></div>
+  </section>
+
+  <section class="training-section" id="training-mind-map" hidden aria-labelledby="training-mind-map-heading">
+    <h2 id="training-mind-map-heading">Technique &amp; thinking mind-map</h2>
+    <div id="training-mind-map-content"></div>
+  </section>
+
   <section class="training-section" id="training-traits" hidden aria-labelledby="training-traits-heading">
     <h2 id="training-traits-heading">What stands out &amp; ranked performance traits</h2>
     <div id="training-traits-content"></div>
@@ -46,16 +71,6 @@
   <section class="training-section" id="training-stages" hidden aria-labelledby="training-stages-heading">
     <h2 id="training-stages-heading">Stages</h2>
     <div id="training-stage-list"></div>
-  </section>
-
-  <section class="training-section" id="training-mind-map" hidden aria-labelledby="training-mind-map-heading">
-    <h2 id="training-mind-map-heading">Technique &amp; thinking mind-map</h2>
-    <div id="training-mind-map-content"></div>
-  </section>
-
-  <section class="training-section" id="training-inspector" hidden aria-labelledby="training-inspector-heading">
-    <h2 id="training-inspector-heading">Mentation replay inspector &amp; ground-truth calibration</h2>
-    <div id="training-inspector-content"></div>
   </section>
 
   <section class="training-section" id="training-coach" hidden aria-labelledby="training-coach-heading">
@@ -209,6 +224,6 @@
 <script src="fuseki-stats.js?v=20261011-play-statistics"></script>
 <script src="storage.js?v=20261123-guardian-angel"></script>
 <script src="board-icons.js?v=20261105-glyph-sizes"></script>
-<script src="training-page.js?v=20261127-cell-size"></script>
+<script src="training-page.js?v=20261127-mentation-nav"></script>
 </body>
 </html>

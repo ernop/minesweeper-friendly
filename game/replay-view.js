@@ -49,6 +49,7 @@ const replaySliderValue = document.getElementById('replay-slider-value');
 const replayOverlayControl = document.getElementById('replay-overlay-control');
 const replayOverlayButtons =
   [...replayOverlayControl.querySelectorAll('[data-replay-overlay]')];
+const replayMentation = document.getElementById('replay-mentation');
 
 function pathViewAvailable() {
   return (gameState === 'won' || gameState === 'lost')
@@ -429,6 +430,40 @@ function renderReplayStatus(parts) {
 
 function renderReplayEndStatus(parts) {
   replayStatus.textContent = parts.done + ' / ' + parts.count + ' actions · Finished board';
+  if (replayMentation) {
+    const heading = document.createElement('span');
+    heading.className = 'path-view-heading';
+    heading.textContent = 'Mentation';
+    const copy = document.createElement('span');
+    copy.className = 'replay-mentation-copy';
+    copy.textContent = 'Step back (<) or drag the slider to see what was known, how it was known, or whether each click was a guess · ';
+    const link = document.createElement('a');
+    link.className = 'ui-button';
+    link.href = 'training.html' + (trace && trace.endedAt ? '?game=' + trace.endedAt : '') + '#training-inspector';
+    link.textContent = 'Open in Mentation Replay Inspector \u2192';
+    replayMentation.replaceChildren(heading, copy, link);
+  }
+}
+
+function renderReplayMentation(step, count, evaluation, solver) {
+  if (!replayMentation) return;
+  const info = replayMentationExplanation(step, count, evaluation, solver);
+  for (const wIdx of info.witnessClues || []) {
+    if (cellElements[wIdx]) cellElements[wIdx].classList.add('replay-witness');
+  }
+  const heading = document.createElement('span');
+  heading.className = 'path-view-heading';
+  heading.textContent = 'Mentation';
+  const body = document.createElement('span');
+  body.className = 'replay-mentation-copy';
+  const strong = document.createElement('strong');
+  strong.textContent = 'Move ' + (step + 1) + ' of ' + count + ': ' + info.statusLabel;
+  body.append(strong, ' \u2014 ' + info.howKnown + ' (' + info.boardSummary + ') ');
+  const link = document.createElement('a');
+  link.className = 'ui-button';
+  link.href = 'training.html' + (trace && trace.endedAt ? '?game=' + trace.endedAt + '&step=' + step : '') + '#training-inspector';
+  link.textContent = 'Calibrate in Mentation Inspector \u2192';
+  replayMentation.replaceChildren(heading, body, link);
 }
 
 function renderReplayFrame() {
@@ -442,13 +477,14 @@ function renderReplayFrame() {
   replayStep = Math.max(0, Math.min(decisions.length - 1, replayStep));
   const evaluation = decisions[replayStep].evaluation;
   const position = evaluation.position;
+  const solver = replaySolverAt(replayStep, position);
   const wantSolver = settings.replayOverlays.moves || settings.replayOverlays.mines
     || settings.replayOverlays.probs;
-  const solver = wantSolver ? replaySolverAt(replayStep, position) : null;
-  const model = replayFrameModel(evaluation, solver, settings.replayOverlays);
+  const model = replayFrameModel(evaluation, wantSolver ? solver : null, settings.replayOverlays);
   paintReplayFrame(model);
   renderReplayChoiceAreas(evaluation);
   renderReplayStatus(replayStatusParts(replayStep, decisions.length, evaluation));
+  renderReplayMentation(replayStep, decisions.length, evaluation, solver);
   renderPathOverlay();
 }
 

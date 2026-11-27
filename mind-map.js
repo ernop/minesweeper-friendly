@@ -1789,9 +1789,21 @@ const MIND_MAP_CLAIM_TYPES = Object.freeze({
     label: 'Pre-death flow breakdown move',
     definition: 'One of the final 5 moves before a late loss (past 20 s), tracking tempo slowdown, cross-board jumping, no-op spikes, or missed safe moves leading into the fatal click.',
   },
+  'unforced-guess': {
+    id: 'unforced-guess',
+    label: 'Unforced guess while proven-safe moves existed',
+    definition: 'Clicked or flagged a square that was not logically proven by the visible numbers while at least one proven-safe square was already open elsewhere on the board.',
+  },
+  'forced-guess': {
+    id: 'forced-guess',
+    label: 'Forced guess (zero proven-safe squares on board)',
+    definition: 'Guessed a square when no logically provable safe square existed anywhere on the board.',
+  },
 });
 
 const MIND_MAP_FEEDBACK_REASONS = Object.freeze([
+  { id: 'guessed-without-proof', label: 'Actually guessed here (did not see the proof)' },
+  { id: 'saw-different-proof', label: 'Knew it from a different clue or deduction' },
   { id: 'eyes-elsewhere', label: 'Eyes were looking elsewhere on the board' },
   { id: 'hand-slip', label: 'Already knew the move \u2014 hand or mouse slip' },
   { id: 'checking-counter', label: 'Checking mine count or top bar' },
@@ -1800,6 +1812,399 @@ const MIND_MAP_FEEDBACK_REASONS = Object.freeze([
   { id: 'missed-easier-area', label: 'Did not notice the easier counting area' },
   { id: 'outside-distraction', label: 'Momentary pause or distraction outside the board' },
 ]);
+
+// Explain for one move in a replay:
+//   1. What was known vs. a guess (Known Safe, Known Mine, Known Safe Chord,
+//      Unforced Guess, Forced Guess, Blunder Into Known Mine, Wrong Flag, No-op)
+//   2. How it was known (the exact revealed witness clue numbers on the board
+//      and the step-by-step mine-count or overlap reason they prove the square)
+//   3. Which witness clue cells on the board proved the deduction
+//   4. What else was known on the board at that moment
+function mindMapExplainTargetProof(view, board, targetIndex, fact, level, earlier, tech) {
+  const w = board.width;
+  const h = board.height;
+  const shortCoord = (idx) => '(' + ((idx % w) + 1) + ', ' + (Math.floor(idx / w) + 1) + ')';
+  const clueName = (idx) => 'the ' + view.adjacent[idx] + ' at ' + shortCoord(idx);
+  const aroundOf = (idx) => {
+    if (view.around && view.around[idx]) return view.around[idx];
+    const x = idx % w;
+    const y = Math.floor(idx / w);
+    const out = [];
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if ((dx || dy) && x + dx >= 0 && x + dx < w && y + dy >= 0 && y + dy < h) {
+          out.push((y + dy) * w + (x + dx));
+        }
+      }
+    }
+    return out;
+  };
+
+  const adjClues = aroundOf(targetIndex).filter((n) => view.revealed[n] && view.adjacent[n] > 0);
+
+  // 1A. Direct 1-number counting using placed flags
+  for (const c of adjClues) {
+    const val = view.adjacent[c];
+    const nbs = aroundOf(c);
+    const flg = nbs.filter((n) => !view.revealed[n] && view.flagged[n]);
+    const cov = nbs.filter((n) => !view.revealed[n] && !view.flagged[n]);
+    if (fact === 2 && flg.length === val) {
+      return {
+        ruleLabel: '1-number counting',
+        howKnown: '1-number counting from ' + clueName(c) + ': all ' + val + ' of its mines are already flagged at '
+          + flg.map(shortCoord).join(', ') + ', so its remaining covered neighbor ' + shortCoord(targetIndex) + ' is provably safe.',
+        witnessClues: [c],
+      };
+    }
+    if (fact === 1 && flg.length + cov.length === val) {
+      return {
+        ruleLabel: '1-number counting',
+        howKnown: '1-number counting from ' + clueName(c) + ': it needs ' + val + ' ' + (val === 1 ? 'mine' : 'mines')
+          + (flg.length > 0 ? ' (' + flg.length + ' already flagged at ' + flg.map(shortCoord).join(', ') + ')' : '')
+          + ' and has only ' + cov.length + ' covered ' + (cov.length === 1 ? 'neighbor' : 'neighbors') + ' left ('
+          + cov.map(shortCoord).join(', ') + '), so ' + shortCoord(targetIndex) + ' is provably a mine.',
+        witnessClues: [c],
+      };
+    }
+  }
+
+  // 1B. No-flag 1-number counting (using known counting mines/safes without flags)
+  const isKnownCountingMine = (n) => !view.revealed[n] && (view.flagged[n]
+    || Boolean(earlier && earlier.facts.get(n) === 1 && earlier.levelOf.get(n) === 'counting'));
+  const isKnownCountingSafeOther = (n) => !view.revealed[n] && !view.flagged[n] && n !== targetIndex
+    && Boolean(earlier && earlier.facts.get(n) === 2 && earlier.levelOf.get(n) === 'counting');
+
+  for (const c of adjClues) {
+    const val = view.adjacent[c];
+    const nbs = aroundOf(c);
+    const knownMines = nbs.filter(isKnownCountingMine);
+    const activeCov = nbs.filter((n) => !view.revealed[n] && !isKnownCountingMine(n) && !isKnownCountingSafeOther(n));
+    if (fact === 2 && knownMines.length === val) {
+      const witnesses = [c];
+      for (const m of knownMines) {
+        if (!view.flagged[m]) {
+          for (const mc of aroundOf(m)) {
+            if (view.revealed[mc] && view.adjacent[mc] > 0 && !witnesses.includes(mc)) {
+              const mNbs = aroundOf(mc).filter((n) => !view.revealed[n]);
+              if (mNbs.length === view.adjacent[mc]) {
+                witnesses.push(mc);
+                break;
+              }
+            }
+          }
+        }
+      }
+      return {
+        ruleLabel: '1-number counting (no flags)',
+        howKnown: 'No-flag 1-number counting from ' + clueName(c) + ': all ' + val + ' of its mines are already known at '
+          + knownMines.map((m) => shortCoord(m) + (view.flagged[m] ? ' [flagged]' : ' [known mine]')).join(', ')
+          + ', so its remaining covered neighbor ' + shortCoord(targetIndex) + ' is provably safe.',
+        witnessClues: witnesses,
+      };
+    }
+    if (fact === 1 && knownMines.length + activeCov.length === val) {
+      return {
+        ruleLabel: '1-number counting (no flags)',
+        howKnown: 'No-flag 1-number counting from ' + clueName(c) + ': after accounting for known neighbors, only '
+          + (knownMines.length + activeCov.length) + ' covered ' + (val === 1 ? 'square' : 'squares')
+          + ' can hold its ' + val + ' ' + (val === 1 ? 'mine' : 'mines') + ', proving ' + shortCoord(targetIndex) + ' is a mine.',
+        witnessClues: [c],
+      };
+    }
+  }
+
+  // 2. Two-number overlap (1-1, 1-2, subset difference) between adjacent clue c1 and nearby clue c2
+  for (const useReduced of [false, true]) {
+    const clueState = (c) => {
+      const nbs = aroundOf(c);
+      const mines = nbs.filter((n) => !view.revealed[n] && (view.flagged[n] || (useReduced && isKnownCountingMine(n))));
+      const unk = nbs.filter((n) => !view.revealed[n] && !mines.includes(n) && !(useReduced && isKnownCountingSafeOther(n)));
+      return { rem: view.adjacent[c] - mines.length, unk };
+    };
+    for (const c1 of adjClues) {
+      const st1 = clueState(c1);
+      if (!st1.unk.includes(targetIndex) || st1.rem < 0) continue;
+      const nearby = new Set();
+      for (const u of st1.unk) {
+        for (const nb of aroundOf(u)) {
+          if (nb !== c1 && view.revealed[nb] && view.adjacent[nb] > 0) nearby.add(nb);
+        }
+      }
+      for (const c2 of nearby) {
+        const st2 = clueState(c2);
+        if (st2.rem < 0 || st2.unk.includes(targetIndex)) continue;
+        const shared = st1.unk.filter((n) => st2.unk.includes(n));
+        if (shared.length === 0) continue;
+        const only1 = st1.unk.filter((n) => !st2.unk.includes(n));
+        const only2 = st2.unk.filter((n) => !st1.unk.includes(n));
+        const forcedIntoSharedBy2 = st2.rem - only2.length;
+        const maxInSharedBy2 = Math.min(st2.rem, shared.length);
+        if (fact === 2 && forcedIntoSharedBy2 === st1.rem && st1.rem > 0) {
+          return {
+            ruleLabel: '2-number overlap' + (tech ? ' (' + tech.label + ')' : ''),
+            howKnown: '2-number overlap between ' + clueName(c2) + ' and ' + clueName(c1) + ': '
+              + clueName(c2) + ' needs ' + st2.rem + ' more ' + (st2.rem === 1 ? 'mine' : 'mines')
+              + ', forcing ' + st1.rem + ' ' + (st1.rem === 1 ? 'mine' : 'mines') + ' into their shared squares ('
+              + shared.map(shortCoord).join(', ') + '); that satisfies ' + clueName(c1)
+              + ', proving ' + shortCoord(targetIndex) + ' safe.',
+            witnessClues: [c1, c2],
+          };
+        }
+        if (fact === 1 && st1.rem - maxInSharedBy2 === only1.length && only1.length > 0) {
+          return {
+            ruleLabel: '2-number overlap' + (tech ? ' (' + tech.label + ')' : ''),
+            howKnown: '2-number overlap between ' + clueName(c1) + ' and ' + clueName(c2) + ': at most '
+              + maxInSharedBy2 + ' ' + (maxInSharedBy2 === 1 ? 'mine' : 'mines') + ' can sit in their shared squares ('
+              + shared.map(shortCoord).join(', ') + ') without overflowing ' + clueName(c2)
+              + ', forcing the remaining ' + (st1.rem - maxInSharedBy2) + ' '
+              + (st1.rem - maxInSharedBy2 === 1 ? 'mine' : 'mines') + ' of ' + clueName(c1)
+              + ' onto ' + shortCoord(targetIndex) + '.',
+            witnessClues: [c1, c2],
+          };
+        }
+      }
+    }
+  }
+
+  // 3. Multi-clue overlap chain or coupled pattern (1-2-1, 1-2-2-1, 1-3-1, or global mine count)
+  const tx = targetIndex % w;
+  const ty = Math.floor(targetIndex / w);
+  const localClues = [];
+  for (let i = 0; i < w * h; i++) {
+    if (!view.revealed[i] || view.adjacent[i] <= 0) continue;
+    const cov = aroundOf(i).filter((n) => !view.revealed[n]);
+    if (cov.length === 0) continue;
+    const dist = Math.max(Math.abs((i % w) - tx), Math.abs(Math.floor(i / w) - ty));
+    if (dist <= 4) localClues.push({ cell: i, covered: cov, count: view.adjacent[i], dist });
+  }
+  localClues.sort((a, b) => a.dist - b.dist);
+  const proofView = {
+    width: w,
+    height: h,
+    mines: board.mines,
+    revealed: Array.from(view.revealed, Boolean),
+    adjacent: view.adjacent,
+  };
+  let activeClues = localClues.map((c) => ({ cell: c.cell, covered: c.covered, count: c.count }));
+  if (typeof GuardianAngel !== 'undefined' && typeof GuardianAngel.proveFacts === 'function' && level !== 'global') {
+    const checkProves = (clueList) => GuardianAngel.proveFacts(proofView, clueList, { global: false, exact: false }).get(targetIndex) === fact;
+    if (checkProves(activeClues)) {
+      for (let i = activeClues.length - 1; i >= 0; i--) {
+        if (activeClues.length <= 2) break;
+        const candidate = activeClues.filter((_, idx) => idx !== i);
+        if (checkProves(candidate)) activeClues = candidate;
+      }
+    }
+  }
+  const witnesses = activeClues.length > 0 ? activeClues.map((c) => c.cell) : adjClues;
+  if (level === 'global') {
+    return {
+      ruleLabel: 'Mine-count endgame',
+      howKnown: 'Mine-count endgame deduction: combining the board\'s remaining mine total with the frontier numbers ('
+        + witnesses.slice(0, 5).map(clueName).join(', ') + ') proves ' + shortCoord(targetIndex)
+        + (fact === 2 ? ' safe.' : ' is a mine.'),
+      witnessClues: witnesses.slice(0, 6),
+    };
+  }
+  return {
+    ruleLabel: witnesses.length + '-number coupled deduction' + (tech ? ' (' + tech.label + ')' : ''),
+    howKnown: witnesses.length + '-number coupled deduction' + (tech ? ' (' + tech.label + ')' : '')
+      + ' from ' + witnesses.slice(0, 6).map(clueName).join(', ') + ': their combined mine constraints prove '
+      + shortCoord(targetIndex) + (fact === 2 ? ' safe' : ' is a mine')
+      + (tech && tech.help ? ' (' + tech.help + ').' : '.'),
+    witnessClues: witnesses.slice(0, 6),
+  };
+}
+
+function mindMapExplainDeduction(view, board, targetIndex, actionKind, earlier, tech, ageSteps, countingSafeCells, overlapSafeCells, countingMineCells, overlapMineCells) {
+  const w = board.width;
+  const h = board.height;
+  const coord = (idx) => '(col ' + ((idx % w) + 1) + ', row ' + (Math.floor(idx / w) + 1) + ')';
+  const shortCoord = (idx) => '(' + ((idx % w) + 1) + ', ' + (Math.floor(idx / w) + 1) + ')';
+  const clueName = (idx) => 'the ' + view.adjacent[idx] + ' at ' + shortCoord(idx);
+  const aroundOf = (idx) => {
+    if (view.around && view.around[idx]) return view.around[idx];
+    const x = idx % w;
+    const y = Math.floor(idx / w);
+    const out = [];
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if ((dx || dy) && x + dx >= 0 && x + dx < w && y + dy >= 0 && y + dy < h) {
+          out.push((y + dy) * w + (x + dx));
+        }
+      }
+    }
+    return out;
+  };
+
+  const cSafe = countingSafeCells || [];
+  const oSafe = overlapSafeCells || [];
+  const cMine = countingMineCells || [];
+  const oMine = overlapMineCells || [];
+  const totalSafe = cSafe.length + oSafe.length;
+  const totalMine = cMine.length + oMine.length;
+  const agePhrase = ageSteps === 0
+    ? 'just became provable from your previous click (fresh, 0 moves old)'
+    : ageSteps > 0
+      ? 'already provable ' + ageSteps + ' ' + (ageSteps === 1 ? 'move' : 'moves') + ' ago (queued)'
+      : null;
+  const boardKnowledge = 'Known on board before click: ' + totalSafe + ' proven-safe ' + (totalSafe === 1 ? 'square' : 'squares')
+    + ' (' + cSafe.length + ' by 1-number counting, ' + oSafe.length + ' by overlap) \u00b7 '
+    + totalMine + ' unflagged proven ' + (totalMine === 1 ? 'mine' : 'mines')
+    + (agePhrase ? ' \u00b7 This move: ' + agePhrase + '.' : '.');
+
+  if (actionKind === 'first-reveal') {
+    return {
+      category: 'opening',
+      statusLabel: 'Opening Click (board covered)',
+      howKnown: 'First click of the game at ' + coord(targetIndex) + ' before any clue numbers were visible.',
+      witnessClues: [],
+      boardKnowledge: 'Board completely covered at game start.',
+    };
+  }
+
+  if (actionKind.startsWith('noop-')) {
+    let howKnown = 'Click at ' + coord(targetIndex) + ' changed nothing on the board.';
+    let witnessClues = [];
+    if (view.revealed[targetIndex] && view.adjacent[targetIndex] > 0) {
+      const nbs = aroundOf(targetIndex);
+      const flg = nbs.filter((n) => !view.revealed[n] && view.flagged[n]);
+      const cov = nbs.filter((n) => !view.revealed[n] && !view.flagged[n]);
+      const val = view.adjacent[targetIndex];
+      witnessClues = [targetIndex];
+      if (cov.length === 0) {
+        howKnown = 'Clicked ' + clueName(targetIndex) + ', whose neighbors were already all open or flagged (0 covered neighbors left to open).';
+      } else if (flg.length < val) {
+        howKnown = 'Clicked ' + clueName(targetIndex) + ' to chord, but only ' + flg.length + ' of its ' + val
+          + ' mines were flagged (' + (val - flg.length) + ' flag' + (val - flg.length === 1 ? '' : 's')
+          + ' still missing among ' + cov.map(shortCoord).join(', ') + ').';
+      } else {
+        howKnown = 'Clicked ' + clueName(targetIndex) + ', which had ' + flg.length + ' flags around it (too many for a ' + val + ').';
+      }
+    } else if (view.revealed[targetIndex]) {
+      howKnown = 'Clicked an already-open blank square at ' + coord(targetIndex) + '.';
+    } else if (view.flagged[targetIndex]) {
+      howKnown = 'Left-clicked an already-flagged square at ' + coord(targetIndex) + '.';
+    }
+    return {
+      category: 'noop',
+      statusLabel: 'NO-OP (wasted click — changed nothing)',
+      howKnown,
+      witnessClues,
+      boardKnowledge,
+    };
+  }
+
+  if (actionKind === 'chord-multi' || actionKind === 'chord-single') {
+    const val = view.adjacent[targetIndex];
+    const nbs = aroundOf(targetIndex);
+    const flg = nbs.filter((n) => !view.revealed[n] && view.flagged[n]);
+    const cov = nbs.filter((n) => !view.revealed[n] && !view.flagged[n]);
+    return {
+      category: 'known-safe',
+      statusLabel: 'KNOWN SAFE CHORD (' + cov.length + ' ' + (cov.length === 1 ? 'square' : 'squares') + ' opened)',
+      howKnown: 'Chording ' + clueName(targetIndex) + ': all ' + val + ' of its mines were already flagged at '
+        + flg.map(shortCoord).join(', ') + ', proving its remaining ' + cov.length + ' covered '
+        + (cov.length === 1 ? 'neighbor' : 'neighbors') + ' (' + cov.map(shortCoord).join(', ') + ') safe.',
+      witnessClues: [targetIndex],
+      boardKnowledge,
+    };
+  }
+
+  if (actionKind === 'unflag') {
+    const fact = earlier ? earlier.facts.get(targetIndex) : undefined;
+    return {
+      category: fact === 2 ? 'known-safe' : 'other',
+      statusLabel: fact === 2 ? 'REMOVED WRONG FLAG (square was provably safe)' : 'UNFLAGGED SQUARE',
+      howKnown: fact === 2
+        ? 'Removed a flag from ' + coord(targetIndex) + ', which the visible clue numbers proved is safe.'
+        : 'Removed a flag from ' + coord(targetIndex) + '.',
+      witnessClues: [],
+      boardKnowledge,
+    };
+  }
+
+  const fact = earlier ? earlier.facts.get(targetIndex) : undefined;
+  const level = earlier ? earlier.levelOf.get(targetIndex) : undefined;
+
+  if (actionKind === 'reveal' && fact === 2) {
+    const proof = mindMapExplainTargetProof(view, board, targetIndex, 2, level, earlier, tech);
+    return {
+      category: 'known-safe',
+      statusLabel: 'KNOWN SAFE (' + proof.ruleLabel + ')',
+      howKnown: proof.howKnown,
+      witnessClues: proof.witnessClues,
+      boardKnowledge,
+    };
+  }
+
+  if (actionKind === 'flag' && fact === 1) {
+    const proof = mindMapExplainTargetProof(view, board, targetIndex, 1, level, earlier, tech);
+    return {
+      category: 'known-mine',
+      statusLabel: 'KNOWN MINE (' + proof.ruleLabel + ')',
+      howKnown: proof.howKnown,
+      witnessClues: proof.witnessClues,
+      boardKnowledge,
+    };
+  }
+
+  if (actionKind === 'reveal' && fact === 1) {
+    const proof = mindMapExplainTargetProof(view, board, targetIndex, 1, level, earlier, tech);
+    return {
+      category: 'blunder-mine',
+      statusLabel: 'BLUNDER INTO KNOWN MINE (' + proof.ruleLabel + ')',
+      howKnown: 'You left-clicked ' + shortCoord(targetIndex) + ', which was already provably a mine! ' + proof.howKnown,
+      witnessClues: proof.witnessClues,
+      boardKnowledge,
+    };
+  }
+
+  if (actionKind === 'flag' && fact === 2) {
+    const proof = mindMapExplainTargetProof(view, board, targetIndex, 2, level, earlier, tech);
+    return {
+      category: 'wrong-flag',
+      statusLabel: 'WRONG FLAG ON KNOWN SAFE SQUARE (' + proof.ruleLabel + ')',
+      howKnown: 'You flagged ' + shortCoord(targetIndex) + ', which was already provably safe! ' + proof.howKnown,
+      witnessClues: proof.witnessClues,
+      boardKnowledge,
+    };
+  }
+
+  // Otherwise fact === undefined: the move was a GUESS (unproven reveal or unproven flag)
+  const tx = targetIndex % w;
+  const ty = Math.floor(targetIndex / w);
+  if (totalSafe > 0) {
+    const allSafe = [...cSafe, ...oSafe];
+    allSafe.sort((a, b) => {
+      const da = Math.max(Math.abs((a % w) - tx), Math.abs(Math.floor(a / w) - ty));
+      const db = Math.max(Math.abs((b % w) - tx), Math.abs(Math.floor(b / w) - ty));
+      return da - db;
+    });
+    const bestSafe = allSafe[0];
+    const bestLevel = earlier ? earlier.levelOf.get(bestSafe) : 'counting';
+    const bestProof = mindMapExplainTargetProof(view, board, bestSafe, 2, bestLevel, earlier, null);
+    return {
+      category: 'unforced-guess',
+      statusLabel: 'GUESS (unforced \u2014 ' + totalSafe + ' proven-safe ' + (totalSafe === 1 ? 'square was' : 'squares were') + ' open)',
+      howKnown: 'No visible clue numbers proved ' + shortCoord(targetIndex) + (actionKind === 'flag' ? ' is a mine' : ' safe')
+        + '. Meanwhile, ' + totalSafe + ' proven-safe ' + (totalSafe === 1 ? 'square was' : 'squares were')
+        + ' already open on the board (' + cSafe.length + ' by 1-number counting, ' + oSafe.length + ' by overlap) \u2014 for example '
+        + shortCoord(bestSafe) + ' (' + bestProof.howKnown + ')',
+      witnessClues: bestProof.witnessClues,
+      boardKnowledge,
+    };
+  }
+
+  return {
+    category: 'forced-guess',
+    statusLabel: 'GUESS (forced \u2014 0 proven-safe squares on the board)',
+    howKnown: 'No square anywhere on the board was logically provable as safe from the visible clue numbers; you had to guess at '
+      + shortCoord(targetIndex) + '.',
+    witnessClues: aroundOf(targetIndex).filter((n) => view.revealed[n] && view.adjacent[n] > 0),
+    boardKnowledge,
+  };
+}
 
 // Full move-by-move board, cursor trajectory, and plain-English mentation
 // claim reconstruction for one traced game (win or loss), used by the
@@ -1935,6 +2340,7 @@ function mindMapInspectGame(record, trace, boardSpec, deps) {
       overlapMineCells,
       targetFact: earlier ? earlier.facts.get(event.index) : undefined,
       targetLevel: earlier ? earlier.levelOf.get(event.index) : undefined,
+      proofSnapshot: earlier ? { facts: new Map(earlier.facts), levelOf: new Map(earlier.levelOf) } : null,
     };
   });
 
@@ -2215,6 +2621,23 @@ function mindMapInspectGame(record, trace, boardSpec, deps) {
         );
       }
 
+      if (tier === 'guess') {
+        const totalSafeAvail = (b.countingSafeCells ? b.countingSafeCells.length : 0) + (b.overlapSafeCells ? b.overlapSafeCells.length : 0);
+        if (totalSafeAvail > 0) {
+          addClaim(
+            'unforced-guess',
+            `Unforced guess (${pressGapMs !== null ? pressGapMs + ' ms' : 'start'}, ${totalSafeAvail} proven-safe ${totalSafeAvail === 1 ? 'square' : 'squares'} open elsewhere)`,
+            `You guessed on an unproven square while ${b.countingSafeCells.length} single-number counting and ${b.overlapSafeCells.length} overlap-safe squares were available on the board.`,
+          );
+        } else {
+          addClaim(
+            'forced-guess',
+            `Forced guess (${pressGapMs !== null ? pressGapMs + ' ms' : 'start'}, 0 proven-safe squares on board)`,
+            'No logically proven safe move existed anywhere on the board, forcing a guess.',
+          );
+        }
+      }
+
       if (claims.length === 0 && tech) {
         addClaim(
           ageSteps === 0 ? 'fresh-deduction' : 'queued-execution',
@@ -2228,7 +2651,31 @@ function mindMapInspectGame(record, trace, boardSpec, deps) {
       'slow-bail', 'mid-flight-detour', 'abandoned-hover', 'cursor-drift',
       'eyes-ahead', 'endgame-flag', 'pre-death-breakdown', 'noop-habit', 'noop-physical',
     ]);
+    const deduction = b.lightView
+      ? mindMapExplainDeduction(
+        b.lightView,
+        board,
+        s.index,
+        s.kind,
+        b.proofSnapshot || null,
+        tech,
+        ageSteps,
+        b.countingSafeCells,
+        b.overlapSafeCells,
+        b.countingMineCells,
+        b.overlapMineCells,
+      )
+      : {
+        category: 'opening',
+        statusLabel: 'Opening Click',
+        howKnown: 'First click of the game.',
+        witnessClues: [],
+        boardKnowledge: '',
+      };
     const isFlaggedEpisode = claims.some((c) => notableTypes.has(c.claimType))
+      || deduction.category === 'unforced-guess'
+      || deduction.category === 'blunder-mine'
+      || deduction.category === 'wrong-flag'
       || (pressGapMs !== null && pressGapMs >= MIND_MAP_SLOW_MS);
 
     steps.push({
@@ -2263,6 +2710,7 @@ function mindMapInspectGame(record, trace, boardSpec, deps) {
       countingMineCells: b.countingMineCells || [],
       overlapSafeCells: b.overlapSafeCells || [],
       overlapMineCells: b.overlapMineCells || [],
+      deduction,
       cursor: {
         valid: dis.valid,
         departMs: dis.departMs !== null ? Math.round(dis.departMs) : null,

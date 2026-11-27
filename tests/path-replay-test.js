@@ -349,6 +349,11 @@ check('only the cell\'s own glyph dims on a proven mine, not the mark-mine hint'
   const end = replayEndStatusParts(19, 9620);
   check('the end position reports every action done and the final time',
     end.done === '19' && end.count === '19' && end.time === '9.62 s');
+  const ment = replayMentationExplanation(7, 19, evaluation, solver);
+  check('replay mentation explains what was known and how it was known',
+    ment.statusLabel.includes('KNOWN SAFE CHORD')
+      && ment.howKnown.includes('the 1 at (1, 1)')
+      && ment.witnessClues.includes(0));
 }
 
 {

@@ -68,10 +68,15 @@ Spec: [docs/product/replay.md](../product/replay.md). Index: [AGENTS.md](../../A
   `{revealed, adjacent, flagged, marks: Set<key>, badge}` plus
   `triggerCell`, `choiceCount`, `solverState` ('off' | 'exact' | 'bounded');
   `paintReplayFrame` only turns keys into classes and badges.
-  `replayLegendRows(overlays)` and `replayStatusParts` are the
-  pure legend/status models; `appendReplayLegend` / `renderReplayStatus`
+  `replayLegendRows(overlays)`, `replayStatusParts`, and
+  `replayMentationExplanation(step, count, evaluation, solver)` (which uses
+  `replayExplainTargetProof` to identify the exact 1-number counting, 2-number
+  overlap, or multi-clue witness numbers proving a square or missed safe
+  square) are the pure legend/status/mentation models;
+  `appendReplayLegend` / `renderReplayStatus` / `renderReplayMentation`
   render them (`pathLegendSwatch` draws one swatch per form: line, dot,
-  ring, dashed, dashed-thin, fill, flag, badge, crosshair, leader).
+  ring, dashed, dashed-thin, fill, flag, badge, crosshair, leader; witness
+  clues carry `.replay-witness` on the board).
   Solver layers come from `replaySolverRead` (`Odds.analyzeView`'s exact
   counts and its structure's facts, every position measured since
   2026-11-02; until then bounded `GuardianAngel.proveFacts` facts and no

@@ -165,7 +165,7 @@ function userdataReady() {
     });
   });
 
-  const worker = new Worker('training-worker.js?v=20261125-mindmap-1');
+  const worker = new Worker('training-worker.js?v=20261127-mentation-nav');
   worker.onmessage = ({ data }) => {
     worker.terminate();
     if (data.error !== undefined) showTrainingStatus('Training summary failed: ' + data.error, true);
@@ -180,7 +180,7 @@ function userdataReady() {
   };
   worker.postMessage({ database });
 
-  const mindMapWorker = new Worker('mind-map-worker.js?v=20261127-mentation-2');
+  const mindMapWorker = new Worker('mind-map-worker.js?v=20261127-mentation-nav');
   activeMindMapWorker = mindMapWorker;
   mindMapWorker.onmessage = ({ data }) => {
     if (data && data.action === 'inspect') {
@@ -1349,6 +1349,8 @@ function renderTrainingMindMap(data) {
 //-------INTERACTIVE MENTATION REPLAY INSPECTOR & GROUND-TRUTH CALIBRATION-------
 
 const INSPECTOR_FEEDBACK_REASONS = [
+  { id: 'guessed-without-proof', label: 'Actually guessed here (did not see the proof)' },
+  { id: 'saw-different-proof', label: 'Knew it from a different clue or deduction' },
   { id: 'eyes-elsewhere', label: 'Eyes were looking elsewhere on the board' },
   { id: 'hand-slip', label: 'Already knew the move \u2014 hand or mouse slip' },
   { id: 'checking-counter', label: 'Checking mine count or top bar' },
@@ -1372,6 +1374,8 @@ const INSPECTOR_CLAIM_LABELS = {
   'noop-physical': 'Physical / aim slip no-op click',
   'endgame-flag': 'Pointless endgame flag',
   'pre-death-breakdown': 'Pre-death flow breakdown move',
+  'unforced-guess': 'Unforced guess while proven-safe moves existed',
+  'forced-guess': 'Forced guess (zero proven-safe squares on board)',
 };
 
 function renderInspectorScoreboard(container) {
@@ -1612,6 +1616,7 @@ function renderTrainingInspector(data) {
   const legend = trainingElement('p', 'training-key-line');
   legend.innerHTML = '<strong>Board &amp; cursor key:</strong> '
     + '<span class="training-key-chip training-key-safe"></span>target / newly opened '
+    + '<span class="training-key-chip training-key-witness"></span>witness clue number (proved the move) '
     + '<span class="training-key-chip training-key-mine"></span>flag / mine '
     + '<span class="training-key-chip training-key-chord"></span>chord / counting-safe open elsewhere '
     + '<span class="training-key-chip training-key-guess"></span>detour / abandoned hover '
@@ -1688,6 +1693,7 @@ function renderTrainingInspector(data) {
     const openedSet = new Set(step.openedCells || []);
     const countingSafeSet = new Set(step.countingSafeCells || []);
     const overlapSafeSet = new Set(step.overlapSafeCells || []);
+    const witnessSet = new Set(step.deduction && Array.isArray(step.deduction.witnessClues) ? step.deduction.witnessClues : []);
 
     for (let i = 0; i < width * height; i++) {
       const tile = tileEls[i];
@@ -1700,6 +1706,9 @@ function renderTrainingInspector(data) {
         if (num > 0) {
           tile.classList.add('training-mini-n' + num);
           tile.textContent = String(num);
+        }
+        if (witnessSet.has(i)) {
+          tile.classList.add('training-insp-witness');
         }
       } else if (step.flaggedBefore[i]) {
         tile.classList.add('training-mini-covered');
@@ -1798,8 +1807,26 @@ function renderTrainingInspector(data) {
       ctx.setLineDash([]);
     }
 
-    // Render Right Column: Move Kinematics + Model Claim Card + Ground-Truth Verdict Form
+    // Render Right Column:
+    //   1. Logical Deduction & Board Knowledge ("What was known, how it was known, or why it was a guess")
+    //   2. Cursor & Thinking Mentation ("How you found & executed it")
+    //   3. Ground-Truth Verdict & Calibration Form
     const claimNodes = [];
+    if (step.deduction) {
+      const ded = step.deduction;
+      const dedCard = trainingElement('div', 'training-inspector-deduction-card training-ded-' + ded.category);
+      dedCard.append(
+        trainingElement('div', 'training-trait-title',
+          '1. What was known vs. guess (col ' + step.col + ', row ' + step.row + '): ' + ded.statusLabel),
+        trainingElement('p', 'training-inspector-claim-detail',
+          'How it was known / why it was a guess: ' + ded.howKnown),
+      );
+      if (ded.boardKnowledge) {
+        dedCard.appendChild(trainingElement('p', 'training-trait-def', ded.boardKnowledge));
+      }
+      claimNodes.push(dedCard);
+    }
+
     const ageText = step.ageSteps === 0 ? 'fresh (0 steps old)'
       : step.ageSteps > 0 ? 'queued (' + step.ageSteps + (step.ageSteps === 1 ? ' step' : ' steps') + ' old)'
         : 'n/a';
@@ -1819,7 +1846,7 @@ function renderTrainingInspector(data) {
     for (const c of step.claims) {
       const cBox = trainingElement('div', 'training-inspector-claim-card');
       cBox.append(
-        trainingElement('div', 'training-trait-title', 'Model claim (' + c.modelVersion + ' \u00b7 ' + c.typeLabel + '): ' + c.headline),
+        trainingElement('div', 'training-trait-title', '2. Cognitive & cursor mentation (' + c.modelVersion + ' \u00b7 ' + c.typeLabel + '): ' + c.headline),
         trainingElement('p', 'training-inspector-claim-detail', c.detail),
       );
       if (c.typeDefinition) {
@@ -2044,7 +2071,24 @@ function renderTrainingInspector(data) {
     }
   };
 
-  requestGameInspection(0, null);
+  let initialGameIdx = 0;
+  let initialStepIdx = null;
+  if (typeof URLSearchParams !== 'undefined') {
+    const params = new URLSearchParams(location.search);
+    const wantedGame = Number(params.get('game'));
+    if (Number.isFinite(wantedGame) && wantedGame > 0) {
+      const foundIdx = games.findIndex((g) => g.endedAt === wantedGame);
+      if (foundIdx !== -1) {
+        initialGameIdx = foundIdx;
+        gameSelect.value = String(foundIdx);
+      }
+    }
+    if (params.has('step')) {
+      const wantedStep = Number(params.get('step'));
+      if (Number.isInteger(wantedStep) && wantedStep >= 0) initialStepIdx = wantedStep;
+    }
+  }
+  requestGameInspection(initialGameIdx, initialStepIdx);
 }
 
 function renderTraining(summary) {

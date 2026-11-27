@@ -228,5 +228,11 @@ assert(inspection.steps.some((st) => st.claims.some((c) => c.claimType === 'endg
 assert(inspection.steps.some((st) => st.claims.some((c) => c.claimType === 'noop-habit')), 'inspectGame must emit noop-habit claim');
 assert(inspection.steps.some((st) => st.claims.some((c) => c.claimType === 'noop-physical')), 'inspectGame must emit noop-physical claim');
 assert(inspection.steps.some((st) => st.cursor && st.cursor.points.length >= 2), 'inspectGame must attach bevel-calibrated cursor trajectory points');
+assert(inspection.steps.every((st) => st.deduction && typeof st.deduction.statusLabel === 'string' && typeof st.deduction.howKnown === 'string'),
+  'every step must carry a deduction explanation (what was known, how it was known, or why it was a guess)');
+assert(inspection.steps.some((st) => st.deduction.category === 'known-safe' && st.deduction.witnessClues.length >= 1),
+  'known-safe steps must identify the witness clue numbers that proved them');
+assert(inspection.steps.some((st) => st.deduction.category === 'known-mine' && st.deduction.witnessClues.length >= 1),
+  'known-mine steps must identify the witness clue numbers that proved them');
 
 console.log('mind-map-test: all checks passed (' + MindMap.TECHNIQUES.length + ' visual techniques, synthetic replay, endgame audit, ranked traits, weekly top-3, inspectGame)');
