@@ -481,11 +481,12 @@ function renderReplayStatus(parts) {
 function renderReplayEndStatus(parts) {
   replayStatus.textContent = parts.done + ' / ' + parts.count + ' actions · Finished board';
   lastReplayToM = null;
-  if (replayMentationPanel) {
+  if (replayMentationPanel && !replayMentationPanel.hidden) {
     replayMentationPanel.hidden = true;
     replayMentationPanel.replaceChildren();
   }
-  if (replayMentation) {
+  if (replayMentation && replayMentation.dataset.mode !== 'end') {
+    replayMentation.dataset.mode = 'end';
     const heading = document.createElement('span');
     heading.className = 'path-view-heading';
     heading.textContent = 'Mentation';
@@ -508,6 +509,7 @@ function renderReplayMentation(step, decisions, evaluation, solver) {
   }
 
   if (replayMentation) {
+    replayMentation.dataset.mode = 'step';
     const heading = document.createElement('span');
     heading.className = 'path-view-heading';
     heading.textContent = 'Mentation';
